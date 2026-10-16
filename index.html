@@ -2159,9 +2159,49 @@ function modelShip(n,col,len,pt){const g=SHIPLIB.geo[n];if(!g){loadModel(n);retu
 // chaque commandant reçoit une combinaison unique de modèle et de couleurs
 const FLAGM=(()=>{const pools={c:['dispatcher','spitfire','zenith','insurgent','striker'],r:['executioner','omen','spitfire','zenith','challenger'],e:['omen','executioner','insurgent','pancake','dispatcher'],l:['imperial','omen','executioner','challenger']},cols=Object.keys(TEXCOLS),used=new Set(),o={};
   const idx={};for(const[k,,r]of CMDDB){const P=pools[r],i=idx[r]=(idx[r]??-1)+1;for(let t=0;t<P.length*5;t++){const m=P[(i+Math.floor(t/5))%P.length],c=cols[(i+Math.floor(i/P.length)*2+t)%5],key=m+'_'+c;if(!used.has(key)){used.add(key);o[k]={m,c};break}}if(!o[k])for(const m of Object.values(pools).flat())for(const c of cols)if(!o[k]&&m!=='bob'&&!used.has(m+'_'+c)){used.add(m+'_'+c);o[k]={m,c}}}return o})();
+// modules ajoutés au modèle de base : chaque vaisseau amiral reçoit sa propre silhouette
+const TEXRGB={blue:0x3d6fd8,red:0xc8413a,green:0x4e9e58,orange:0xd98a2b,purple:0x8a52d1};
+function kitbash(s,key,F,C,L,pt){const r=rng(hash('kb'+key)),mesh=s.children[0],g=SHIPLIB.geo[F.m],R='crel'.indexOf(C.r);
+  const sx=.92+r()*.3,sy=.9+r()*.25,sz=.85+r()*.3,sc=mesh.scale.x;mesh.scale.set(sc*sx,sc*sy,sc*sz);mesh.updateMatrixWorld(true);
+  const b=g.boundingBox,hx=b.max.x*sc*sx,lx=b.min.x*sc*sx,hy=b.max.y*sc*sy,ly=b.min.y*sc*sy,hz=b.max.z*sc*sz;
+  const M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,metalness:o.m??.6,roughness:o.r??.45,emissive:o.e??0,emissiveIntensity:o.ei??0,flatShading:true});
+  const hull=M(0x7a808c,{m:.35,r:.62}),dark=M(0x30343d,{m:.4,r:.7}),acc=M(TEXRGB[F.c]||0x8899aa,{m:.4,r:.5}),glowC=new THREE.Color((pt&&pt.glow)||'#7fe8ff'),glow=M(0x111111,{e:glowC,ei:1.1}),rar=new THREE.Color(RAR[C.r].col),rm=M(rar,{m:.8,r:.3,e:rar,ei:.35});
+  const add=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);s.add(m);return m};
+  const box=(w,h,d,mat,x,y,z)=>add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+  const cyl=(r1,r2,len,mat,x,y,z,seg=10)=>{const m=add(new THREE.CylinderGeometry(r1,r2,len,seg),mat,x,y,z);m.rotation.z=Math.PI/2;return m};
+  const ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);
+  const topAt=(x,z)=>{ray.set(new THREE.Vector3(x,hy+L,z),down);const h=ray.intersectObject(mesh,false)[0];return h?h.point.y:null};
+  const T=L*.01;
+  // 1. nacelles de réacteurs latérales
+  const ne=R>=2||r()<.35?4:2;const er=L*(.028+r()*.018),el=L*(.15+r()*.08),ez=hz*(.55+r()*.35);
+  for(let i=0;i<ne;i++){const side=i%2?1:-1,tier=Math.floor(i/2),y=(tier?-1:1)*er*1.15*(ne>2?1:0),z=side*(ez+tier*er*.3),x=lx*.55;
+    cyl(er,er*.85,el,hull,x,y,z);cyl(er*1.08,er*1.08,el*.12,acc,x+el*.3,y,z);cyl(er*.9,er*.7,el*.1,dark,x-el*.55,y,z);
+    const d=cyl(er*.72,er*.72,T*.6,glow,x-el*.61,y,z);const sp=new THREE.Sprite(libGlow(glowC.getHexString(),.7));sp.position.set(x-el*.65,y,z);sp.scale.setScalar(er*2.2);s.add(sp);
+    box(el*.5,T*1.6,Math.abs(z)-hz*.25,dark,x,y,side*(hz*.25+Math.abs(z))/2)}
+  // 2. ailes ou pylônes d'armes
+  if(r()<.45+R*.15){const wl=L*(.2+r()*.14),wz=hz*(.35+r()*.45)+(ne?er*2.2:0),sw=wl*(.2+r()*.6),tc=.35+r()*.3,x0=lx*.1,y0=ly*.2,z0=hz*.45;
+    const wg=plate([[x0+wl/2,z0],[x0-wl/2,z0],[x0-wl/2-sw+wl*tc*.2,z0+wz],[x0-wl/2-sw+wl*tc,z0+wz]],T*1.1,T*.3),st=plate([[x0+wl*.3,z0+wz*.15],[x0+wl*.1,z0+wz*.15],[x0-sw*.8+wl*.05,z0+wz*.85],[x0-sw*.8+wl*.2,z0+wz*.85]],T*1.4,0);
+    for(const side of[-1,1]){const g2=new THREE.Group();g2.scale.z=side;g2.position.y=y0;g2.add(new THREE.Mesh(wg,hull),new THREE.Mesh(st,acc));
+      const gun=new THREE.Mesh(new THREE.CylinderGeometry(T*.7,T*.9,L*.2,8),dark);gun.rotation.z=Math.PI/2;gun.position.set(x0-sw-wl*.3+wl*tc*.6+L*.08,0,z0+wz);g2.add(gun);
+      const tip=new THREE.Mesh(new THREE.SphereGeometry(T,8,6),rm);tip.position.set(x0-sw-wl/2+wl*tc*.6,0,z0+wz+T);g2.add(tip);s.add(g2)}}
+  // 3. tourelles sur le dessus (posées sur la coque)
+  const nt=1+R;for(let i=0;i<nt;i++){const x=hx*(.35-i*.35)+(r()-.5)*L*.05,z=(nt>2&&i%2?1:-1)*(nt>2?hz*.18:0),y=topAt(x,z);if(y==null)continue;
+    const tb=L*.035;add(new THREE.CylinderGeometry(tb,tb*1.2,tb*.7,10),hull,x,y+tb*.3,z);box(tb*1.3,tb*.6,tb*1.2,dark,x,y+tb*.8,z);for(const o of[-1,1])cyl(tb*.12,tb*.12,tb*2.4,dark,x+tb*1.5,y+tb*.85,z+o*tb*.3,6)}
+  // 4. détails en relief (greebles)
+  const ng=8+R*5+Math.floor(r()*6);for(let i=0;i<ng;i++){const x=lx*.7+r()*(hx-lx)*.75,z=(r()-.5)*hz*.9,y=topAt(x,z);if(y==null)continue;const w=L*(.015+r()*.04),d=L*(.01+r()*.03),h=L*(.006+r()*.014);box(w,h,d,r()<.25?acc:r()<.5?dark:hull,x,y+h/2,z)}
+  // 5. antenne, radar ou aileron dorsal
+  {const x=lx*(.1+r()*.4),y=topAt(x,0);if(y!=null){const k=Math.floor(r()*3);
+    if(k===0){add(new THREE.CylinderGeometry(T*.4,T*.6,L*.14,6),dark,x,y+L*.07,0);add(new THREE.SphereGeometry(T*1.2,8,6),rm,x,y+L*.14,0)}
+    else if(k===1){const dsh=add(new THREE.ConeGeometry(L*.04,L*.015,16,1,true),hull,x,y+L*.03,0);dsh.rotation.z=.6;add(new THREE.CylinderGeometry(T*.4,T*.4,L*.03,6),dark,x,y+L*.015,0)}
+    else{const fin=box(L*.1,L*.05,T*1.2,acc,x,y+L*.025,0);fin.rotation.z=.25}}}
+  // 6. plaques de blindage sur les flancs (rares et plus)
+  if(R>=1)for(const side of[-1,1])for(let i=0;i<1+R;i++){const x=lx*.5+i*L*.12;box(L*.1,L*.035,T*1.5,i%2?acc:hull,x,0,side*(hz*.92+T))}
+  // 7. feux de position couleur de rareté
+  for(const side of[-1,1])add(new THREE.SphereGeometry(T*.9,8,6),rm,hx*.2,hy*.3,side*hz*.85);
+  return s}
 function modelFlag(key,pt){const F=FLAGM[key],C=CMDK[key];if(!F||!C)return null;const L=protoLen('battleship')*({c:.8,r:.88,e:.96,l:1.05}[C.r]),s=modelShip(F.m,F.c,L,pt);if(!s)return null;
-  const col=new THREE.Color(RAR[C.r].col);if(C.r==='e'||C.r==='l'){const ring=new THREE.Mesh(new THREE.TorusGeometry(L*.24,L*.01,8,56),new THREE.MeshStandardMaterial({color:col,metalness:.9,roughness:.25,emissive:col,emissiveIntensity:.5}));ring.rotation.y=Math.PI/2;ring.position.x=-L*.08;s.add(ring);s.userData.spins.push({o:ring,ax:'x',sp:.8})}
-  const halo=new THREE.Sprite(libGlow(col.getHexString(),C.r==='l'?.4:C.r==='e'?.28:.16));halo.scale.set(L*1.3,L*1.3,1);s.add(halo);return s}
+  kitbash(s,key,F,C,L,pt);s.userData.len=L;const col=new THREE.Color(RAR[C.r].col);
+  if(C.r!=='c'){const halo=new THREE.Sprite(libGlow(col.getHexString(),C.r==='l'?.3:C.r==='e'?.2:.1));halo.scale.set(L*1.3,L*1.3,1);s.add(halo)}return s}
 function buildShip(type,pt,lo){if(!SHIPLIB.init)shipLibInit();const n=SHIPMODEL[type];if(!n)return buildShipP(type,pt,lo);
   const L=protoLen(type),s=modelShip(n,texColorFor(pt),L,pt);if(!s)return buildShipP(type,pt,lo);
   const M=shipMats(pt),b=SHIPLIB.geo[n].boundingBox,sc=L/(SHIPLIB.geo[n].userData.len||1),top=b.max.y*sc;
@@ -2237,7 +2277,7 @@ function hgUpdate(){if(!HG.ok)return;const cls=S.hcls,pt=paintOf(ME),lo=loadoutO
   document.getElementById('hgcap').innerHTML=cls==='flag'?`<b>Vaisseau amiral</b> · ${flagKey()?esc(CMDK[flagKey()].n):'réservé aux commandants'}`:`<b>${esc(SHIPS[cls].n)}</b> · ${lo.filter(Boolean).length}/${SLOTS[cls]} arme${SLOTS[cls]>1?'s':''} montée${SLOTS[cls]>1?'s':''}`;
   if(sig===HG.sig)return;const fresh=HG.ship&&JSON.parse(HG.sig)[0]!==cls;HG.sig=sig;
   if(HG.ship){HG.stage.remove(HG.ship);v3Clear(HG.ship)}const sc={fighter:7.5,cruiser:5.2,battleship:3.3,colony:5.2,flag:2.6}[cls];
-  const fk=cls==='flag'?flagKey():null,s=(fk&&buildFlag(fk,pt))||buildShip(cls,pt,lo);s.scale.setScalar(fk?3.4:sc);s.position.y=.08;HG.ship=s;HG.spins=s.userData.spins;HG.shield=s.userData.shield||null;HG.stage.add(s);HG.t0=performance.now();if(fresh)HG.dist=5.5}
+  const fk=cls==='flag'?flagKey():null,s=(fk&&buildFlag(fk,pt))||buildShip(cls,pt,lo);s.scale.setScalar(fk?(s.userData.len?2.7/s.userData.len:3.4):sc);s.position.y=.08;HG.ship=s;HG.spins=s.userData.spins;HG.shield=s.userData.shield||null;HG.stage.add(s);HG.t0=performance.now();if(fresh)HG.dist=5.5}
 function hgLoop(t){HG.raf=requestAnimationFrame(hgLoop);const dt=Math.min(.05,(t-HG.last)/1000||0);HG.last=t;const k=RM?.3:1;
   if(!HG.drag)HG.rotY+=dt*.25*k;HG.dist+=(HG.distT-HG.dist)*Math.min(1,dt*3);
   const cp=Math.cos(HG.rotX);HG.cam.position.set(Math.sin(HG.rotY)*HG.dist*cp,Math.sin(HG.rotX)*HG.dist+.1,Math.cos(HG.rotY)*HG.dist*cp);HG.cam.lookAt(0,.05,0);
@@ -2439,7 +2479,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='55';
+const APP_VERSION='56';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

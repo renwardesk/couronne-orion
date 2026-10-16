@@ -306,8 +306,8 @@ const DEFONLY=['armor','shield'];
 const MAXP=10,MAXO=8,TECHMAX=5;
 const lvBase=k=>BUILD[k]||BUILD_OUT[k];
 const bCost=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
-const BT_MUL=7.2; // rythme d'une à deux connexions par jour
-const bTime=(k,L)=>Math.round(lvBase(k).t*BT_MUL*1.45**L);
+// rythme d'une à deux connexions par jour (mine : niv. 5 ≈ 45 min, niv. 10 ≈ 3 h 15, niv. 15 ≈ 7 h 30)
+const bTime=(k,L)=>Math.round(lvBase(k).t*4.6*(L+1)**2.1);
 const g=l=>l*1.12**l;
 const isBody=pid=>!!(PLANETS[pid]&&PLANETS[pid].body);
 const richOf=pid=>GALS[SYSTEMS[PLANETS[pid].sys].gal].rich;
@@ -2483,7 +2483,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='58';
+const APP_VERSION='59';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

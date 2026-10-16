@@ -256,7 +256,7 @@ const SHIPS={
   fighter:{n:'Chasseur',cost:{m:40,c:15,f:0},t:12,att:6,hp:22,spd:1.6,cap:15,fuel:1,yard:1},
   cruiser:{n:'Croiseur',cost:{m:140,c:70,f:15},t:40,att:24,hp:75,spd:1.1,cap:50,fuel:3,yard:2},
   battleship:{n:'Cuirassé',cost:{m:420,c:260,f:60},t:110,att:85,hp:280,spd:.75,cap:140,fuel:8,yard:4},
-  colony:{n:'Vaisseau colon',cost:{m:300,c:220,f:120},t:120,att:0,hp:60,spd:.6,cap:0,fuel:10,yard:3},
+  colony:{n:'Vaisseau colon',cost:{m:2000,c:1500,f:600},t:480,att:0,hp:60,spd:.6,cap:0,fuel:10,yard:3},
   probe:{n:'Sonde',cost:{m:10,c:30,f:5},t:6,att:0,hp:4,spd:4,cap:0,fuel:.2,yard:1},
 };
 const UNIT={...SHIPS,turret:{n:'Tourelle',att:12,hp:80}};
@@ -1197,7 +1197,7 @@ function renderYard(){const p=view(S.sel);
   ${SK.map(k=>{const s=SHIPS[k],lock=p.lv.yard<s.yard,n=S.qty[k],room=bayUse(p,ME)+n*(PLACES[k]||1)<=bayCap(p),ok=afford(p.res,s.cost,n)&&room,md=mo[k];return`<div class="item ${lock?'locked':''}"><div class="ihead"><b>${s.n}</b><span class="lv">${p.ships[k]||0} en orbite</span></div>
     <div class="stats"><span>Att <b>${Math.round(s.att*md.att)}</b></span><span>PV <b>${Math.round(s.hp*md.hp)}</b></span><span>Vitesse <b>${s.spd}</b></span><span>Soute <b>${s.cap}</b></span><span>Conso <b>${s.fuel}</b></span><span>Places <b>${PLACES[k]}</b></span></div>
     ${CTRTXT[k]?`<div class="eff">Fort contre <em>${CTRTXT[k][0]}</em> · faible contre <em>${CTRTXT[k][1]}</em></div>`:''}
-    ${k==='colony'?'<div class="eff">Colonise une planète libre, installe un avant-poste sur un astéroïde ou une lune, ou annexe une cible ennemie après une victoire.</div>':''}
+    ${k==='colony'?'<div class="eff">Colonise une planète libre (demande aussi de la culture), installe un avant-poste sur un astéroïde, une lune, une épave ou une station (sans culture), ou annexe une cible ennemie après une victoire. Le vaisseau est consommé.</div>':''}
     ${k==='probe'?'<div class="eff">Révèle la flotte, les stocks et l’armement d’une cible. Plus tu en envoies, moins elles se font repérer.</div>':''}
     <div class="foot"><div class="costs">${lock?`<span class="no">Chantier niv. ${s.yard} requis</span>`:`${costHtml(p.res,s.cost,n)}<span class="t">${fmtDur(shipTime(k,p.lv.yard)*n)}</span>`}</div>
     ${lock?'':`<div style="display:flex;gap:8px;align-items:center"><span class="step"><button data-act="qty" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${n}</span><button data-act="qty" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="qty" data-t="${k}" data-d="10">+10</button></span><button class="btn sm" data-act="ship" data-t="${k}" ${ok?'':'disabled'}>${room?'Construire':'Hangars pleins'}</button></div>`}</div></div>`}).join('')}
@@ -2142,7 +2142,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='27';
+const APP_VERSION='28';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

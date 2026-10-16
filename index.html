@@ -1049,7 +1049,7 @@ function ptsGeo(n){const g2=new THREE.BufferGeometry();g2.setAttribute('position
 function glowTex(){return canvasTex(128,128,(x,W)=>{const g2=x.createRadialGradient(64,64,0,64,64,64);g2.addColorStop(0,'rgba(255,255,255,1)');g2.addColorStop(.2,'rgba(255,240,220,.55)');g2.addColorStop(.55,'rgba(255,220,200,.12)');g2.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g2;x.fillRect(0,0,W,W)})}
 // ---------- espace profond sur la carte : trous noirs, ceintures d'astéroïdes, épaves ----------
 function diskTex(){return canvasTex(256,256,(x,W)=>{const g2=x.createRadialGradient(128,128,40,128,128,128);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(.38,'rgba(255,236,200,.95)');g2.addColorStop(.5,'rgba(255,160,60,.75)');g2.addColorStop(.75,'rgba(190,60,30,.3)');g2.addColorStop(1,'rgba(80,20,40,0)');x.fillStyle=g2;x.fillRect(0,0,W,W)})}
-function mpDeepInit(scene){MP.deepFx=[];const dt=diskTex();
+function mpDeepInit(scene){MP.deepFx=[];const dt=diskTex();if(!MP.glow)MP.glow=glowTex();
   for(const D of DEEP){const H=new THREE.Group();H.position.set(...D.m);
     H.add(new THREE.Mesh(new THREE.SphereGeometry(6,32,20),new THREE.MeshBasicMaterial({color:0x000000})));
     const disk=new THREE.Mesh(new THREE.RingGeometry(7,24,96),new THREE.MeshBasicMaterial({map:dt,side:THREE.DoubleSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));disk.rotation.x=Math.PI/2-.35;H.add(disk);

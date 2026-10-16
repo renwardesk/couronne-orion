@@ -172,6 +172,7 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .btchip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(132px + env(safe-area-inset-bottom,0px));z-index:25;background:var(--panel2);border:1px solid var(--bad);color:var(--ink);border-radius:999px;padding:9px 16px;font-size:13px;max-width:calc(100% - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 6px 20px #0008;cursor:pointer}
 #hg{padding-top:16px}
 #hgc{display:block;width:100%;height:clamp(280px,82vw,460px);touch-action:pan-y;cursor:grab}
+.ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
 .ml.dim{background:transparent;color:var(--dim);font-size:10px;padding:0 4px}
 .ml.ev{color:var(--warn);outline:1px solid color-mix(in srgb,var(--warn) 55%,transparent)}
 .ml.bad{color:var(--bad);outline-color:var(--bad)}
@@ -1185,7 +1186,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
     L.push({w:G.c,cls:'big',h:`${esc(G.name)}${S.players[ME]&&g>unlockedOf(ME)?'<i style="color:#ff7070"> · verrouillée</i>':''}${mine?`<i style="color:${esc(pcolor(ME))}"> ● toi ×${mine}</i>`:''}${riv?`<i> · ${riv} rival${riv>1?'s':''}</i>`:''}${ev.length?`<i style="color:#ffcf6b"> · ${ev.join(', ')}</i>`:''}`})})}
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
-    for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'ev bad',h:`Écumeurs · ${RTIERS[r.tier].n}`});
+    if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase==='hold'){if(f.owner===ME)L.push({fl:f,cls:'me',h:'Flotte en position'});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
   else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}

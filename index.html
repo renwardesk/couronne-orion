@@ -1413,7 +1413,7 @@ function mpZoomTo(d,wheel){const[lo,hi]=RANGE[MP.level],now=performance.now();
   MP.distT=Math.max(lo,Math.min(hi,d))}
 function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D=>[{w:D.m,i:D.hole.i},{w:D.wreck.w,i:D.wreck.i}]),x,y,40);if(dd){sfx.click();mpGoSystem(dd.i);return}const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
   if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
-  if(MP.level==='system'){const o=mpNearest(MP.orbs.map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}}}
+  if(MP.level==='system'){const o=mpNearest(MP.orbs.filter(o=>!o.ghost).map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}}}
 function mpGoUniverse(at,dist){MP.level='universe';MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...UNI];MP.distT=dist||1350;mpClearSystem();render()}
 function mpGoGalaxy(g){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=[...GALS[g].c];MP.distT=115;mpClearSystem();render()}
 function mpGoSystem(i){const s=SYSTEMS[i];MP.level='system';MP.gal=s.gal;MP.sys=i;S.pickP=null;MP.tgtT=[...s.w];MP.distT=3.4;mpBuildSystem(i);render()}
@@ -1433,7 +1433,7 @@ function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();MP.sysDisk=null;const
     if(bt==='station'){const sr=new THREE.Mesh(new THREE.TorusGeometry(size*1.9,size*.35,6,24),new THREE.MeshStandardMaterial({color:0xcfe9ff,metalness:.8,roughness:.3,emissive:0x2a6a9a,emissiveIntensity:.6}));sr.rotation.x=Math.PI/2;m.add(sr)}
     if(vis&&PLANETS[pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(size*1.4,size*2.1,32),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}
     g2.add(piv);MP.orbs.push({piv,mesh:m,pid,sp:.35/(1+k*.7)})});
-  const nAst=s.planets.length+s.bodies.length;(vis?s.packs||[]:[]).forEach((pid,k)=>{if(raidState(pid).done)return;const rad=s.deep==='hole'?.8+(nAst+k)*.17+.1:.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
+  const nAst=s.planets.length+s.bodies.length;(vis?s.packs||[]:[]).forEach((pid,k)=>{const rad=s.deep==='hole'?.8+(nAst+k)*.17+.1:.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;if(raidState(pid).done){piv.add(c);g2.add(piv);MP.orbs.push({piv,mesh:c,pid,sp:.12,ghost:true});return}const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
     for(let i=0;i<(k===0?6:3);i++){const m=new THREE.Mesh(new THREE.ConeGeometry(.012,.042,3),red);m.rotation.z=-Math.PI/2;m.position.set((rr()-.5)*.08,(rr()-.5)*.03,(rr()-.5)*.08);c.add(m)}
     const ring=new THREE.Mesh(new THREE.TorusGeometry(k===0?.075:.055,.003,4,28),new THREE.MeshBasicMaterial({color:0xff3b5c,transparent:true,opacity:.6}));ring.rotation.x=Math.PI/2;c.add(ring);piv.add(c);g2.add(piv);MP.orbs.push({piv,mesh:c,pid,sp:.12})});
   {const L=vis&&lairInfoAt(s);const o=L&&MP.orbs.find(o=>o.pid===L.pid);if(o){const mk2=new THREE.Group(),red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rg2=new THREE.Mesh(new THREE.TorusGeometry(.085,.005,6,32),red);rg2.rotation.x=Math.PI/2;mk2.add(rg2);
@@ -1471,7 +1471,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase!=='out'&&f.phase!=='back'){if(f.owner===ME&&f.phase==='hold')L.push({fl:f,cls:'me',h:'Flotte en position'});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
-  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
+  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
   L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
@@ -2135,7 +2135,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='24';
+const APP_VERSION='25';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

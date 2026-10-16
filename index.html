@@ -142,6 +142,22 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .v3cap{position:absolute;left:12px;right:12px;bottom:10px;font-family:var(--f-data);font-size:11.5px;color:var(--dim);pointer-events:none;text-shadow:0 1px 2px #000}
 .v3cap b{color:var(--ink);font-weight:500}
 #mp{padding-top:16px}
+.qcur{box-shadow:inset 3px 0 0 var(--brass)}
+.chatbtn{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:24;background:var(--brass);color:var(--brass-ink);border:0;border-radius:999px;padding:10px 16px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 6px 18px #0009;cursor:pointer}
+.chatbtn .n{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#2a0606;font-family:var(--f-data);font-size:11px;line-height:20px;text-align:center;padding:0 5px}
+.chatov{position:fixed;inset:0;z-index:45;background:#05081499;display:flex;align-items:flex-end;justify-content:center}
+.chatbox{background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 0 0;width:100%;max-width:560px;height:min(78vh,640px);display:grid;grid-template-rows:auto 1fr auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (min-width:640px){.chatov{align-items:center}.chatbox{border-radius:14px}}
+.chathead{padding:14px max(16px,env(safe-area-inset-left,0px)) 10px;border-bottom:1px solid var(--line)}
+.chatlist{overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.cmsg{max-width:85%;align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:7px 11px}
+.cmsg.me{align-self:flex-end;border-radius:12px 12px 4px 12px;border-color:color-mix(in srgb,var(--brass) 45%,var(--line))}
+.cmeta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim)}
+.cmeta b{color:var(--ink);font-weight:600}
+.cmeta time{font-family:var(--f-data);margin-left:auto}
+.ctext{font-size:14.5px;white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.chatform{display:flex;gap:8px;padding:10px 16px 12px;border-top:1px solid var(--line)}
+.chatform input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 11px;font:inherit}
 .btov{position:fixed;inset:0;z-index:60;background:#04060f}
 #btc{display:block;width:100%;height:100%;touch-action:none}
 .bthud{position:absolute;left:0;right:0;top:0;padding:calc(12px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 18px max(14px,env(safe-area-inset-left,0px));display:grid;gap:6px;background:linear-gradient(#04060fe6,#04060f00);pointer-events:none}
@@ -183,6 +199,8 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <nav class="tabs" id="tabs" hidden></nav>
 <div id="bt" class="btov" hidden><canvas id="btc" aria-label="Animation de la bataille"></canvas><div class="bthud"><div><b id="bttitle"></b><span id="btround" class="eff"></span></div><div class="btforces" id="btforces"></div><div class="btbtns"><button class="tgl" id="btreplay" type="button">Rejouer</button><button class="tgl" id="btclose" type="button">Fermer</button></div></div></div>
 <div id="btchip"></div>
+<button id="chatbtn" class="chatbtn" type="button" data-act="chat" hidden>Chat<span id="chatn" class="n" hidden></span></button>
+<div id="chatov" class="chatov" hidden><div class="chatbox" role="dialog" aria-label="Chat des joueurs"><div class="ihead chathead"><h2>Chat de l’univers</h2><button class="tgl" type="button" data-act="chatx">Fermer</button></div><div id="chatlist" class="chatlist"></div><form id="chatform" class="chatform" autocomplete="off"><input id="chatin" maxlength="300" placeholder="Écris un message…" enterkeyhint="send"><button class="btn sm" type="submit">Envoyer</button></form></div></div>
 <div id="modal"></div>
 <div id="toast"></div>
 
@@ -301,6 +319,17 @@ GALS.forEach((G,g)=>{const r=rng(g===0?424242:9000+g*131),rz=rng(77+g);
     const sys={i:gi,li,gal:g,x,y,z,rad,ang,name,planets:[],bodies:[],w:galToWorld(g,x,y,z)};
     for(let s=0;s<n;s++){const pid=g===0?`p${li}-${s}`:`g${g}-${li}-${s}`;const pr=rng(hash(pid));PLANETS[pid]={pid,sys:gi,slot:s,name:`${name} ${ROM[s]}`,type:PT4[Math.floor(pr()*4)]};sys.planets.push(pid)}
     SYSTEMS.push(sys)}});
+// systèmes supplémentaires : générés après les originaux pour garder les mêmes identifiants
+GALS.forEach((G,g)=>{const r=rng(31337+g*977),rz=rng(555+g),extra=Math.round(G.N*1.6),near=SYSTEMS.filter(s=>s.gal===g);let made=0,tries=0;
+  while(made<extra&&tries<extra*40){tries++;let ang,rad;
+    if(G.shape==='spiral'){const t=Math.pow(r(),.9);ang=Math.floor(r()*G.arms)*2*Math.PI/G.arms+t*G.twist+(r()-.5)*.6;rad=50+t*430+(r()-.5)*55}
+    else if(G.shape==='ellipse'){ang=r()*Math.PI*2;rad=30+Math.pow(r(),.7)*440}
+    else{ang=r()*Math.PI*2;rad=330+(r()-.5)*140}
+    const x=500+Math.cos(ang)*rad,y=500+Math.sin(ang)*rad*(G.shape==='ellipse'?.62:1),z=(rz()-.5)*(G.shape==='ellipse'?160:50)*(1-Math.min(rad,500)/600);
+    if(near.some(s=>Math.hypot(s.x-x,s.y-y)<15))continue;
+    const name=makeName(r),n=3+Math.floor(r()*4),gi=SYSTEMS.length,sys={i:gi,li:1000+made,gal:g,x,y,z,rad,ang,name,planets:[],bodies:[],w:galToWorld(g,x,y,z)};
+    for(let k=0;k<n;k++){const pid=`n${g}-${made}-${k}`,pr=rng(hash(pid));PLANETS[pid]={pid,sys:gi,slot:k,name:`${name} ${ROM[k]}`,type:PT4[Math.floor(pr()*4)]};sys.planets.push(pid)}
+    SYSTEMS.push(sys);near.push(sys);made++}});
 const GREEK=['α','β','γ','δ'];
 SYSTEMS.forEach(s=>{const r=rng(hash('b'+s.i)),G=GALS[s.gal],kinds=[];const nb=r()<.75?1+Math.floor(r()*2):0;for(let k=0;k<nb;k++)kinds.push(r()<.6?'ast':'moon');if(r()<.05+(G.rich-1)*.35)kinds.push('anom');
   kinds.forEach((t,k)=>{const pid=`b${s.i}-${k}`;PLANETS[pid]={pid,sys:s.i,slot:s.planets.length+k,name:t==='ast'?`Ceinture ${GREEK[k]} de ${s.name}`:t==='moon'?`Lune ${GREEK[k]} de ${s.name}`:`Anomalie de ${s.name}`,type:t,body:true};s.bodies.push(pid)})});
@@ -420,6 +449,79 @@ function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g);if(!l
   return`<section style="display:grid;gap:10px"><h2>Armadas des Écumeurs</h2><p class="meta" style="margin:0">De grosses flottes pirates croisent dans la galaxie, visibles de loin. Mieux vaut les attaquer à plusieurs. Chaque système abrite aussi ses propres meutes, visibles en entrant dans le système.</p><div class="list">${list.map(r=>{const v=view(r.pid);
     return`<div class="item hostile"><div class="ihead"><b>${esc(PLANETS[r.pid].name)}</b><span class="cd" data-cd="${r.end}"></span></div><div class="eff">Menace ${threat(worth(v.garrison))}${latestIntel(r.pid)?` · ${unitLine(v.garrison)}`:''} · butin ${lootTxt(r.treasure)} · ${r.frag} Éclats du Vide${joined?` · ${fmtDur(etaOf(S.sel,r.pid,{fighter:1}))} en chasseurs`:''}</div>${joined?`<div class="foot"><span></span><button class="btn sm" data-act="send" data-p="${r.pid}">Espionner ou attaquer</button></div>`:''}</div>`}).join('')}</div></section>`}
 
+// ---------- brouillard de guerre ----------
+// Vision : systèmes proches de tes planètes (et un peu moins autour des avant-postes) + systèmes explorés par tes flottes.
+const VIS_R=9,VIS_R_OUT=6;let VISC={sig:'',set:null};
+function visibleSet(){if(!ME||!S.players[ME])return null;
+  const mine=Object.values(S.planets).filter(p=>p.owner===ME),ex=S.players[ME].explored||[],sig=mine.map(p=>p.pid).join()+'|'+ex.length;
+  if(sig===VISC.sig&&VISC.set)return VISC.set;const set=new Set(ex);
+  for(const p of mine){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
+  VISC={sig,set};return set}
+const sysVisible=i=>{const v=visibleSet();return!v||v.has(i)};
+async function exploreMark(uids,si){if(si==null)return;for(const u of new Set(uids)){const pl=S.players[u];if(!pl||(pl.explored||[]).includes(si))continue;try{await withPlayer(u,d=>{d.explored=[...new Set([...(d.explored||[]),si])]})}catch(e){}}}
+function fogSystemHtml(joined){const s=SYSTEMS[MP.sys],G=GALS[s.gal],tgt=s.planets[0];
+  return`<section style="display:grid;gap:10px"><h1>Système inexploré</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length+s.bodies.length} astres détectés · le brouillard cache ce qui s’y trouve</p>
+  <div class="card" style="display:grid;gap:10px"><p class="eff" style="margin:0">Envoie une sonde ou une flotte : dès son arrivée, le système est révélé pour toujours. Tes planètes révèlent aussi les systèmes voisins, et tes avant-postes un peu moins loin.</p>
+  ${joined?`<div class="foot"><span class="eff">${fmtDur(etaOf(S.sel,tgt,{probe:1}))} en sonde</span><button class="btn sm" data-act="scout" data-p="${tgt}">Envoyer une sonde</button></div>`:''}</div></section>`}
+function mpFog(){if(!MP.fog)return;const g=MP.fog.geometry,P=g.attributes.position.array,Z=g.attributes.sz.array;let n=0;
+  if(MP.level!=='universe'&&visibleSet())for(const s of SYS_BY_GAL[MP.gal]){if(sysVisible(s.i)||n>=1500)continue;const r=rng(hash('fog'+s.i));
+    for(let k=0;k<2&&n<1500;k++){P.set([s.w[0]+(r()-.5)*4,s.w[1]+(r()-.5)*2,s.w[2]+(r()-.5)*4],n*3);Z[n]=k?5+r()*3:8+r()*4;n++}}
+  g.setDrawRange(0,n);g.attributes.position.needsUpdate=true;g.attributes.sz.needsUpdate=true}
+
+// ---------- quêtes ----------
+const QUESTS=[
+  {id:'q-mine',t:'Premiers pas',d:'Le métal sert à presque tout. Améliore ta Mine de métal : chaque niveau augmente la production par minute. Jusqu’à 3 travaux peuvent attendre dans la file de construction.',need:s=>[s.lv('mine'),2],r:{m:400,c:250,f:80}},
+  {id:'q-crys',t:'Le cristal',d:'Le cristal est indispensable aux vaisseaux avancés, aux bâtiments de haut niveau et aux recherches.',need:s=>[s.lv('crys'),2],r:{m:400,c:300,f:80}},
+  {id:'q-fuel',t:'Carburant stellaire',d:'L’hélium-3 alimente tes flottes : chaque trajet en consomme selon le nombre de vaisseaux et la distance. Sans hélium, pas de voyage.',need:s=>[s.lv('fuel'),2],r:{m:500,c:300,f:200}},
+  {id:'q-store',t:'Des entrepôts pleins',d:'La production s’arrête quand un stock atteint sa capacité (la barre devient rouge en haut de l’écran). Les entrepôts relèvent ce plafond.',need:s=>[s.lv('store'),1],r:{m:600,c:400,f:150}},
+  {id:'q-chat',t:'Dire bonjour',d:'Le bouton Chat en bas à droite ouvre la discussion entre tous les joueurs : pour s’allier, négocier… ou intimider.',need:s=>[s.chat?1:0,1],r:{m:200,c:200,f:100}},
+  {id:'q-fighter',t:'Escadrille',d:'Le Chantier produit tes vaisseaux. Les chasseurs sont rapides, peu chers et redoutables contre les cuirassés.',need:s=>[s.ships('fighter'),12],r:{m:700,c:400,f:150}},
+  {id:'q-fog',t:'Lever le brouillard',d:'Les systèmes inexplorés restent dans le brouillard. Construis une sonde au Chantier et envoie-la vers un système voisin : à son arrivée, il est révélé pour toujours.',need:s=>[s.explored,1],r:{m:500,c:500,f:250}},
+  {id:'q-pirate',t:'Chasse aux Écumeurs',d:'Chaque système abrite des Meutes et une Horde d’Écumeurs. Les vaincre rapporte butin, Éclats du Vide et points de combat (PC). Espionne-les d’abord pour connaître leur force.',need:s=>[s.cp,20],r:{m:1000,c:700,f:300}},
+  {id:'q-cruiser',t:'Le triangle de combat',d:'Chasseur bat Cuirassé, Cuirassé bat Croiseur, Croiseur bat Chasseur. Une flotte variée encaisse mieux les surprises. Le croiseur demande un Chantier niveau 2.',need:s=>[s.ships('cruiser'),3],r:{m:900,c:700,f:300}},
+  {id:'q-def',t:'Boucliers levés',d:'Tes tourelles défendent la planète quand tu dors. Une capitale ne peut jamais être annexée, mais elle peut être pillée : la moitié des stocks part avec l’ennemi.',need:s=>[s.lv('def'),3],r:{m:1000,c:800,f:300}},
+  {id:'q-yard',t:'Vers d’autres mondes',d:'Le Chantier niveau 3 débloque le vaisseau colon, la clé de l’expansion.',need:s=>[s.lv('yard'),3],r:{m:1200,c:900,f:400}},
+  {id:'q-colony',t:'Une seconde colonie',d:'Fonder une colonie coûte de la culture. Elle se gagne en combattant (chaque PC rapporte autant de culture) et grâce à tes planètes. Le coût augmente à chaque nouvelle colonie.',need:s=>[s.planets,2],r:{m:1500,c:1200,f:500}},
+  {id:'q-outpost',t:'Minerais rares',d:'Astéroïdes, lunes mortes et anomalies ne s’habitent pas mais s’exploitent : iridium, xénite et antimatière, indispensables aux armes. Un vaisseau colon y installe un avant-poste.',need:s=>[s.outposts,1],r:{m:1200,c:1000,f:500},rr:{ir:20}},
+  {id:'q-tech',t:'L’Académie',d:'Construis l’Académie, puis recherche ta première arme dans l’onglet Labo.',need:s=>[s.tech?1:0,1],r:{m:1500,c:1500,f:500},rr:{ir:20,xe:10}},
+  {id:'q-arm',t:'Armer la flotte',d:'Fabrique des modules à l’Arsenal, puis monte-les dans le Hangar : tous les vaisseaux de ce type en profitent, présents et futurs.',need:s=>[s.armed?1:0,1],r:{m:2000,c:1500,f:700},rr:{ir:30,xe:20}},
+  {id:'q-group',t:'Frères d’armes',d:'Dans l’onglet Flottes, rejoins l’attaque d’un autre joueur : vos flottes arrivent ensemble, et butin comme points sont partagés.',need:s=>[s.group?1:0,1],r:{m:2500,c:2000,f:1000},rr:{xe:20,am:10}},
+];
+function qStats(){const ps=myPlanets().map(p=>view(p.pid)),pl=S.players[ME]||{},pls=ps.filter(p=>!isBody(p.pid));
+  return{lv:k=>Math.max(0,...pls.map(p=>p.lv[k]||0)),ships:k=>ps.reduce((t,p)=>t+((p.ships||{})[k]||0),0)+Object.values(S.fleets).filter(f=>f.owner===ME).reduce((t,f)=>t+(f.ships[k]||0),0),
+    planets:pls.length,outposts:ps.length-pls.length,explored:(pl.explored||[]).length,cp:pl.cp||0,tech:Object.values(techOf(pl)).some(x=>x>=1),armed:Object.values(loadoutOf(pl)).some(a=>a.some(Boolean)),
+    chat:(S.chat||[]).some(m=>m.uid===ME),group:S.reports.some(r=>r.battle&&r.battle.att&&new Set(r.battle.att.map(a=>a.uid)).size>1&&r.battle.att.some(a=>a.uid===ME))}}
+const rewardTxt=Q=>[...Object.entries(Q.r||{}).map(([k,v])=>`${fmt(v)} ${RS[k]}`),...Object.entries(Q.rr||{}).map(([k,v])=>`${v} ${RS[k]}`)].join(' · ');
+function questRow(Q,st,done,cur){const[c,g]=Q.need(st),ok=c>=g;return`<div class="item ${cur?'qcur':''}" ${done?'style="opacity:.55"':''}><div class="ihead"><b>${esc(Q.t)}</b><span class="lv">${done?'accomplie':`${Math.min(c,g)}/${g}`}</span></div><div class="eff">${esc(Q.d)}</div>
+  ${done?'':`<span class="prog"><b style="width:${Math.min(100,c/g*100)}%"></b></span><div class="foot"><span class="costs"><span class="t">Récompense</span> ${rewardTxt(Q)}</span><button class="btn sm" data-act="quest" data-q="${Q.id}" ${ok?'':'disabled'}>${ok?'Réclamer':'En cours'}</button></div>`}</div>`}
+function questCard(){const pl=S.players[ME];if(!pl)return'';const done=pl.quests||[],Q=QUESTS.find(q=>!done.includes(q.id));if(!Q)return'';
+  return`<section style="display:grid;gap:8px"><div class="ihead"><h2>Quête ${QUESTS.indexOf(Q)+1}/${QUESTS.length}</h2><button class="tgl" data-act="tab" data-t="log">Toutes les quêtes</button></div><div class="list">${questRow(Q,qStats(),false,true)}</div></section>`}
+function questsHtml(){const pl=S.players[ME];if(!pl)return'';const done=pl.quests||[],st=qStats(),cur=QUESTS.find(q=>!done.includes(q.id));
+  return`<section style="display:grid;gap:10px"><h1>Quêtes</h1><p class="meta" style="margin:0">${done.length}/${QUESTS.length} accomplies · chaque quête explique une mécanique du jeu et rapporte des ressources sur ta capitale.</p><div class="list">${QUESTS.map(q=>questRow(q,st,done.includes(q.id),q===cur)).join('')}</div></section>`}
+async function claimQuest(id){const Q=QUESTS.find(q=>q.id===id);if(!Q)return;await act(async()=>{const[c,g]=Q.need(qStats());if(c<g)throw err('Objectif pas encore atteint.');
+  await withPlayer(ME,d=>{d.quests=d.quests||[];if(d.quests.includes(id))throw err('Récompense déjà réclamée.');d.quests.push(id);if(Q.rr)for(const k in Q.rr)d.rare[k]=(d.rare[k]||0)+Q.rr[k]});
+  const cap=capitalOf(ME);if(cap&&Q.r)await locked('planets/'+cap.pid,async(pd,ref)=>{if(!pd)return;const p=settle(pd,Date.now());addRes(p.res,Q.r);await ref.set(p)});
+  sfx.done();toast(`Quête accomplie : ${Q.t}. Récompense livrée sur ta capitale.`)})}
+
+// ---------- chat ----------
+const CHAT={open:false,lastSend:0,seenInit:false,heard:new Set()};
+const chatSeen=()=>{try{return+localStorage.getItem('orion-chat-seen')||0}catch(e){return 0}};
+const setChatSeen=t=>{try{localStorage.setItem('orion-chat-seen',String(t))}catch(e){}};
+function chatBtnSync(show){const b=document.getElementById('chatbtn');b.hidden=!show;if(!show){document.getElementById('chatov').hidden=true;CHAT.open=false;return}
+  const n=(S.chat||[]).filter(m=>m.uid!==ME&&m.at>chatSeen()).length,el=document.getElementById('chatn');el.hidden=!n||CHAT.open;el.textContent=n>9?'9+':String(n)}
+function chatUpdate(){const msgs=S.chat||[];
+  if(!CHAT.seenInit){CHAT.seenInit=true;msgs.forEach(m=>CHAT.heard.add(m.id))}else for(const m of msgs)if(!CHAT.heard.has(m.id)){CHAT.heard.add(m.id);if(m.uid!==ME&&!CHAT.open){tone(990,.08,{type:'sine',vol:.05});tone(1320,.1,{type:'sine',vol:.04,delay:.07})}}
+  const list=document.getElementById('chatlist');
+  if(CHAT.open){const atBottom=list.scrollHeight-list.scrollTop-list.clientHeight<60;
+    list.innerHTML=msgs.length?msgs.map(m=>`<div class="cmsg ${m.uid===ME?'me':''}"><div class="cmeta"><span class="dot" style="background:${esc(pcolor(m.uid))}"></span><b>${esc(pname(m.uid)||m.name||'?')}</b><time>${new Date(m.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</time></div><div class="ctext">${esc(m.text)}</div></div>`).join(''):'<p class="empty" style="padding:12px">Aucun message pour l’instant. Lance la conversation !</p>';
+    if(atBottom||!CHAT.scrolled){list.scrollTop=list.scrollHeight;CHAT.scrolled=true}setChatSeen(Date.now())}
+  chatBtnSync(!!S.players[ME]&&myPlanets().length>0)}
+function chatOpen(on){CHAT.open=on;document.getElementById('chatov').hidden=!on;document.body.style.overflow=on?'hidden':'';if(on){CHAT.scrolled=false;chatUpdate();setTimeout(()=>{try{document.getElementById('chatin').focus()}catch(e){}},50)}chatBtnSync(true)}
+async function chatSend(){const inp=document.getElementById('chatin'),text=(inp.value||'').trim().slice(0,300);if(!text)return;const now=Date.now();if(now-CHAT.lastSend<1500)return toast('Doucement, un message toutes les deux secondes.','bad');CHAT.lastSend=now;
+  inp.value='';try{await db.collection('chat').doc(newId()).set({kind:'chat',uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()})}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
+let chatPruning=false;async function chatPrune(){if(chatPruning)return;chatPruning=true;try{const old=(S.chat||[]).filter(m=>Date.now()-m.at>3*864e5).slice(0,10);for(const m of old)await db.doc('chat/'+m.id).delete()}catch(e){}chatPruning=false}
+document.addEventListener('submit',e=>{if(e.target&&e.target.id==='chatform'){e.preventDefault();chatSend()}});
+
 // verrou coopératif sur un document
 async function locked(path,fn){const ref=db.doc(path);
   for(let i=0;i<10;i++){let r;try{r=await ref.acquire({holder:TAB_ID,ttlMs:2500})}catch(e){if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){await sleep(600);continue}throw e}
@@ -524,6 +626,7 @@ const shares=forces=>{const ws=forces.map(x=>worth(x.ships)),W=ws.reduce((a,b)=>
 
 async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){await goBack(f,fref,f.ships,f.cargo);return}
   const tn=meta.name,body=isBody(f.to);
+  await exploreMark([f.owner,...Object.values(S.fleets).filter(j=>j.group===f.fid).map(j=>j.owner)],meta.sys);
   // récolte de comète
   if(f.mission==='harvest'){const cm=cometAt(f.arrive);let got=null;
     if(cm&&cm.pid===f.to)await locked('events/'+cm.id,async(ev,eref)=>{if(ev&&ev.claimedBy)return;const capT=cargoCap(f.ships),tot=COMET_BOUNTY.m+COMET_BOUNTY.c+COMET_BOUNTY.f,ratio=Math.min(1,capT/tot);got={m:Math.floor(COMET_BOUNTY.m*ratio),c:Math.floor(COMET_BOUNTY.c*ratio),f:Math.floor(COMET_BOUNTY.f*ratio)};await eref.set({kind:'event',id:cm.id,claimedBy:f.owner,at:Date.now()})});
@@ -639,7 +742,7 @@ function render(){
   if(!joined&&!S.spectator){v3Sync(false);hgSync(false);top_.hidden=true;tabsEl.hidden=true;renderJoin();mpSync();return}
   if(!joined&&S.spectator&&!['galaxy','log'].includes(S.tab))S.tab='galaxy';
   if(joined&&(!S.sel||!S.planets[S.sel]||S.planets[S.sel].owner!==ME))S.sel=myPlanets()[0].pid;
-  renderTop(joined);renderTabs(joined);v3Sync(joined);hgSync(joined);
+  renderTop(joined);renderTabs(joined);chatBtnSync(joined);v3Sync(joined);hgSync(joined);
   main.innerHTML=({planet:renderPlanet,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,log:renderLog})[S.tab]();
   mpSync();
   tickUi();
@@ -687,7 +790,7 @@ function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
 function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],T=PTYPES[m.type],body=isBody(p.pid);
   const bonus=body?`extraction de ${RARE[T.rare].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
   const bq=p.bq||[],full=bq.length>=3,qn=k=>bq.filter(x=>x.k===k).length,has3d=V3.on&&V3.ok,B=body?BUILD_OUT:BUILD,cap=body?view(capitalOf(ME).pid):null,payer=body?cap.res:p.res;
-  return`<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
+  return`${questCard()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
     <div style="min-width:0;flex:1"><h1>${esc(m.name)}${p.capital?'<span class="badge">Capitale</span>':body?'<span class="badge">Avant-poste</span>':''}</h1><p class="meta">${T.n} (${bonus}) · ${esc(sys.name)} · ${esc(GALS[sys.gal].name)}</p></div>
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/3</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span class="cd" data-cd="${it.until}"></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
@@ -757,16 +860,17 @@ function eventsHtml(){const out=[],cm=cometAt(),hv=hiveAt(),st=stormAt();
   return out.length?`<section style="display:grid;gap:10px"><h2>Événements en cours</h2><div class="list">${out.join('')}</div></section>`:''}
 function renderGalaxy(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];const lv=MP.level,G=GALS[MP.gal];
   const mineIn=g=>Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length;
-  const rivalsIn=g=>new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g).map(p=>p.owner));
+  const rivalsIn=g=>new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner));
   const hint=MP.ok?'<p class="meta" style="margin:0">Un doigt pour tourner, deux doigts pour zoomer et te déplacer. Touche un système pour y entrer, dézoome pour remonter.</p>':`<div class="chips"><button class="chip" data-act="mapuni">Univers</button>${lv==='system'?`<button class="chip" data-act="mapgal" data-g="${MP.gal}">${esc(G.name)}</button>`:''}</div>`;
   if(lv==='universe')return`<section style="display:grid;gap:10px"><h1>Univers</h1>${hint}</section>${eventsHtml()}<section style="display:grid;gap:10px"><h2>Galaxies</h2><div class="list">${GALS.map((G2,g)=>{const n=mineIn(g),rv=rivalsIn(g),first=SYSTEMS.find(s=>s.gal===g);
     return`<div class="item"><div class="ihead"><b>${esc(G2.name)}</b><span class="lv">${G2.rich>1?`+${Math.round((G2.rich-1)*100)} % production`:'galaxie de départ'}</span></div>
     <div class="eff">${SYSTEMS.filter(s=>s.gal===g).length} systèmes${(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?` · <b style="color:var(--bad)">${n} groupe${n>1?'s':''} d’Écumeurs</b>`:''})()}${n?` · <b style="color:${esc(pcolor(ME))}">${n} lieu${n>1?'x':''} à toi</b>`:''}${rv.size?` · ${[...rv].map(u=>esc(pname(u))).join(', ')}`:''}${joined&&galOf(S.sel)!==g?` · ${fmtDur(etaOf(S.sel,first.planets[0],{fighter:1}))} en chasseurs`:''}</div>
     <div class="foot"><span class="eff">${G2.rich>1?'Pirates plus forts, mondes plus riches.':'Pirates faibles en bordure.'}</span><button class="btn sm" data-act="mapgal" data-g="${g}">Explorer</button></div></div>`}).join('')}</div></section>`;
-  if(lv==='galaxy'){const sys=SYSTEMS.filter(s=>s.gal===MP.gal),occ=sys.filter(s=>[...s.planets,...s.bodies].some(p=>S.planets[p]&&S.planets[p].owner));
-    return`<section style="display:grid;gap:10px"><h1>${esc(G.name)}</h1>${hint}<p class="meta" style="margin:0">${sys.length} systèmes${G.rich>1?` · production +${Math.round((G.rich-1)*100)} %, pirates renforcés`:''}</p></section>${eventsHtml()}${raidsHtml(MP.gal,joined)}
+  if(lv==='galaxy'){const sys=SYSTEMS.filter(s=>s.gal===MP.gal),occ=sys.filter(s=>sysVisible(s.i)&&[...s.planets,...s.bodies].some(p=>S.planets[p]&&S.planets[p].owner));
+    return`<section style="display:grid;gap:10px"><h1>${esc(G.name)}</h1>${hint}<p class="meta" style="margin:0">${sys.length} systèmes · ${sys.filter(s=>!sysVisible(s.i)).length} dans le brouillard${G.rich>1?` · production +${Math.round((G.rich-1)*100)} %, pirates renforcés`:''}</p></section>${eventsHtml()}${raidsHtml(MP.gal,joined)}
     <section style="display:grid;gap:10px">${occ.length?`<h2>Systèmes occupés</h2><div class="list">${occ.map(s=>{const os=[...new Set([...s.planets,...s.bodies].map(p=>S.planets[p]&&S.planets[p].owner).filter(Boolean))];return`<div class="item"><div class="foot"><span><b>${esc(s.name)}</b> <span class="eff">· ${os.map(u=>`<span class="dot" style="background:${esc(pcolor(u))}"></span> ${esc(u===ME?'toi':pname(u))}`).join(', ')}</span></span><button class="btn ghost sm" data-act="mapsys" data-s="${s.i}">Voir</button></div></div>`}).join('')}</div>`:'<p class="empty">Aucun empire installé ici pour l’instant.</p>'}
-    <details class="card"><summary>Tous les systèmes (${sys.length})</summary><div class="chips" style="margin-top:10px">${sys.map(s=>`<button class="chip" data-act="mapsys" data-s="${s.i}">${esc(s.name)}${s.bodies.some(b=>PLANETS[b].type==='anom')?' ✦':''}</button>`).join('')}</div></details></section>`}
+    <details class="card"><summary>Systèmes explorés (${sys.filter(s=>sysVisible(s.i)).length}/${sys.length})</summary><div class="chips" style="margin-top:10px">${sys.filter(s=>sysVisible(s.i)).map(s=>`<button class="chip" data-act="mapsys" data-s="${s.i}">${esc(s.name)}${s.bodies.some(b=>PLANETS[b].type==='anom')?' ✦':''}</button>`).join('')}</div></details></section>`}
+  if(!sysVisible(MP.sys))return fogSystemHtml(joined);
   const s=SYSTEMS[MP.sys],all=[...s.planets,...s.bodies],order=S.pickP&&all.includes(S.pickP)?[S.pickP,...all.filter(p=>p!==S.pickP)]:all;
   return`<section style="display:grid;gap:10px"><h1>Système ${esc(s.name)}</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length} planètes${s.bodies.length?` · ${s.bodies.length} corps exploitable${s.bodies.length>1?'s':''}`:''} · touche un astre dans la vue pour le mettre en avant</p><div class="list">${order.map(p=>planetRow(p,joined)).join('')}</div></section>${(s.packs||[]).length?`<section style="display:grid;gap:10px"><h2>Écumeurs du système</h2><p class="meta" style="margin:0">Ils rôdent aux confins du système et reviennent 3 heures après avoir été dispersés. Plus on les laisse tranquilles, plus ils se renforcent ; une Horde ignorée trop longtemps fonde un repaire sur une planète libre.</p><div class="list">${[s.lair,...s.packs].map(p=>packRow(p,joined)).join('')}</div></section>`:''}`}
 const MIS={attack:'Attaque',colonize:'Installation',transfer:'Transfert',spy:'Espionnage',harvest:'Récolte'};
@@ -779,13 +883,13 @@ function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter
   return`<h1>Flottes</h1>${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   <section style="display:grid;gap:10px"><h2>Tes flottes</h2>${mine.length?`<div class="list">${mine.map(f=>fleetRow(f,false)).join('')}</div>`:`<p class="empty">Aucune flotte en vol. Ouvre la Carte, choisis une cible et envoie tes vaisseaux.</p>`}</section>`}
-function renderLog(){return`${renderRank()}<section style="display:grid;gap:10px"><h2>Journal de bord</h2>${S.reports.length?`<div class="list">${S.reports.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${esc(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">Les rapports de bataille, d’espionnage et les nouvelles de l’univers apparaîtront ici.</p>`}</section>`}
+function renderLog(){return`${questsHtml()}${renderRank()}<section style="display:grid;gap:10px"><h2>Journal de bord</h2>${S.reports.length?`<div class="list">${S.reports.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${esc(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">Les rapports de bataille, d’espionnage et les nouvelles de l’univers apparaîtront ici.</p>`}</section>`}
 function renderRank(){const now=Date.now();const rows=Object.values(S.players).map(pl=>{let s=0,n=0;for(const p of Object.values(S.planets)){if(p.owner!==pl.uid)continue;n++;const q=settle(p,now);for(const k in q.lv)s+=q.lv[k]*10;s+=(isBody(p.pid)?25:50)+worth(q.ships)}
     for(const f of Object.values(S.fleets))if(f.owner===pl.uid)s+=worth(f.ships);s+=Object.values(techOf(pl)).reduce((a,b)=>a+b*20,0)+(pl.cp||0)*.5;return{pl,s:Math.round(s),n}}).sort((a,b)=>b.s-a.s);
   return`<section style="display:grid;gap:10px"><h1>Classement</h1>${rows.length?`<div class="list">${rows.map((r,i)=>`<div class="item rank"><span class="pos">${i+1}</span><span class="owner"><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff">· ${r.n} lieu${r.n>1?'x':''} · ${fmt(r.pl.cp||0)} PC</span></span><span class="sc">${fmt(r.s)}</span></div>`).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
 
 // ---------- fenêtre d’envoi de flotte ----------
-function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt();const mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';S.modal={from:S.sel,to,mission,ships:zeroShips()};
+function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt();let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(2,src.ships.probe||0);
   if(mission==='colonize')S.modal.ships.colony=Math.min(1,src.ships.colony||0);renderModal()}
 function renderModal(){const el=document.getElementById('modal');const M=S.modal;if(!M){el.innerHTML='';return}
   const src=view(M.from),tv=view(M.to);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
@@ -839,7 +943,11 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
     scene.add(new THREE.AmbientLight(0x8090c0,.35));
     const gt=glowTex();
     GALS.forEach((G,g)=>{const gc=galaxyCloud(g);MP.clouds.push(gc);scene.add(gc);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:G.shape==='ring'?0x9fffe8:0xffd9a8,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.75}));sp.position.set(...G.c);sp.scale.set(26,26,1);scene.add(sp)});
-    const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(900),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
+    const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
+    {const fg=new THREE.BufferGeometry();fg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(1500*3),3));fg.setAttribute('sz',new THREE.BufferAttribute(new Float32Array(1500),1));fg.setDrawRange(0,0);
+     const fm=new THREE.ShaderMaterial({uniforms:{pr:{value:r.getPixelRatio()},ph:{value:800}},vertexShader:'attribute float sz;uniform float pr;uniform float ph;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=min(sz*pr*ph/-mv.z,900.0);gl_Position=projectionMatrix*mv;}',
+       fragmentShader:'void main(){float l=length(gl_PointCoord-0.5);float a=smoothstep(0.5,0.05,l)*0.62;if(a<0.01)discard;gl_FragColor=vec4(0.035,0.04,0.085,a);}',transparent:true,depthWrite:false,depthTest:false});
+     const fp=new THREE.Points(fg,fm);fp.frustumCulled=false;fp.renderOrder=9;MP.fog=fp;scene.add(fp)}
     const fl=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending}));fl.frustumCulled=false;fl.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(400*6),3));fl.geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(400*6),3));MP.fleetLines=fl;scene.add(fl);
     const fd=new THREE.Points(ptsGeo(400),ptsMat(90));fd.frustumCulled=false;fd.material.depthTest=false;fd.renderOrder=12;MP.fleetDots=fd;scene.add(fd);
     MP.fm=new Map();const tp=new THREE.Points(ptsGeo(4000),ptsMat(90));tp.frustumCulled=false;tp.material.depthTest=false;tp.renderOrder=11;MP.trail=tp;scene.add(tp);MP.chevGeo=new THREE.ConeGeometry(.45,1.5,3);MP.chevGeo.rotateX(Math.PI/2);const rp=new THREE.Points(ptsGeo(60),ptsMat(90));rp.frustumCulled=false;rp.material.depthTest=false;rp.renderOrder=12;MP.raidPts=rp;scene.add(rp);
@@ -863,7 +971,7 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
     document.getElementById('mpfull').addEventListener('click',()=>{MP.full=!MP.full;mpel.classList.toggle('v3full',MP.full);document.body.style.overflow=MP.full?'hidden':'';document.getElementById('mpfull').textContent=MP.full?'Réduire':'Plein écran';sfx.click();setTimeout(mpSize,30)});
     window.addEventListener('resize',mpSize);document.addEventListener('visibilitychange',()=>{if(document.hidden)mpStop();else if(!mpel.hidden)mpStart()});
   }catch(e){MP.ok=false}return MP.ok}
-function mpSize(){if(!MP.ok)return;const w=mpc.clientWidth,h=mpc.clientHeight;if(!w||!h)return;MP.r.setSize(w,h,false);MP.cam.aspect=w/h;MP.cam.updateProjectionMatrix()}
+function mpSize(){if(!MP.ok)return;const w=mpc.clientWidth,h=mpc.clientHeight;if(!w||!h)return;MP.r.setSize(w,h,false);if(MP.fog)MP.fog.material.uniforms.ph.value=h*1.07;MP.cam.aspect=w/h;MP.cam.updateProjectionMatrix()}
 function mpProject(w){const v=new THREE.Vector3(w[0],w[1],w[2]).project(MP.cam);if(v.z>1||v.z<-1)return null;return[(v.x+1)/2*mpc.clientWidth,(1-v.y)/2*mpc.clientHeight]}
 function mpNearest(list,x,y,max){let best=null,bd=max;for(const it of list){const p=mpProject(it.w);if(!p)continue;const d=Math.hypot(p[0]-x,p[1]-y);if(d<bd){bd=d;best=it}}return best}
 // déplacement latéral (deux doigts, ou clic droit / Maj + glisser à la souris), sans rotation
@@ -886,58 +994,59 @@ function mpGoGalaxy(g){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tg
 function mpGoSystem(i){const s=SYSTEMS[i];MP.level='system';MP.gal=s.gal;MP.sys=i;S.pickP=null;MP.tgtT=[...s.w];MP.distT=3.4;mpBuildSystem(i);render()}
 function mpClearSystem(){if(!MP.ok)return;if(MP.sysG){MP.scene.remove(MP.sysG);v3Clear(MP.sysG);MP.sysG=null}MP.orbs=[]}
 const STARC=['#ffd27a','#fff4e0','#a9c8ff','#ffb08a','#ffe9b8'];
-function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();const s=SYSTEMS[i],g2=new THREE.Group();g2.position.set(...s.w);g2.rotation.set(.25,(hash('r'+i)%628)/100,.1);
+function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();const s=SYSTEMS[i],g2=new THREE.Group(),vis=sysVisible(i);g2.position.set(...s.w);g2.rotation.set(.25,(hash('r'+i)%628)/100,.1);
   const sc=new THREE.Color(STARC[hash('s'+i)%STARC.length]);g2.add(new THREE.Mesh(new THREE.SphereGeometry(.1,24,16),new THREE.MeshBasicMaterial({color:sc})));
   const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:sc,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));gl.scale.set(.9,.9,1);g2.add(gl);
   g2.add(new THREE.PointLight(sc,2.4,8));
-  [...s.planets,...s.bodies].forEach((pid,k)=>{const rad=.34+k*.21,v=view(pid),T=PTYPES[PLANETS[pid].type],bt=isBody(pid)?PLANETS[pid].type:null;
+  [...s.planets,...s.bodies].forEach((pid,k)=>{const rad=.34+k*.21,v=vis?view(pid):{owner:null,garrison:{}},T=PTYPES[PLANETS[pid].type],bt=isBody(pid)?PLANETS[pid].type:null;
     const oc=[];for(let a=0;a<=96;a++){const t=a/96*Math.PI*2;oc.push(Math.cos(t)*rad,0,Math.sin(t)*rad)}const og=new THREE.BufferGeometry();og.setAttribute('position',new THREE.Float32BufferAttribute(oc,3));
     g2.add(new THREE.Line(og,new THREE.LineBasicMaterial({color:v.owner?pcolor(v.owner):0x55608f,transparent:true,opacity:v.owner?.55:.25})));
     const piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const size=bt?(bt==='ast'?.022:bt==='moon'?.028:.032):.04+(hash(pid+'z')%30)/1000;
-    const m=new THREE.Mesh(new THREE.SphereGeometry(size,20,14),new THREE.MeshStandardMaterial({color:T.col,roughness:.85,emissive:T.col,emissiveIntensity:bt==='anom'?1.6:.08}));m.position.x=rad;piv.add(m);if(bt==='ast'){const bp=[],br=rng(hash(pid));for(let q=0;q<220;q++){const a=br()*Math.PI*2,rr=rad+(br()-.5)*.09;bp.push(Math.cos(a)*rr,(br()-.5)*.02,Math.sin(a)*rr)}const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(bp,3));g2.add(new THREE.Points(bg,new THREE.PointsMaterial({color:0xa39684,size:.012})))}
+    const m=new THREE.Mesh(new THREE.SphereGeometry(size,20,14),new THREE.MeshStandardMaterial({color:vis?T.col:0x3d4258,roughness:.85,emissive:vis?T.col:0,emissiveIntensity:bt==='anom'?1.6:.08}));m.position.x=rad;piv.add(m);if(bt==='ast'){const bp=[],br=rng(hash(pid));for(let q=0;q<220;q++){const a=br()*Math.PI*2,rr=rad+(br()-.5)*.09;bp.push(Math.cos(a)*rr,(br()-.5)*.02,Math.sin(a)*rr)}const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(bp,3));g2.add(new THREE.Points(bg,new THREE.PointsMaterial({color:0xa39684,size:.012})))}
     if(v.owner){const ring=new THREE.Mesh(new THREE.TorusGeometry(size+.025,.005,6,40),new THREE.MeshBasicMaterial({color:pcolor(v.owner)}));ring.rotation.x=Math.PI/2;m.add(ring);if(v.owner===ME){const ring2=ring.clone();ring2.scale.setScalar(1.35);m.add(ring2)}}
     else if(count(v.garrison)){const pir=new THREE.Mesh(new THREE.TorusGeometry(size+.02,.003,4,24),new THREE.MeshBasicMaterial({color:0xff7070,transparent:true,opacity:.6}));pir.rotation.x=Math.PI/2;m.add(pir)}
-    if(PLANETS[pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(size*1.4,size*2.1,32),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}
+    if(vis&&PLANETS[pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(size*1.4,size*2.1,32),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}
     g2.add(piv);MP.orbs.push({piv,mesh:m,pid,sp:.35/(1+k*.7)})});
-  const nAst=s.planets.length+s.bodies.length;(s.packs||[]).forEach((pid,k)=>{if(raidState(pid).done)return;const rad=.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
+  const nAst=s.planets.length+s.bodies.length;(vis?s.packs||[]:[]).forEach((pid,k)=>{if(raidState(pid).done)return;const rad=.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
     for(let i=0;i<(k===0?6:3);i++){const m=new THREE.Mesh(new THREE.ConeGeometry(.012,.042,3),red);m.rotation.z=-Math.PI/2;m.position.set((rr()-.5)*.08,(rr()-.5)*.03,(rr()-.5)*.08);c.add(m)}
     const ring=new THREE.Mesh(new THREE.TorusGeometry(k===0?.075:.055,.003,4,28),new THREE.MeshBasicMaterial({color:0xff3b5c,transparent:true,opacity:.6}));ring.rotation.x=Math.PI/2;c.add(ring);piv.add(c);g2.add(piv);MP.orbs.push({piv,mesh:c,pid,sp:.12})});
-  {const L=lairInfoAt(s);const o=L&&MP.orbs.find(o=>o.pid===L.pid);if(o){const mk2=new THREE.Group(),red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rg2=new THREE.Mesh(new THREE.TorusGeometry(.085,.005,6,32),red);rg2.rotation.x=Math.PI/2;mk2.add(rg2);
+  {const L=vis&&lairInfoAt(s);const o=L&&MP.orbs.find(o=>o.pid===L.pid);if(o){const mk2=new THREE.Group(),red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rg2=new THREE.Mesh(new THREE.TorusGeometry(.085,.005,6,32),red);rg2.rotation.x=Math.PI/2;mk2.add(rg2);
     const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0xff3b5c,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));gl.scale.set(.25,.25,1);mk2.add(gl);
     for(let i=0;i<5;i++){const a=i/5*Math.PI*2,c=new THREE.Mesh(new THREE.ConeGeometry(.01,.035,3),red);c.position.set(Math.cos(a)*.11,0,Math.sin(a)*.11);c.rotation.z=-Math.PI/2;mk2.add(c)}o.mesh.add(mk2);MP.orbs.push({piv:new THREE.Group(),mesh:mk2,pid:L.lid,sp:0})}}
+  if(!vis)for(let k=0;k<7;k++){const a=k/7*Math.PI*2,rr=.5+(k%3)*.45,sp=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0x0a0c18,transparent:true,opacity:.9,depthWrite:false}));sp.position.set(Math.cos(a)*rr,(k%2-.5)*.2,Math.sin(a)*rr);sp.scale.set(1.6,1.6,1);g2.add(sp)}
   MP.scene.add(g2);MP.sysG=g2}
 function mpData(){if(!MP.ok)return;
   const owners={};for(const p of Object.values(S.planets))if(p.owner){const si=PLANETS[p.pid].sys;(owners[si]=owners[si]||new Set()).add(p.owner)}
   MP.owners=owners;
-  const sig=JSON.stringify([Object.values(S.events).map(e=>e.id+(e.done?1:0)+(e.at||0)).join(),Object.values(S.planets).filter(p=>p.owner).map(p=>p.pid+p.owner).join(),Object.keys(S.players).map(u=>u+pcolor(u)),MP.level,MP.gal,MP.sys,(cometAt()||{}).pid,(hiveAt()||{}).pid]);
+  const sig=JSON.stringify([(visibleSet(),VISC.sig),Object.values(S.events).map(e=>e.id+(e.done?1:0)+(e.at||0)).join(),Object.values(S.planets).filter(p=>p.owner).map(p=>p.pid+p.owner).join(),Object.keys(S.players).map(u=>u+pcolor(u)),MP.level,MP.gal,MP.sys,(cometAt()||{}).pid,(hiveAt()||{}).pid]);
   if(sig!==MP.dataSig){MP.dataSig=sig;const a=MP.sysPts.geometry.attributes;
-    SYSTEMS.forEach((s,i)=>{const os=owners[i],mine=os&&os.has(ME),cur=s.gal===MP.gal&&MP.level!=='universe';let col=cur?[.62,.74,1]:[.42,.5,.78],sz=cur?8:3,rg=cur?1:0;
+    SYSTEMS.forEach((s,i)=>{const vz=sysVisible(i),os=vz?owners[i]:null,mine=os&&os.has(ME),cur=s.gal===MP.gal&&MP.level!=='universe';let col=cur?[.62,.74,1]:[.42,.5,.78],sz=cur?8:3,rg=cur?1:0;if(!vz){col=cur?[.3,.32,.44]:[.26,.28,.38];sz=cur?4.5:2.5;rg=0}
       if(os){const o=mine?ME:[...os][0];col=hex2rgb(pcolor(o));sz=cur?(mine?15:12):(mine?7:5);rg=cur?2:(mine?1:0)}
       if(i===MP.sys){sz=17;rg=2;if(!os)col=[1,.8,.5]}a.color.array.set(col,i*3);a.sz.array[i]=sz;a.rg.array[i]=rg});
     a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true;
-    mpPlanetPts();
+    mpPlanetPts();mpFog();
     if(MP.level==='system'&&MP.sys!=null)mpBuildSystem(MP.sys)}
   mpRaids();mpLabels();mpNav()}
 function mpPlanetPts(){const pp=MP.pPts,a=pp.geometry.attributes;let n=0;MP.pList=[];if(MP.level!=='universe'){const cm=cometAt();
-  for(const s of SYSTEMS){if(s.gal!==MP.gal)continue;[...s.planets,...s.bodies].forEach((pid,k)=>{if(n>=900)return;const ang=(hash(pid)%628)/100,rr=.55+k*.2,w=galToWorld(s.gal,s.x+Math.cos(ang)*rr*10,s.y+Math.sin(ang)*rr*10,s.z);
+  for(const s of SYSTEMS){if(s.gal!==MP.gal||!sysVisible(s.i))continue;[...s.planets,...s.bodies].forEach((pid,k)=>{if(n>=2000)return;const ang=(hash(pid)%628)/100,rr=.55+k*.2,w=galToWorld(s.gal,s.x+Math.cos(ang)*rr*10,s.y+Math.sin(ang)*rr*10,s.z);
     const d=S.planets[pid],own=d&&d.owner,body=isBody(pid);let col=hex2rgb(PTYPES[PLANETS[pid].type].col).map(c=>c*.85),sz=body?3.2:4.6,rg=0;
     if(own){col=hex2rgb(pcolor(own));sz=own===ME?10:8;rg=own===ME?2:1}if(cm&&cm.pid===pid){col=[1,.82,.4];sz=9;rg=1}
     a.position.array.set(w,n*3);a.color.array.set(col,n*3);a.sz.array[n]=sz;a.rg.array[n]=rg;MP.pList.push({w,pid,sys:s.i});n++})}}
   pp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
 function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   const evLab=(pid,txt,cls)=>{const s=SYSTEMS[PLANETS[pid].sys];if(s.gal!==MP.gal)return;L.push({w:s.w,cls,h:txt})};
-  if(MP.level==='universe')GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
+  if(MP.level==='universe')GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
     L.push({w:G.c,cls:'big',h:`${esc(G.name)}${mine?`<i style="color:${esc(pcolor(ME))}"> ● toi ×${mine}</i>`:''}${riv?`<i> · ${riv} rival${riv>1?'s':''}</i>`:''}${ev.length?`<i style="color:#ffcf6b"> · ${ev.join(', ')}</i>`:''}`})});
-  else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal)continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
+  else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'ev bad',h:`Écumeurs · ${RTIERS[r.tier].n}`});
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
-    if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!shown.has(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
-  else if(MP.level==='system')MP.orbs.forEach(o=>{const v=view(o.pid);L.push({o,cls:o.pid===S.pickP?'me':'',h:`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`})});
+    if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
+  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
   if(MP.level!=='universe')parts.push(`<button class="tgl" data-act="mapgal" data-g="${MP.gal}" aria-pressed="${MP.level==='galaxy'}">${esc(G.name)}</button>`);
-  if(MP.level==='system')parts.push(`<button class="tgl" aria-pressed="true">${esc(SYSTEMS[MP.sys].name)}</button>`);
+  if(MP.level==='system')parts.push(`<button class="tgl" aria-pressed="true">${sysVisible(MP.sys)?esc(SYSTEMS[MP.sys].name):'Inexploré'}</button>`);
   if(S.sel&&S.planets[S.sel])parts.push(`<button class="tgl" data-act="maphome">Ma planète</button>`);
   const h=parts.join('');if(nav.innerHTML!==h)nav.innerHTML=h}
 function nodePos(pid){const m=PLANETS[pid];if(!m)return null;
@@ -945,7 +1054,7 @@ function nodePos(pid){const m=PLANETS[pid];if(!m)return null;
   if(m.raid&&RAIDS[pid]&&!RAIDS[pid].local)return raidPos(pid);return SYSTEMS[m.sys].w}
 function fleetPos(f,t){const A=nodePos(f.from),B=nodePos(f.to);if(!A||!B)return null;const out=f.phase==='out',t0=out?f.depart:f.arrive,t1=out?f.arrive:f.back,k=Math.min(1,Math.max(0,(t-t0)/(t1-t0||1))),P=out?[A,B]:[B,A];return{p:[0,1,2].map(i=>P[0][i]+(P[1][i]-P[0][i])*k),from:P[0],to:P[1]}}
 const isHostileF=f=>f.owner!==ME&&f.phase==='out'&&f.mission==='attack'&&S.planets[f.to]&&S.planets[f.to].owner===ME;
-function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&&PLANETS[f.to]).slice(0,200),LP=MP.fleetLines.geometry.attributes.position.array,LC=MP.fleetLines.geometry.attributes.color.array,da=MP.fleetDots.geometry.attributes,seen=new Set();
+function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&&PLANETS[f.to]&&(f.owner===ME||isHostileF(f)||sysVisible(PLANETS[f.from].sys)||sysVisible(PLANETS[f.to].sys))).slice(0,200),LP=MP.fleetLines.geometry.attributes.position.array,LC=MP.fleetLines.geometry.attributes.color.array,da=MP.fleetDots.geometry.attributes,seen=new Set();
   const sc=MP.dist*(MP.level==='universe'?.007:.012);let n=0,tn=0;const TA=MP.trail.geometry.attributes;
   for(const f of fl){const fp=fleetPos(f,t);if(!fp)continue;const hostile=isHostileF(f),col=hostile?[1,.35,.35]:hex2rgb(pcolor(f.owner));
     LP.set([...fp.from,...fp.to],n*6);LC.set([...col.map(c=>c*.55),...col.map(c=>c*.55)],n*6);
@@ -1006,6 +1115,10 @@ document.addEventListener('click',e=>{
   else if(a==='recall')recall(b.dataset.f);
   else if(a==='joinf'){const L=S.fleets[b.dataset.f];if(L&&S.sel){S.modal={from:S.sel,to:L.to,mission:'attack',join:L.fid,ships:zeroShips()};renderModal()}}
   else if(a==='replay')btOpen(b.dataset.r);
+  else if(a==='quest')claimQuest(b.dataset.q);
+  else if(a==='chat')chatOpen(true);
+  else if(a==='chatx')chatOpen(false);
+  else if(a==='scout'){openSend(b.dataset.p);if(S.modal){S.modal.mission='spy';S.modal.ships=zeroShips();S.modal.ships.probe=Math.min(2,view(S.sel).ships.probe||0);renderModal()}}
   else if(a==='color'){S.joinColor=b.dataset.c;document.querySelectorAll('.sw').forEach(s=>s.setAttribute('aria-pressed',s.dataset.c===S.joinColor))}
   else if(a==='join')join();
   else if(a==='claim'){ME=b.dataset.u;try{localStorage.setItem('orion-id',ME)}catch(x){}render()}
@@ -1025,7 +1138,7 @@ function tickUi(){const now=Date.now();
 function tick(){S.ticks++;tickUi();
   const ae=document.activeElement;if(S.ticks%4===0&&!S.modal&&!(ae&&(ae.tagName==='INPUT'||ae.tagName==='SELECT'))&&S.ready>=3&&!(S.tab==='planet'&&!S.players[ME]))render();
   resolveDue();events();
-  if(S.ticks%60===0){pruneReports();registerRaids()}}
+  if(S.ticks%60===0){pruneReports();registerRaids();chatPrune()}}
 let pruning=false;
 async function pruneReports(){if(pruning||S.spectator)return;pruning=true;try{const old=S.reports.filter(r=>Date.now()-r.at>3*864e5).slice(0,10);for(const r of old)await db.doc('reports/'+r.id).delete()}catch(e){}pruning=false}
 
@@ -1566,6 +1679,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
   db.collection('planets').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='planet'&&x.pid)o[x.pid]=x}S.planets=o;ready('p')},fail);
   db.collection('players').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='player')o[x.uid]=x}S.players=o;ready('pl')},fail);
   db.collection('fleets').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='fleet')o[x.fid]=x}S.fleets=o;ready('f')},fail);
+  db.collection('chat').onSnapshot(s=>{S.chat=s.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.kind==='chat'&&m.text).sort((a,b)=>a.at-b.at).slice(-120);chatUpdate()},()=>{});
   db.collection('events').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='event')o[x.id]=x}S.events=o;if(S.ready>=3)render()},fail);
   db.collection('reports').where('to','array-contains',ME).orderBy('at','desc').limit(60).onSnapshot(s=>{S.reports=s.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.kind==='report');reportSounds();if(S.ready>=3)render()},fail);
   setInterval(tick,1000);

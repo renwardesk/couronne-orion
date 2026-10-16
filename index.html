@@ -1893,16 +1893,18 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='18';
+const APP_VERSION='19';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version
   window.__upd=true;document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#05081acc;color:#fff;font:600 17px system-ui;text-align:center;padding:20px">Nouvelle version du jeu<br><span style="font-weight:400;font-size:14px;opacity:.8">Reconnexion en cours…</span></div>');
-  try{if(k.v!==v&&sb)await sb.auth.signOut()}catch(e){}
+  const T=(pr,ms=2500)=>Promise.race([Promise.resolve(pr).catch(()=>{}),sleep(ms)]); // aucune étape ne doit bloquer
+  setTimeout(()=>location.reload(),8000);
   try{localStorage.setItem('orion-upd',JSON.stringify({v,at:Date.now()}))}catch(e){}
-  try{const ks=await caches.keys();await Promise.all(ks.map(x=>caches.delete(x)))}catch(e){}
-  try{const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}catch(e){}
-  location.replace(location.pathname+'?v='+v)}
+  if(k.v!==v&&sb){await T(sb.auth.signOut({scope:'local'}));try{for(const x of Object.keys(localStorage))if(x.startsWith('sb-'))localStorage.removeItem(x)}catch(e){}}
+  try{await T(caches.keys().then(ks=>Promise.all(ks.map(x=>caches.delete(x)))))}catch(e){}
+  try{await T(navigator.serviceWorker.getRegistration().then(rg=>rg&&rg.update()))}catch(e){}
+  location.href=location.pathname+'?v='+v}
 setTimeout(checkUpdate,3000);setInterval(checkUpdate,120000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

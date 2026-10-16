@@ -298,7 +298,22 @@ const g=l=>l*1.12**l;
 const isBody=pid=>!!(PLANETS[pid]&&PLANETS[pid].body);
 const richOf=pid=>GALS[SYSTEMS[PLANETS[pid].sys].gal].rich;
 function rates(p){if(isBody(p.pid))return{m:0,c:0,f:0};const L=p.lv,T=PTYPES[PLANETS[p.pid].type],R=richOf(p.pid);return{m:(20+12*g(L.mine))*T.m*R,c:(10+8*g(L.crys))*T.c*R,f:(3+5*g(L.fuel))*T.f*R}}
-function rareRate(p){const o={ir:0,xe:0,am:0};if(!isBody(p.pid))return o;const L=p.lv.drill||0;if(!L)return o;const t=PTYPES[PLANETS[p.pid].type].rare;o[t]=(1.5+2.5*g(L))*richOf(p.pid)*(PLANETS[p.pid].type==='wreck'?1:t==='am'?.5:1);return o}
+// une seule installation d'extraction par avant-poste, au choix ; le minerai naturel du lieu rend deux fois plus
+const DRN={ir:'Foreuse à iridium',xe:'Extracteur de xénite',am:'Collecteur d’antimatière'};
+const natRare=pid=>PTYPES[PLANETS[pid].type].rare;
+const rkOf=p=>(p.rk&&p.rk in RARE)?p.rk:natRare(p.pid);
+function rareRate(p){const o={ir:0,xe:0,am:0};if(!isBody(p.pid))return o;const L=p.lv.drill||0;if(!L)return o;const t=rkOf(p),nat=t===natRare(p.pid);o[t]=(1.5+2.5*g(L))*richOf(p.pid)*(PLANETS[p.pid].type==='wreck'?1:t==='am'?.5:1)*(nat?1:.5);return o}
+function drillRows(p,payer,full,nq){const cur=rkOf(p),nat=natRare(p.pid),busy=nq>0;
+  return Object.keys(RARE).map(k=>{if(k===cur){const L0=p.lv.drill||0,L=L0+nq,c=bCost('drill',L),rc=bRare('drill',L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);
+      return`<div class="item"><div class="ihead"><b>${DRN[k]}</b><span class="lv">niv. ${L0}${nq?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,'drill')}${k===nat?' · <b style="color:var(--good)">minerai naturel du lieu</b>':' · rendement réduit de moitié (pas le minerai naturel)'}</div>
+      <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime('drill',L))}</span></div><button class="btn sm" data-act="up" data-k="drill" ${full||!ok?'disabled':''}>${full?'File pleine':nq?'Ajouter à la file':'Améliorer'}</button></div></div>`}
+    const c=bCost('drill',0),ok=afford(payer,c)&&!busy;
+    return`<div class="item locked"><div class="ihead"><b>${DRN[k]}</b><span class="lv">non construit</span></div><div class="eff">${k===nat?'<b style="color:var(--good)">Minerai naturel du lieu : rendement maximal</b>':'Rendement réduit de moitié ici'} · un seul site d’extraction par avant-poste : construire celui-ci remplace ${DRN[cur].toLowerCase()} (retour au niveau 1).</div>
+      <div class="foot"><div class="costs">${costHtml(payer,c)}<span class="t">${fmtDur(bTime('drill',0))}</span></div><button class="btn ghost sm" data-act="drillsw" data-r="${k}" ${ok?'':'disabled'}>${busy?'Travaux en cours':'Construire à la place'}</button></div></div>`}).join('')}
+async function drillSwitch(pid,rk){await act(async()=>{if(!(rk in RARE))return;const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');
+  await settleRare(ME);await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME||!isBody(pid))throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now);if((p.bq||[]).some(x=>x.k==='drill'))throw err('Une amélioration est en cours sur ce site.');if(rkOf(p)===rk)return;
+    const c=bCost('drill',0);await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
+    p.rk=rk;p.lv.drill=1;await ref.set(p)});sfx.build();toast(`${DRN[rk]} construit.`)})}
 const capOf=p=>Math.round(2500*1.6**(p.lv.store||0));
 // ---------- hangars : chaque lieu a un nombre de places limité ----------
 const PLACES={fighter:1,probe:1,cruiser:3,colony:4,battleship:8};
@@ -1156,7 +1171,7 @@ function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;
   tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
-  if(k==='drill'){const t=PTYPES[PLANETS[p.pid].type].rare,r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
+  if(k==='drill'){const t=rkOf(p),r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
   if(k==='silo')return`Réserves de l’empire <em>+${siloCapL(L)} → +${siloCapL(L+1)}</em> par minerai rare (total actuel ${fmt(rareCap(ME))})`;
   if(k==='dock')return`${L<1?'Permet de <em>stationner une flotte</em> ici et de lancer des missions':'Base opérationnelle'} · <em>${bayCapL(L,true)} → ${bayCapL(L+1,true)}</em> places`;
   const r0=rates(p),r1=rates(q);
@@ -1173,14 +1188,14 @@ function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='acad'){const un=WK.filter(w=>acadNeed(w)===L+1);return`Recherches <em>+15 %</em> plus rapides${un.length?` · débloque <em>${un.map(w=>WEAP[w].n).join(', ')}</em>`:''}`}
   if(k==='arsenal'){const un=WK.filter(w=>WEAP[w].tier===L+1);return`Fabrication de modules <em>+20 %</em> plus rapide${un.length?` · débloque <em>${un.map(w=>WEAP[w].n).join(', ')}</em>`:''}`}}
 function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],T=PTYPES[m.type],body=isBody(p.pid);
-  const bonus=body?`extraction de ${RARE[T.rare].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
+  const bonus=body?`extraction de ${RARE[rkOf(p)].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
   const bq=p.bq||[],full=bq.length>=3,qn=k=>bq.filter(x=>x.k===k).length,has3d=V3.on&&V3.ok,B=body?BUILD_OUT:BUILD,cap=body?view(capitalOf(ME).pid):null,payer=body?cap.res:p.res;
   return`${questCard()}${(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
     <div style="min-width:0;flex:1"><h1>${esc(m.name)}${p.capital?'<span class="badge">Capitale</span>':body?'<span class="badge">Avant-poste</span>':''}</h1><p class="meta">${T.n} (${bonus}) · ${esc(sys.name)} · ${esc(GALS[sys.gal].name)}</p></div>
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/3</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span class="cd" data-cd="${it.until}"></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
   <section style="display:grid;gap:10px"><h2>${body?'Installations':'Bâtiments'}</h2>${body?'<p class="meta" style="margin:0">Les travaux d’un avant-poste sont payés par ta capitale.</p>':''}<div class="list">
-  ${Object.keys(B).map(k=>{const L0=p.lv[k]||0,L=L0+qn(k),c=bCost(k,L),rc=bRare(k,L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);return`<div class="item"><div class="ihead"><b>${B[k].n}</b><span class="lv">niv. ${L0}${qn(k)?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,k)}</div>
+  ${Object.keys(B).map(k=>{if(body&&k==='drill')return drillRows(p,payer,full,qn(k));const L0=p.lv[k]||0,L=L0+qn(k),c=bCost(k,L),rc=bRare(k,L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);return`<div class="item"><div class="ihead"><b>${B[k].n}</b><span class="lv">niv. ${L0}${qn(k)?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,k)}</div>
     <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime(k,L))}</span></div><button class="btn sm" data-act="up" data-k="${k}" ${full||!ok?'disabled':''}>${full?'File pleine':bq.length?'Ajouter à la file':'Améliorer'}</button></div></div>`}).join('')}
   </div></section>
   ${sendResHtml(p)}<section style="display:grid;gap:10px"><h2>${body?'Flotte stationnée':'En orbite'}</h2>${bayHtml(p)}<div class="card stats" style="font-size:13px">${SK.map(k=>`<span>${SHIPS[k].n} <b>${p.ships[k]||0}</b></span>`).join('')}<span>Tourelles <b>${(p.lv.def||0)*4}</b></span></div>
@@ -1563,6 +1578,7 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='cmdrec')recruitCmd();
   else if(a==='srsend')sendRes();
+  else if(a==='drillsw')drillSwitch(S.sel,b.dataset.r);
   else if(a==='mktrade')mkTrade();
   else if(a==='bretreat')retreatBattle(b.dataset.f);
   else if(a==='sendm'){if(S.players[ME])openSend(b.dataset.p,b.dataset.m)}
@@ -2142,7 +2158,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='28';
+const APP_VERSION='29';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

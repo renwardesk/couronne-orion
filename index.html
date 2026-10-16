@@ -103,7 +103,8 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .rep p{margin:0;font-size:13px;color:var(--dim)}
 .rep time{font-family:var(--f-data);font-size:12px;color:var(--dim)}
 .rank{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center}
-.tabs .wrap.many .tab{font-size:11px;letter-spacing:0}.tabs .wrap.many9 .tab{font-size:10px}
+.tabs .wrap.many{grid-template-columns:repeat(5,1fr)!important}.tabs .wrap.many .tab{font-size:13.5px;letter-spacing:.02em;padding:9px 0 10px}.tabs .wrap.many .tab[aria-current="true"]::before{left:25%;right:25%}
+body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tabs2 .chatbtn,body.tabs2 .toast{bottom:calc(122px + env(safe-area-inset-bottom,0px))}
 .pcard .owner{display:flex;align-items:center;gap:7px}.pcard .pos{font-family:var(--f-display);font-size:18px;color:var(--brass);min-width:18px}.pcard .sc{font-family:var(--f-data);font-variant-numeric:tabular-nums;color:var(--brass)}
 .pcard.me{outline:1px solid var(--brass)}
 .pstats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:6px 0 0}.pstats div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #ffffff10;padding-bottom:3px}.pstats dt{color:var(--dim);font-size:12px}.pstats dd{margin:0;font-family:var(--f-data);font-size:12.5px;text-align:right}
@@ -180,6 +181,7 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .srrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.srrow label{display:grid;gap:3px;font-size:12px;color:var(--dim)}.srrow input,.srsel{min-width:0;width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font:inherit}
 .intel{display:block;margin-top:4px;font-size:12px;color:#9fd8ff;background:#5ec8ff14;border-left:2px solid #5ec8ff88;padding:3px 7px;border-radius:3px}
 .welsteps{margin:0;padding-left:20px;display:grid;gap:8px}.welsteps li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}.welsteps li b{grid-column:1;font-size:14px}.welsteps li span{grid-column:1;font-size:12.5px;color:var(--dim)}.welsteps li button{grid-column:2;grid-row:1/3}
+.shiphd{display:flex;align-items:center;gap:10px}.shipico{width:46px;height:46px;flex:none;background:radial-gradient(circle,#1c2848 0,#0d1428 70%);border:1px solid var(--line);border-radius:10px;padding:3px}.locked .shipico{opacity:.45;filter:grayscale(1)}
 .trrow{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;align-items:center}.trrow input,.trrow select{min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font:inherit}
 .ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
 .ml.mini.hole{color:#ffb27a;font-size:10px}
@@ -1190,7 +1192,7 @@ function renderTop(joined){top_.hidden=false;
 }
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;
   const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['players','Joueurs'],['news','Actus'],['log','Journal']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
-  tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}${T.length>8?' many9':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
+  document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='drill'){const t=rkOf(p),r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
@@ -1225,13 +1227,20 @@ function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],
 function bayHtml(p){const u=bayUse(p,ME),c=bayCap(p),pc=c?Math.min(100,u/c*100):100,over=u>c;
   return`<div class="card" style="display:grid;gap:6px"><div class="ihead"><b>Hangars</b><span class="lv" style="color:${over?'var(--bad)':u>=c?'var(--warn)':'inherit'}">${u} / ${c} places</span></div><span class="prog"><b style="width:${pc}%;${over||u>=c?'background:var(--bad)':''}"></b></span>
   <span class="eff">Chasseur et sonde 1 place · croiseur 3 · colon 4 · cuirassé 8. Les flottes parties d’ici gardent leur place.${over?' <b style="color:var(--bad)">Trop de vaisseaux : production bloquée tant que tu n’agrandis pas les Hangars.</b>':''}</span></div>`}
+const SHIPSVG={
+  fighter:'<path d="M32 6 L38 30 L56 40 L56 46 L38 42 L36 54 L42 58 L22 58 L28 54 L26 42 L8 46 L8 40 L26 30 Z" fill="url(#gS)"/><path d="M32 10 L35 28 L29 28 Z" fill="#9fd8ff"/><circle cx="32" cy="57" r="3" fill="#ffb060"/>',
+  cruiser:'<path d="M32 4 L40 18 L40 34 L52 40 L52 50 L40 48 L40 56 L24 56 L24 48 L12 50 L12 40 L24 34 L24 18 Z" fill="url(#gS)"/><rect x="28" y="16" width="8" height="10" rx="2" fill="#9fd8ff"/><rect x="26" y="34" width="12" height="4" fill="#6a7896"/><circle cx="28" cy="57" r="2.5" fill="#ffb060"/><circle cx="36" cy="57" r="2.5" fill="#ffb060"/>',
+  battleship:'<path d="M32 2 L42 12 L44 30 L58 36 L58 48 L44 46 L44 58 L20 58 L20 46 L6 48 L6 36 L20 30 L22 12 Z" fill="url(#gS)"/><rect x="27" y="12" width="10" height="8" rx="2" fill="#9fd8ff"/><rect x="24" y="24" width="16" height="3" fill="#6a7896"/><rect x="24" y="30" width="16" height="3" fill="#6a7896"/><rect x="24" y="36" width="16" height="3" fill="#6a7896"/><circle cx="12" cy="42" r="2.5" fill="#ff7a7a"/><circle cx="52" cy="42" r="2.5" fill="#ff7a7a"/><circle cx="26" cy="59" r="2.5" fill="#ffb060"/><circle cx="32" cy="59" r="2.5" fill="#ffb060"/><circle cx="38" cy="59" r="2.5" fill="#ffb060"/>',
+  colony:'<ellipse cx="32" cy="30" rx="15" ry="20" fill="url(#gS)"/><ellipse cx="32" cy="22" rx="9" ry="6" fill="#7fe0b0" opacity=".85"/><path d="M17 36 L8 48 L18 44 Z M47 36 L56 48 L46 44 Z" fill="#8a96b4"/><rect x="26" y="48" width="12" height="8" rx="2" fill="#6a7896"/><circle cx="32" cy="58" r="3" fill="#ffb060"/>',
+  probe:'<circle cx="32" cy="30" r="9" fill="url(#gS)"/><circle cx="32" cy="30" r="4" fill="#9fd8ff"/><path d="M32 21 L32 6 M32 39 L32 50 M23 30 L8 26 M41 30 L56 26" stroke="#aab4cc" stroke-width="2.5"/><rect x="4" y="22" width="9" height="8" fill="#3d5f9a"/><rect x="51" y="22" width="9" height="8" fill="#3d5f9a"/><circle cx="32" cy="53" r="2.5" fill="#ffb060"/>'};
+const shipIcon=k=>`<svg class="shipico" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="gS" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e6ecf7"/><stop offset="1" stop-color="#7c88a6"/></linearGradient></defs>${SHIPSVG[k]||''}</svg>`;
 function renderYard(){const p=view(S.sel);
   if(isBody(p.pid))return`<h1>Chantier spatial</h1><p class="empty">Un avant-poste ne construit pas de vaisseaux. Choisis une planète dans le sélecteur « Lieu ».</p>`;
   const mo=modsOf(ME);
   return`<section style="display:grid;gap:4px"><h1>Chantier spatial</h1><p class="meta">${esc(PLANETS[p.pid].name)} · chantier niveau ${p.lv.yard}${p.lv.yard<1?' — construis-le depuis l’onglet Base':''}</p></section>${bayHtml(p)}
   ${p.shipQ.length?`<section style="display:grid;gap:10px"><h2>Production en cours</h2><div class="list">${p.shipQ.map((it,i)=>`<div class="item"><div class="ihead"><b>${it.n} × ${SHIPS[it.t].n}</b><span class="cd" data-cd="${it.start+it.n*it.per*1000}"></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.start+it.per*1000}"></b></span><span class="eff">Prochain vaisseau : <span class="cd" data-cd="${it.start+it.per*1000}"></span></span>`:''}</div>`).join('')}</div></section>`:''}
   <section style="display:grid;gap:10px"><h2>Vaisseaux</h2><div class="list">
-  ${SK.map(k=>{const s=SHIPS[k],lock=p.lv.yard<s.yard,n=S.qty[k],room=bayUse(p,ME)+n*(PLACES[k]||1)<=bayCap(p),ok=afford(p.res,s.cost,n)&&room,md=mo[k];return`<div class="item ${lock?'locked':''}"><div class="ihead"><b>${s.n}</b><span class="lv">${p.ships[k]||0} en orbite</span></div>
+  ${SK.map(k=>{const s=SHIPS[k],lock=p.lv.yard<s.yard,n=S.qty[k],room=bayUse(p,ME)+n*(PLACES[k]||1)<=bayCap(p),ok=afford(p.res,s.cost,n)&&room,md=mo[k];return`<div class="item ${lock?'locked':''}"><div class="ihead"><span class="shiphd">${shipIcon(k)}<b>${s.n}</b></span><span class="lv">${p.ships[k]||0} en orbite</span></div>
     <div class="stats"><span>Att <b>${Math.round(s.att*md.att)}</b></span><span>PV <b>${Math.round(s.hp*md.hp)}</b></span><span>Vitesse <b>${s.spd}</b></span><span>Soute <b>${s.cap}</b></span><span>Conso <b>${s.fuel}</b></span><span>Places <b>${PLACES[k]}</b></span></div>
     ${CTRTXT[k]?`<div class="eff">Fort contre <em>${CTRTXT[k][0]}</em> · faible contre <em>${CTRTXT[k][1]}</em></div>`:''}
     ${k==='colony'?'<div class="eff">Colonise une planète libre (demande aussi de la culture), installe un avant-poste sur un astéroïde, une lune, une épave ou une station (sans culture), ou annexe une cible ennemie après une victoire. Le vaisseau est consommé.</div>':''}
@@ -2206,7 +2215,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='36';
+const APP_VERSION='37';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

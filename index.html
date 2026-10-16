@@ -769,26 +769,28 @@ async function openChest(t){await act(async()=>{const C=CHEST[t];if(!C)return;co
   render()})}
 async function trainCmd(id){await act(async()=>{await withPlayer(ME,d=>{if((d.ins||0)<1)throw err('Il faut un insigne de commandement.');const c=(d.cmds||[]).find(x=>x.id===id);if(!c)throw err('Commandant introuvable.');if(cmdLvl(c.xp)>=CMD_LMAX)throw err('Niveau maximum atteint.');d.ins--;c.xp=(c.xp||0)+120});sfx.build();toast('Entraînement : +120 XP.')})}
 async function insToChest(){await act(async()=>{await withPlayer(ME,d=>{if((d.ins||0)<4)throw err('Il faut 4 insignes.');d.ins-=4;d.chests=d.chests||{};d.chests.s=(d.chests.s||0)+1});sfx.done();toast('4 insignes échangés contre un coffre d’argent.')})}
-// insigne unique de chaque commandant : forme et couleur selon la rareté, emblème selon la spécialité
-const BADGE_SHAPE={c:'M20 3L35 8V21C35 31 28 38 20 42C12 38 5 31 5 21V8Z',r:'M20 2L36 7V20C36 31 28 38 20 42C12 38 4 31 4 20V7Z',e:'M20 2L36 11V31L20 42L4 31V11Z',l:'M20 1L25 9L34 6L32 15L39 20L32 25L34 34L25 31L20 41L15 31L6 34L8 25L1 20L8 15L6 6L15 9Z'};
-const BADGE_EMB={att:'<path d="M20 12L22.2 25H17.8Z"/><rect x="15.5" y="25" width="9" height="2.2" rx="1"/><rect x="19" y="27" width="2" height="4"/>',
-  hp:'<path d="M20 13L26.5 15.8V21.5C26.5 26 23.5 28.8 20 30.4C16.5 28.8 13.5 26 13.5 21.5V15.8Z"/>',
-  fighter:'<path d="M20 12L27.5 29L20 25.2L12.5 29Z"/>',cruiser:'<path d="M20 12L26 21.5L20 31L14 21.5Z"/><rect x="11" y="20.6" width="18" height="1.8"/>',
-  battleship:'<path d="M15.5 13H24.5V27.5L20 31L15.5 27.5Z"/><rect x="13" y="17" width="14" height="2"/>',
-  pirates:'<circle cx="20" cy="21.5" r="6.2" fill="none" stroke-width="2.2"/><rect x="19" y="12" width="2" height="19"/><rect x="10.5" y="20.5" width="19" height="2"/>',
-  spd:'<path d="M13 25L20 17.5L27 25" fill="none" stroke-width="2.6"/><path d="M13 31L20 23.5L27 31" fill="none" stroke-width="2.6"/>',
-  amb:'<path d="M11 21.5Q20 12.5 29 21.5Q20 30.5 11 21.5Z"/><circle cx="20" cy="21.5" r="2.8" fill="#10172c"/>',
-  xp:'<path d="M20 12L22.6 18.6L29.5 19L24.2 23.4L26 30.2L20 26.4L14 30.2L15.8 23.4L10.5 19L17.4 18.6Z"/>'};
-function cmdBadge(c,sz=20){const i=typeof c==='string'?CMDK[c]:cmdInfo(c);if(!i||!i.r)return'';const k=i.k||'x',col=RAR[i.r].col,h=hash('badge'+k),hue=h%360,id='cb'+k,
-  sec=`hsl(${hue},55%,${i.r==='l'?24:20}%)`,stars=i.r==='c'?1+h%2:i.r==='r'?2+h%2:0,sh=BADGE_SHAPE[i.r];
-  const st=[...Array(stars)].map((_,j)=>{const x=20+(j-(stars-1)/2)*5.2;return`<circle cx="${x}" cy="8.4" r="1.25" fill="${col}"/>`}).join('');
-  const wings=i.r==='e'?`<path d="M4 15L-2 12L1 20L-2 26L4 24Z M36 15L42 12L39 20L42 26L36 24Z" fill="${col}" opacity=".85"/>`:'';
-  const crown=i.r==='l'?`<path d="M14 1.5L16.5 5L20 -1L23.5 5L26 1.5L25 7H15Z" fill="#fff4cf" stroke="${col}" stroke-width=".6"/>`:'';
-  const bands=i.r==='r'?`<path d="M9 31L20 36.5L31 31" fill="none" stroke="${col}" stroke-width="1.6" opacity=".8"/>`:'';
-  return`<svg class="cbadge" width="${sz}" height="${Math.round(sz*1.12)}" viewBox="-3 -3 46 49" role="img" aria-label="Insigne de ${esc(i.n)} (${RAR[i.r].n.toLowerCase()})"><title>${esc(i.n)} · ${RAR[i.r].n}</title>
-<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="${col}"/><stop offset="1" stop-color="${col}" stop-opacity=".7"/></linearGradient></defs>
-${wings}<path d="${sh}" fill="url(#${id})" stroke="#0a0f1e" stroke-width="1.4"/><path d="${sh}" fill="${sec}" transform="translate(20 21.5) scale(.74) translate(-20 -21.5)"/>${bands}${crown}${st}
-<g fill="#f4f1e8" stroke="#f4f1e8" stroke-width="0">${BADGE_EMB[i.sp]||BADGE_EMB.att}</g></svg>`}
+// insigne unique de chaque commandant (sans écu) : ailes, lauriers et chevrons selon la rareté, emblème selon la spécialité
+const BADGE_EMB={att:'M20 6L23 24H17Z M13.5 24H26.5V27H13.5Z M18.6 27H21.4V33H18.6Z',
+  hp:'M20 7L29 11V18.5C29 25 24.8 29 20 31.2C15.2 29 11 25 11 18.5V11Z',
+  fighter:'M20 6L30 30L20 24.5L10 30Z',cruiser:'M20 5L27.5 19L20 33L12.5 19Z M8 17.6H32V20.4H8Z',
+  battleship:'M14 7H26V26L20 31L14 26Z M10.5 12H29.5V15H10.5Z',
+  pirates:'M20 7A12 12 0 1 1 19.99 7Z M20 11A8 8 0 1 0 20.01 11Z M18.6 4H21.4V34H18.6Z M5 17.6H35V20.4H5Z',
+  spd:'M9 18L20 7L31 18L27 21L20 14L13 21Z M9 29L20 18L31 29L27 32L20 25L13 32Z',
+  amb:'M6 19Q20 4 34 19Q20 34 6 19Z M20 13.5A5.5 5.5 0 1 0 20.01 13.5Z',
+  xp:'M20 4L24.2 14.2L35 14.8L26.6 21.6L29.4 32.2L20 26.2L10.6 32.2L13.4 21.6L5 14.8L15.8 14.2Z'};
+function cmdBadge(c,sz=20){const i=typeof c==='string'?CMDK[c]:cmdInfo(c);if(!i||!i.r)return'';const k=i.k||'x',col=RAR[i.r].col,h=hash('badge'+k),id='cb'+k,R=i.r,gem=`hsl(${h%360},85%,62%)`;
+  const feat=(n,side,len)=>{let o='';for(let j=0;j<n;j++){const y=13+j*4.2,l=len-j*2.4,x0=side<0?9:31;o+=`<path d="M${x0} ${y}L${x0+side*l} ${y-3.2}L${x0+side*(l-2)} ${y+1.6}Z"/>`}return o};
+  const nf=R==='c'?0:R==='r'?2+h%2:R==='e'?3+h%2:4;const len=R==='r'?8:R==='e'?11:12;
+  const wings=nf?`<g fill="url(#${id})" stroke="#0a0f1e" stroke-width=".7">${feat(nf,-1,len)}${feat(nf,1,len)}</g>`:'';
+  const laurel=R==='l'?`<g fill="none" stroke="${col}" stroke-width="1.6" stroke-linecap="round"><path d="M11 33Q4 27 6 15"/><path d="M29 33Q36 27 34 15"/></g><g fill="${col}">${[0,1,2,3].map(j=>{const a=.5+j*.42,x=20-15*Math.cos(a)*.95,y=33-14*Math.sin(a);return`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="1.1" ry="2.4" transform="rotate(${-30-j*18} ${x.toFixed(1)} ${y.toFixed(1)})"/><ellipse cx="${(40-x).toFixed(1)}" cy="${y.toFixed(1)}" rx="1.1" ry="2.4" transform="rotate(${30+j*18} ${(40-x).toFixed(1)} ${y.toFixed(1)})"/>`}).join('')}</g>`:'';
+  const ring=R==='e'||R==='l'?`<circle cx="20" cy="19" r="15.5" fill="none" stroke="${col}" stroke-width="1" stroke-dasharray="${R==='l'?'none':'2.2 1.6'}" opacity=".75"/>`:'';
+  const crown=R==='l'?`<path d="M14 2L16.5 5.2L20 -1L23.5 5.2L26 2L25 7.5H15Z" fill="url(#${id})" stroke="#0a0f1e" stroke-width=".6"/>`:'';
+  const nch=R==='c'?1+h%2:R==='r'?2:R==='e'?1:0,chev=[...Array(nch)].map((_,j)=>`<path d="M12 ${36+j*3.6}L20 ${40+j*3.6}L28 ${36+j*3.6}L28 ${38.2+j*3.6}L20 ${42.2+j*3.6}L12 ${38.2+j*3.6}Z"/>`).join('');
+  const ns=R==='c'?h%2:R==='r'?1+h%2:R==='e'?2:3,stars=[...Array(ns)].map((_,j)=>`<circle cx="${(20+(j-(ns-1)/2)*4.6).toFixed(1)}" cy="${R==='l'?44:36+nch*3.6+2.4}" r="1.3"/>`).join('');
+  return`<svg class="cbadge" width="${sz}" height="${Math.round(sz*1.12)}" viewBox="-2 -3 44 50" role="img" aria-label="Insigne de ${esc(i.n)} (${RAR[R].n.toLowerCase()})"><title>${esc(i.n)} · ${RAR[R].n}</title>
+<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".4" stop-color="${col}"/><stop offset="1" stop-color="${col}" stop-opacity=".75"/></linearGradient></defs>
+${ring}${laurel}${wings}${crown}<path d="${BADGE_EMB[i.sp]||BADGE_EMB.att}" fill="url(#${id})" fill-rule="evenodd" stroke="#0a0f1e" stroke-width="1.1"/>
+<circle cx="20" cy="19" r="${R==='c'?1.6:2}" fill="${gem}" stroke="#0a0f1e" stroke-width=".6"/><g fill="url(#${id})" stroke="#0a0f1e" stroke-width=".5">${chev}${stars}</g></svg>`}
 const cmdTag=(uid,id,sz=16)=>{const c=cmdById(uid,id);return c?`<span class="ctag" style="color:${RAR[cmdInfo(c).r].col}">${cmdBadge(c,sz)}${esc(cmdInfo(c).n)}</span>`:''};
 const cmdAvatar0=c=>{const i=cmdInfo(c),col=RAR[i.r].col,ini=i.n.replace(/^(Le |La |L’)/,'').split(/[\s’']+/).filter(w=>w.length>1).slice(-2).map(w=>w[0]).join('').toUpperCase();
   return`<span class="cav" style="--rc:${col}">${esc(ini)}</span>`};
@@ -2437,7 +2439,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='54';
+const APP_VERSION='55';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

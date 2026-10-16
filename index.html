@@ -173,6 +173,8 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 #hg{padding-top:16px}
 #hgc{display:block;width:100%;height:clamp(280px,82vw,460px);touch-action:pan-y;cursor:grab}
 .ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
+.ml.mini.hole{color:#ffb27a;font-size:10px}
+.ml.mini.wk{color:#d9c39a}
 .ml.dim{background:transparent;color:var(--dim);font-size:10px;padding:0 4px}
 .ml.ev{color:var(--warn);outline:1px solid color-mix(in srgb,var(--warn) 55%,transparent)}
 .ml.bad{color:var(--bad);outline-color:var(--bad)}
@@ -185,7 +187,8 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .mplab{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .ml{position:absolute;left:0;top:0;font-family:var(--f-data);font-size:11px;white-space:nowrap;color:var(--ink);background:#0a0f20b0;padding:2px 7px;border-radius:4px;will-change:transform}
 .ml.big{font-family:var(--f-display);font-size:15px;letter-spacing:.06em;text-transform:uppercase}
-.ml.big i{font-style:normal;font-family:var(--f-data);font-size:11px;text-transform:none;letter-spacing:0;color:var(--dim)}
+.ml.big{text-align:center;line-height:1.15}
+.ml.big i{display:block;font-style:normal;font-family:var(--f-data);font-size:9.5px;text-transform:none;letter-spacing:0;color:var(--dim)}
 .ml.me{outline:1px solid var(--brass)}
 .mpnav{position:absolute;top:10px;left:10px;right:110px;display:flex;flex-wrap:wrap;gap:6px}
 .mpnav .tgl{background:color-mix(in srgb,var(--void) 70%,transparent);backdrop-filter:blur(6px)}
@@ -1182,15 +1185,17 @@ function mpPlanetPts(){const pp=MP.pPts,a=pp.geometry.attributes;let n=0;MP.pLis
   pp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
 function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   const evLab=(pid,txt,cls)=>{const s=SYSTEMS[PLANETS[pid].sys];if(s.gal!==MP.gal)return;L.push({w:s.w,cls,h:txt})};
-  if(MP.level==='universe'){for(const D of DEEP){L.push({w:D.m,cls:'ev bad',h:`Trou noir · ${esc(D.hole.name)}`});L.push({w:D.wreck.w,cls:'ev',h:`Épaves · ${esc(D.wreck.name)}`})}GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
-    L.push({w:G.c,cls:'big',h:`${esc(G.name)}${S.players[ME]&&g>unlockedOf(ME)?'<i style="color:#ff7070"> · verrouillée</i>':''}${mine?`<i style="color:${esc(pcolor(ME))}"> ● toi ×${mine}</i>`:''}${riv?`<i> · ${riv} rival${riv>1?'s':''}</i>`:''}${ev.length?`<i style="color:#ffcf6b"> · ${ev.join(', ')}</i>`:''}`})})}
+  if(MP.level==='universe'){for(const D of DEEP){L.push({w:D.m,cls:'mini hole',pr:2,h:`◉ ${esc(D.hole.name)}`});L.push({w:D.wreck.w,cls:'mini wk',pr:3,h:`Épaves · ${esc(D.wreck.name)}`})}GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
+    const sub=[S.players[ME]&&g>unlockedOf(ME)?'<span style="color:#ff7070">verrouillée</span>':'',mine?`<span style="color:${esc(pcolor(ME))}">● toi ×${mine}</span>`:'',riv?`${riv} rival${riv>1?'s':''}`:'',ev.length?`<span style="color:#ffcf6b">${ev.join(', ')}</span>`:''].filter(Boolean).join(' · ');
+    L.push({w:G.c,cls:'big',pr:0,h:`${esc(G.name)}${sub?`<i>${sub}</i>`:''}`})})}
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase==='hold'){if(f.owner===ME)L.push({fl:f,cls:'me',h:'Flotte en position'});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
   else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
-  MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html}}
+  L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
+  MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
   if(MP.level!=='universe')parts.push(`<button class="tgl" data-act="mapgal" data-g="${MP.gal}" aria-pressed="${MP.level==='galaxy'}">${esc(G.name)}</button>`);
   if(MP.level==='system')parts.push(`<button class="tgl" aria-pressed="true">${sysVisible(MP.sys)?esc(SYSTEMS[MP.sys].name):'Inexploré'}</button>`);
@@ -1223,7 +1228,7 @@ function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t
   if(MP.level==='galaxy'&&(MP.lf=(MP.lf||0)+1)%20===0)mpLabels();
   mpFleets(Date.now());
   MP.r.render(MP.scene,MP.cam);
-  const spans=mplab.children;for(let i=0;i<spans.length;i++){const l=MP.labels[i];if(!l)continue;let w=l.w;if(l.o){const v=new THREE.Vector3();l.o.mesh.getWorldPosition(v);w=[v.x,v.y,v.z]}if(l.fl){const fp=fleetPos(l.fl,Date.now());if(fp)w=fp.p}const p=mpProject(w);const el=spans[i];if(!p){el.style.visibility='hidden';continue}el.style.visibility='visible';el.style.transform=`translate(${p[0]|0}px,${p[1]|0}px) translate(-50%,-150%)`}}
+  const spans=mplab.children,placed=[];for(let i=0;i<spans.length;i++){const l=MP.labels[i];if(!l)continue;let w=l.w;if(l.o){const v=new THREE.Vector3();l.o.mesh.getWorldPosition(v);w=[v.x,v.y,v.z]}if(l.fl){const fp=fleetPos(l.fl,Date.now());if(fp)w=fp.p}const p=mpProject(w);const el=spans[i];if(!p){el.style.visibility='hidden';continue}let z=(MP.labSz||(MP.labSz=[]))[i];if(!z||!z[0])z=MP.labSz[i]=[el.offsetWidth,el.offsetHeight];const R=[p[0]-z[0]/2-3,p[1]-z[1]*1.5-2,p[0]+z[0]/2+3,p[1]-z[1]*.5+2];if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])){el.style.visibility='hidden';continue}placed.push(R);el.style.visibility='visible';el.style.transform=`translate(${p[0]|0}px,${p[1]|0}px) translate(-50%,-150%)`}}
 function mpStart(){if(!MP.ok||MP.running)return;MP.running=true;mpSize();MP.last=performance.now();MP.raf=requestAnimationFrame(mpLoop)}
 function mpStop(){if(!MP.running)return;MP.running=false;cancelAnimationFrame(MP.raf)}
 function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpel.hidden=!show;
@@ -1837,7 +1842,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='10';
+const APP_VERSION='11';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

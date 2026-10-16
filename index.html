@@ -185,6 +185,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .stbl{width:100%;border-collapse:collapse;font-size:12.5px}.stbl th{font-weight:500;font-size:11px;color:var(--dim);text-align:right;padding:4px 3px 6px;text-transform:uppercase;letter-spacing:0}.stbl td{text-align:right;padding:5px 3px;border-top:1px solid #ffffff12;font-family:var(--f-data);font-variant-numeric:tabular-nums}.stbl td:first-child{text-align:left;font-family:var(--f-body)}.stbl td.own{color:var(--ink);font-weight:600}.stbl td.best{color:var(--brass);font-weight:600}.stbl tr.locked td{opacity:.45}
 .shiphd.sm{gap:6px;font-size:13px}.shiphd.sm .shipico{width:28px;height:28px;padding:2px;border-radius:7px}
 .mppl{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.who{flex-wrap:wrap}.emp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:10px;font-size:12.5px;color:var(--dim)}.emp b{color:var(--ink)}.empcu{display:grid;gap:3px;min-width:150px}.empcu .prog{height:4px}
 .trrow{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;align-items:center}.trrow input,.trrow select{min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font:inherit}
 .ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
 .ml.mini.hole{color:#ffb27a;font-size:10px}
@@ -1226,12 +1227,15 @@ function renderJoin(){
 }
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
-  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b></div>`:`<div class="who">Mode spectateur</div>`}`;
+  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
+function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME);let left=cu,k=0;while(k<MAXP-np&&left>=Math.round(40*Math.pow(Math.max(1,np+k),1.6))){left-=Math.round(40*Math.pow(Math.max(1,np+k),1.6));k++}
+  const cost=cultureCost(ME),pc=np>=MAXP?100:Math.min(100,cu/cost*100);
+  return`<span class="emp"><span title="Planètes">🪐 <b>${np}</b>/${MAXP}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Culture pour la prochaine planète"><span>${np>=MAXP?'Planètes au maximum':`${k?`<b style="color:var(--good)">+${k} planète${k>1?'s':''} possible${k>1?'s':''}</b> · `:''}culture <b>${fmt(cu)}</b>/${fmt(cost)}`}</span><span class="prog"><b style="width:${pc}%"></b></span></span></span>`}
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length,qr=joined?questReady():0;badgeSeen(S.tab);
   const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['players','Joueurs'],['news','Actus'],['quests','Quêtes'],['log','Journal']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
   document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:k==='quests'&&qr?`<span class="n">${qr}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
@@ -2287,7 +2291,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='45';
+const APP_VERSION='46';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

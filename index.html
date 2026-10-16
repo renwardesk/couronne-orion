@@ -189,6 +189,8 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .cav{display:inline-grid;place-items:center;width:38px;height:38px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--rc) 55%,#fff 0%),#10172c 75%);border:2px solid var(--rc);font-family:var(--f-display);font-size:13px;color:#fff;letter-spacing:.03em}
 .cmdc{border-left:3px solid var(--rc)}.chests{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}.chest{display:grid;justify-items:center;gap:4px;padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:#0d1428;text-align:center;font-size:13px}.chico{font-size:28px;color:var(--cc);line-height:1}
 .chestwin{display:grid;gap:6px;border-color:var(--rc);box-shadow:0 0 24px color-mix(in srgb,var(--rc) 35%,transparent)}.chestwin span{display:flex;align-items:center;gap:8px}
+.flagpick{display:grid;gap:4px;text-align:left;width:100%;font:inherit;color:inherit;background:var(--panel);cursor:pointer}.flagpick[aria-pressed="true"]{outline:1px solid var(--rc)}
+.ml i.sub2{display:block;font-style:normal;font-size:8px;color:#d9c39a;text-align:center;line-height:1.1;opacity:.9}
 .trrow{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;align-items:center}.trrow input,.trrow select{min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font:inherit}
 .ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
 .ml.mini.hole{color:#ffb27a;font-size:10px}
@@ -772,12 +774,13 @@ function cmdCard(x){const i=cmdInfo(x),lv=cmdLvl(x.xp),nx=cmdNext(lv),busy=Objec
   return`<div class="item cmdc" style="--rc:${RAR[i.r].col}"><div class="ihead"><span class="shiphd">${cmdAvatar(x)}<span><b>${esc(i.n)}</b><br><small style="color:var(--rc)">${RAR[i.r].n} · ${SPEC[i.sp].n}</small></span></span><span class="lv">niv. ${lv}${lv>=CMD_LMAX?' (max)':''}</span></div>
     <span class="prog"><b style="width:${pc}%"></b></span><div class="eff">${SPEC[i.sp].d(cmdSpecVal(x))} · +${lv*2} % att · +${(lv*1.5).toFixed(1)} % PV</div>
     <div class="foot"><span class="eff">${fmt(x.xp||0)}${lv<CMD_LMAX?` / ${fmt(nx)}`:''} XP · ${hurt?`<b style="color:var(--bad)">blessé, <span class="cd" data-cd="${x.inj}"></span></b>`:busy?'<b style="color:var(--warn)">en mission</b>':'<b style="color:var(--good)">disponible</b>'}</span>${lv<CMD_LMAX?`<button class="btn ghost sm" data-act="cmdtrain" data-c="${x.id}" ${ins>=1?'':'disabled'}>Entraîner (1 insigne)</button>`:''}</div></div>`}
+function flagKey(){const L=cmdsOf(ME).filter(c=>c.key&&CMDK[c.key]);if(!L.length)return null;return(S.hflag&&L.some(c=>c.key===S.hflag))?S.hflag:L.sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r))[0].key}
 function flagHtml(){const L=cmdsOf(ME),FM={c:1,r:1.3,e:1.7,l:2.2};
   return`<section style="display:grid;gap:10px"><h1>Hangar</h1><div class="chips">${[...Object.keys(SLOTS),'flag'].map(k=>`<button class="chip" data-act="hcls" data-c="${k}" aria-pressed="${k==='flag'}">${UNIT[k].n}</button>`).join('')}</div>
   <div class="card" style="display:grid;gap:6px"><b>Vaisseau amiral</b><span class="eff">Chaque commandant embarque sur son propre vaisseau amiral, qui part avec la flotte qu’il dirige. Il ne se construit pas et ne prend pas de place dans les Hangars. S’il est détruit, le commandant est blessé.</span>
   <table class="stbl"><thead><tr><th></th><th>Att</th><th>PV</th></tr></thead><tbody>${['c','r','e','l'].map(r=>`<tr><td style="color:${RAR[r].col}">${RAR[r].n}</td><td>${Math.round(UNIT.flag.att*FM[r])}</td><td>${Math.round(UNIT.flag.hp*FM[r])}</td></tr>`).join('')}</tbody></table>
   <span class="eff" style="font-size:12px">À comparer : cuirassé ${SHIPS.battleship.att} att · ${SHIPS.battleship.hp} PV. Les niveaux du commandant renforcent aussi son vaisseau.</span></div>
-  ${L.length?`<div class="list">${L.map(c=>{const i=cmdInfo(c),lv=cmdLvl(c.xp),f=FM[i.r]*(1+.02*lv),h=FM[i.r]*(1+.015*lv);return`<div class="item cmdc" style="--rc:${RAR[i.r].col}"><div class="ihead"><span class="shiphd">${cmdAvatar(c)}<b>${esc(i.n)}</b></span><span class="lv">${Math.round(UNIT.flag.att*f)} att · ${Math.round(UNIT.flag.hp*h)} PV</span></div></div>`}).join('')}</div>`:'<p class="empty">Ouvre ton coffre de départ (onglet Flottes) pour obtenir ton premier commandant.</p>'}</section>`}
+  ${L.length?`<div class="list">${L.map(c=>{const i=cmdInfo(c),lv=cmdLvl(c.xp),f=FM[i.r]*(1+.02*lv),h=FM[i.r]*(1+.015*lv);return`<button class="item cmdc flagpick" data-act="hflag" data-k="${c.key||''}" aria-pressed="${c.key&&c.key===flagKey()}" style="--rc:${RAR[i.r].col}"><div class="ihead"><span class="shiphd">${cmdAvatar(c)}<b>${esc(i.n)}</b></span><span class="lv">${Math.round(UNIT.flag.att*f)} att · ${Math.round(UNIT.flag.hp*h)} PV</span></div><span class="eff">${c.key?(c.key===flagKey()?'Affiché dans le hangar 3D ci-dessus':'Touche pour voir son vaisseau'):'Vaisseau standard'}</span></button>`}).join('')}</div>`:'<p class="empty">Ouvre ton coffre de départ (onglet Flottes) pour obtenir ton premier commandant.</p>'}</section>`}
 function cmdsHtml(){const pl=S.players[ME];if(!pl)return'';const L=cmdsOf(ME),ch=chestsOf(ME),ins=insOf(ME),list=[...(pl.starter?[]:[['st',1]]),...['b','s','g'].filter(t=>ch[t]>0).map(t=>[t,ch[t]])],show=S.chestShow;S.chestShow=null;
   const owned=Object.values(S.events).filter(e=>e.id&&e.id.startsWith('cm-')&&e.owner).length;
   return`<section style="display:grid;gap:10px"><h2>Commandants</h2><p class="meta" style="margin:0">Un commandant par flotte, choisi au moment de l’envoyer. Chaque commandant est <b>unique dans l’univers</b> : celui qui le trouve le garde pour toujours. Ils se gagnent dans des coffres. Si sa flotte est anéantie, il est blessé quelques heures. (${owned}/${CMDDB.length} commandants déjà trouvés.)</p>
@@ -1649,7 +1652,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   if(MP.level==='universe'){for(const D of DEEP){L.push({w:D.m,cls:'mini hole',pr:2,h:`◉ ${esc(D.hole.name)}`});L.push({w:D.wreck.w,cls:'mini wk',pr:3,h:`Épaves · ${esc(D.wreck.name)}`})}GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
     const sub=[S.players[ME]&&g>unlockedOf(ME)?'<span style="color:#ff7070">verrouillée</span>':'',mine?`<span style="color:${esc(pcolor(ME))}">● toi ×${mine}</span>`:'',riv?`${riv} rival${riv>1?'s':''}`:'',ev.length?`<span style="color:#ffcf6b">${ev.join(', ')}</span>`:''].filter(Boolean).join(' · ');
     L.push({w:G.c,cls:'big',pr:0,h:`${esc(G.name)}${sub?`<i>${sub}</i>`:''}`})})}
-  else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>`:''}`})}
+  else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>${cmdsOf(capP.owner).length?`<i class="sub2">🎖 ${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>esc(cmdInfo(c).n)).join(' · ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
@@ -1743,6 +1746,7 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='chest')openChest(b.dataset.t);
   else if(a==='cmdtrain')trainCmd(b.dataset.c);
+  else if(a==='hflag'){if(b.dataset.k){S.hflag=b.dataset.k;render();window.scrollTo({top:0,behavior:'smooth'})}}
   else if(a==='ins2chest')insToChest();
   else if(a==='srsend')sendRes();
   else if(a==='notif')askNotif();
@@ -2032,6 +2036,27 @@ function weaponMesh(w,M){const e=new THREE.MeshStandardMaterial({color:WCOL[w],e
   if(w==='plasma'){const g2=grp(dome(.024,.016,M.dark));for(const a of[0,Math.PI/2]){const arc=mk(new THREE.TorusGeometry(.024,.003,6,20,Math.PI),M.metal,.03);arc.rotation.y=a;g2.add(arc)}g2.add(mk(geoS(.017,16,12),e,.032),mk(geoS(.007,8,6),M.win,.032));return g2}
   if(w==='armor'){const a=mk(plate([[.05,0],[.035,.03],[-.04,.03],[-.05,0],[-.04,-.03],[.035,-.03]],.006),M.metal,.006),b=mk(plate([[.03,0],[.02,.018],[-.03,.018],[-.035,0],[-.03,-.018],[.02,-.018]],.005),M.dark,.014);return grp(a,b,mk(geoB(.06,.002,.004),M.trim,.017))}
   return grp(dome(.02,.02,M.trim),mk(new THREE.TorusGeometry(.024,.0025,6,24),M.metal,.006),mk(geoC(.003,.003,.03,6),M.metal,.035),mk(geoS(.006,8,6),e,.052))}
+// vaisseau amiral unique, généré à partir de l'identité du commandant
+function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;const r=rng(hash('flag:'+key)),M=shipMats(pt),g2=new THREE.Group(),spins=[],add=(...o)=>o.forEach(x=>g2.add(x));
+  const col=new THREE.Color(RAR[C.r].col),acc=new THREE.MeshStandardMaterial({color:col,metalness:.85,roughness:.28,emissive:col,emissiveIntensity:.3});
+  const L=.6+r()*.32+(C.r==='l'?.12:C.r==='e'?.06:0),W=.055+r()*.035+(C.sp==='hp'?.02:0)-(C.sp==='spd'?.012:0),arch=Math.floor(r()*5);
+  const hull=(l,w,x=0,z=0,m=M.hullF,seg=8)=>add(mk(latheX([[0,-l/2],[w*.9,-l/2],[w,-l*.18],[w*.75,l*.22],[w*.28,l*.42],[0,l/2]],seg),m,0,x,z));
+  if(arch===0)hull(L,W);
+  else if(arch===1){hull(L,W*1.35,0,0,M.hull,10);for(const z of[-1,1])add(cylX(W*.45,W*.45,L*.55,M.panel,-L*.08,0,z*W*1.6))}
+  else if(arch===2){add(mk(new THREE.CylinderGeometry(W*2.4,W*2.8,W*.55,28),M.hull,0,-L*.12));add(mk(new THREE.TorusGeometry(W*2.6,W*.12,6,40),acc,0,-L*.12).rotateX(Math.PI/2));hull(L*.8,W*.7,L*.12)}
+  else if(arch===3){hull(L,W*.9);for(const z of[-1,1])hull(L*.72,W*.55,-L*.06,z*W*2.8,M.hull,6);for(const z of[-1,1])add(mk(geoB(L*.25,W*.2,W*2.2),M.panel,0,-L*.12,z*W*1.4))}
+  else{hull(L*.9,W);add(mk(plate([[L*.35,0],[-L*.1,W*3.2],[-L*.45,W*3.4],[-L*.4,0],[-L*.45,-W*3.4],[-L*.1,-W*3.2]],.014),M.panel,0))}
+  const wp=r()<.3?0:r()<.6?1:2;for(let i=0;i<wp;i++){const x0=-L*(.05+i*.18),sp=W*(2.4+r()*1.6),sw=L*(.18+r()*.12);
+    add(mk(plate([[x0+sw*.4,0],[x0-sw*.4,sp],[x0-sw,sp],[x0-sw*.8,0],[x0-sw,-sp],[x0-sw*.4,-sp]],.012),i?M.panel:M.hull,i*.012));add(mk(geoB(sw*.5,.006,.01),acc,.008+i*.012,x0-sw*.6,sp*.92),mk(geoB(sw*.5,.006,.01),acc,.008+i*.012,x0-sw*.6,-sp*.92))}
+  const ne=C.sp==='spd'?4:2+Math.floor(r()*3);for(let i=0;i<ne;i++){const z=(i-(ne-1)/2)*W*.9;add(cylX(W*.32,W*.38,.05,M.metal,-L/2-.02,0,z),cylX(W*.3,W*.3,.004,M.glow,-L/2-.047,0,z))}
+  add(mk(plate([[-.02,0],[-L*.08,W*.6],[-L*.25,W*.6],[-L*.3,0],[-L*.25,-W*.6],[-L*.08,-W*.6]],.04),M.hullF,W*.95,-L*.05));add(mk(geoB(.004,.012,W*.9),M.win,W*1.2,-L*.06));
+  add(mk(geoB(L*.5,.005,.006),acc,W*.72,-L*.04,W*.62),mk(geoB(L*.5,.005,.006),acc,W*.72,-L*.04,-W*.62));
+  if(r()<.55||C.r==='l'){const fin=mk(plate([[0,0],[-L*.18,0],[-L*.26,.0]],.01),acc);const f2=mk(geoB(L*.16,W*1.4,.008),acc,W*1.6,-L*.3);add(f2)}
+  if(C.sp==='pirates'||r()<.25)for(let i=0;i<4;i++){const sp=mk(new THREE.ConeGeometry(.008,.05,5),acc,0,L*(.1-i*.12),W*1.05*(i%2?1:-1));sp.rotation.x=(i%2?1:-1)*Math.PI/2;add(sp)}
+  if(C.r==='l'||C.r==='e'||r()<.2){const ring=mk(new THREE.TorusGeometry(W*2.4,.007,8,48),acc,0,-L*.15);ring.rotation.y=Math.PI/2;add(ring);spins.push({o:ring,ax:'x',sp:.7+r()})}
+  if(C.r==='l'){const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.35}));halo.scale.set(L*1.6,L*1.6,1);add(halo)}
+  for(let i=0;i<8;i++)add(mk(geoB(.012+r()*.02,.006+r()*.008,.01+r()*.02),M.dark,W*.8,(r()-.5)*L*.6,(r()-.5)*W*1.2));
+  g2.userData.spins=spins;return g2}
 function buildShip(type,pt,lo){if(type==='flag'){const b=buildShip('battleship',pt,null);b.scale.setScalar(1.25);const gold=new THREE.MeshStandardMaterial({color:0xffcf6b,metalness:.9,roughness:.25,emissive:0x6a4a10,emissiveIntensity:.6});
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.13,.008,8,48),gold);ring.rotation.y=Math.PI/2;ring.position.x=-.05;b.add(ring);b.userData.spins.push({o:ring,ax:'x',sp:.8});
     for(const z of[-.1,.1]){const fin=new THREE.Mesh(new THREE.BoxGeometry(.22,.012,.05),gold);fin.position.set(-.05,.06,z);b.add(fin)}
@@ -2150,11 +2175,11 @@ function hgInit(){if(HG.tried)return HG.ok;HG.tried=true;if(!window.THREE)return
     window.addEventListener('resize',hgSize);document.addEventListener('visibilitychange',()=>{if(document.hidden)hgStop();else if(!hgel.hidden)hgStart()});
   }catch(e){HG.ok=false}return HG.ok}
 function hgSize(){if(!HG.ok)return;const w=hgc.clientWidth,h=hgc.clientHeight;if(!w||!h)return;HG.r.setSize(w,h,false);HG.cam.aspect=w/h;HG.cam.updateProjectionMatrix();if(HG.comp){HG.comp.setPixelRatio(HG.r.getPixelRatio());HG.comp.setSize(w,h)}}
-function hgUpdate(){if(!HG.ok)return;const cls=S.hcls,pt=paintOf(ME),lo=loadoutOf(S.players[ME])[cls]||[];const sig=JSON.stringify([cls,pt,lo]);
-  document.getElementById('hgcap').innerHTML=cls==='flag'?'<b>Vaisseau amiral</b> · réservé aux commandants':`<b>${esc(SHIPS[cls].n)}</b> · ${lo.filter(Boolean).length}/${SLOTS[cls]} arme${SLOTS[cls]>1?'s':''} montée${SLOTS[cls]>1?'s':''}`;
+function hgUpdate(){if(!HG.ok)return;const cls=S.hcls,pt=paintOf(ME),lo=loadoutOf(S.players[ME])[cls]||[];const sig=JSON.stringify([cls,pt,lo,cls==='flag'?flagKey():0]);
+  document.getElementById('hgcap').innerHTML=cls==='flag'?`<b>Vaisseau amiral</b> · ${flagKey()?esc(CMDK[flagKey()].n):'réservé aux commandants'}`:`<b>${esc(SHIPS[cls].n)}</b> · ${lo.filter(Boolean).length}/${SLOTS[cls]} arme${SLOTS[cls]>1?'s':''} montée${SLOTS[cls]>1?'s':''}`;
   if(sig===HG.sig)return;const fresh=HG.ship&&JSON.parse(HG.sig)[0]!==cls;HG.sig=sig;
   if(HG.ship){HG.stage.remove(HG.ship);v3Clear(HG.ship)}const sc={fighter:7.5,cruiser:5.2,battleship:3.3,colony:5.2,flag:2.6}[cls];
-  const s=buildShip(cls,pt,lo);s.scale.setScalar(sc);s.position.y=.08;HG.ship=s;HG.spins=s.userData.spins;HG.shield=s.userData.shield||null;HG.stage.add(s);HG.t0=performance.now();if(fresh)HG.dist=5.5}
+  const fk=cls==='flag'?flagKey():null,s=(fk&&buildFlag(fk,pt))||buildShip(cls,pt,lo);s.scale.setScalar(fk?3.4:sc);s.position.y=.08;HG.ship=s;HG.spins=s.userData.spins;HG.shield=s.userData.shield||null;HG.stage.add(s);HG.t0=performance.now();if(fresh)HG.dist=5.5}
 function hgLoop(t){HG.raf=requestAnimationFrame(hgLoop);const dt=Math.min(.05,(t-HG.last)/1000||0);HG.last=t;const k=RM?.3:1;
   if(!HG.drag)HG.rotY+=dt*.25*k;HG.dist+=(HG.distT-HG.dist)*Math.min(1,dt*3);
   const cp=Math.cos(HG.rotX);HG.cam.position.set(Math.sin(HG.rotY)*HG.dist*cp,Math.sin(HG.rotX)*HG.dist+.1,Math.cos(HG.rotY)*HG.dist*cp);HG.cam.lookAt(0,.05,0);
@@ -2353,7 +2378,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='48';
+const APP_VERSION='49';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

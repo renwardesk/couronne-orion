@@ -1482,7 +1482,7 @@ function mpData(){if(!MP.ok)return;
   if(sig!==MP.dataSig){MP.dataSig=sig;const a=MP.sysPts.geometry.attributes;
     SYSTEMS.forEach((s,i)=>{const vz=sysVisible(i),os=vz?owners[i]:null,mine=os&&os.has(ME),cur=s.gal===MP.gal&&MP.level!=='universe';let col=cur?[.62,.74,1]:[.42,.5,.78],sz=cur?8:3,rg=cur?1:0;if(!vz){col=cur?[.3,.32,.44]:[.26,.28,.38];sz=cur?4.5:2.5;rg=0}
       if(os){const o=mine?ME:[...os][0];col=hex2rgb(pcolor(o));sz=cur?(mine?15:12):(mine?7:5);rg=cur?2:(mine?1:0)}
-      if(i===MP.sys){sz=17;rg=2;if(!os)col=[1,.8,.5]}a.color.array.set(col,i*3);a.sz.array[i]=sz;a.rg.array[i]=rg});
+      if(MP.level==='system'&&i!==MP.sys){rg=0;sz=Math.min(sz,2.5)}if(i===MP.sys){sz=17;rg=2;if(!os)col=[1,.8,.5]}a.color.array.set(col,i*3);a.sz.array[i]=sz;a.rg.array[i]=rg});
     a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true;
     mpPlanetPts();mpFog();
     if(MP.level==='system'&&MP.sys!=null)mpBuildSystem(MP.sys)}
@@ -1539,7 +1539,7 @@ function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t
   const d=MP.dist,cp=Math.cos(MP.pitch);MP.cam.position.set(MP.tgt[0]+d*cp*Math.sin(MP.yaw),MP.tgt[1]+d*Math.sin(MP.pitch),MP.tgt[2]+d*cp*Math.cos(MP.yaw));MP.cam.lookAt(MP.tgt[0],MP.tgt[1],MP.tgt[2]);
   for(const o of MP.orbs)o.piv.rotation.y+=dt*o.sp*k;
   if(MP.sysDisk)MP.sysDisk.rotation.z-=dt*.6*k;for(const x of MP.deepFx||[]){if(x.disk)x.disk.rotation.z-=dt*.25*k;if(x.belt)x.belt.rotation.y+=dt*.02*k;deepFade(x)}
-  const op=MP.level==='universe'?1:MP.level==='galaxy'?.32:.22;MP.clouds.forEach((c,g)=>{c.material.uniforms.op.value=(MP.level==='universe'||g===MP.gal)?op:Math.min(1,op*1.8)});MP.pPts.material.uniforms.op.value=MP.level==='universe'?0:Math.max(0,Math.min(1,(110-MP.dist)/60));
+  const op=MP.level==='universe'?1:MP.level==='galaxy'?.32:.22;MP.clouds.forEach((c,g)=>{c.material.uniforms.op.value=(MP.level==='universe'||g===MP.gal)?op:Math.min(1,op*1.8)});MP.pPts.material.uniforms.op.value=MP.level!=='galaxy'?0:Math.max(0,Math.min(1,(110-MP.dist)/60));
   if(MP.level==='galaxy'&&(MP.lf=(MP.lf||0)+1)%20===0)mpLabels();
   mpFleets(Date.now());
   MP.r.render(MP.scene,MP.cam);
@@ -2169,7 +2169,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='30';
+const APP_VERSION='31';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

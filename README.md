@@ -30,3 +30,7 @@ Mot de passe oublié : Supabase → Authentication → Users → retrouve `pseud
 ## Publier une mise à jour
 
 Avant chaque envoi sur GitHub, lancer `./bump.sh` : il augmente le numéro de version (`version.json`, `index.html`, `sw.js`). Les joueurs connectés détectent la nouvelle version en moins de 2 minutes (ou dès qu'ils rouvrent l'appli), sont déconnectés et l'appli se recharge proprement.
+
+## Modèles 3D
+
+Les vaisseaux 3D (dossier `models/`) viennent du pack « Ultimate Spaceships » de Quaternius (quaternius.com), sous licence CC0. Ils ont été convertis depuis github.com/Malcolmnixon/Quaternius-Ultimate-Spaceships-Pack.

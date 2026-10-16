@@ -1960,7 +1960,7 @@ function v3Init(){if(V3.tried)return V3.ok;V3.tried=true;if(!window.THREE)return
     window.addEventListener('resize',v3Size);document.addEventListener('visibilitychange',()=>{if(document.hidden)v3Stop();else if(!v3el.hidden)v3Start()});
   }catch(e){V3.ok=false}return V3.ok}
 function v3Size(){if(!V3.ok)return;const w=v3c.clientWidth,h=v3c.clientHeight;if(!w||!h)return;V3.r.setSize(w,h,false);V3.cam.aspect=w/h;V3.cam.updateProjectionMatrix();if(V3.comp){V3.comp.setPixelRatio(V3.r.getPixelRatio());V3.comp.setSize(w,h)}}
-function v3Clear(o){while(o.children.length){const c=o.children[0];o.remove(c);c.traverse(x=>{if(x.geometry)x.geometry.dispose();if(x.material)(Array.isArray(x.material)?x.material:[x.material]).forEach(m=>{if(!m.userData.shared){if(m.map)m.map.dispose();m.dispose()}})})}}
+function v3Clear(o){while(o.children.length){const c=o.children[0];o.remove(c);c.traverse(x=>{if(x.geometry&&!x.geometry.userData.shared)x.geometry.dispose();if(x.material)(Array.isArray(x.material)?x.material:[x.material]).forEach(m=>{if(!m.userData.shared){if(m.map)m.map.dispose();m.dispose()}})})}}
 function fib(N){const out=[],ga=Math.PI*(3-Math.sqrt(5));for(let i=0;i<N;i++){const y=1-(i+.5)/N*2,r=Math.sqrt(1-y*y),t=ga*i;out.push(new THREE.Vector3(Math.cos(t)*r,y,Math.sin(t)*r))}return out}
 
 function buildPlanet(pid){if(isBody(pid))return buildBody(pid);const t=PLANETS[pid].type,cfg=TYPE3D[t],o=offOf(pid),G=new THREE.Group();
@@ -2037,7 +2037,7 @@ function weaponMesh(w,M){const e=new THREE.MeshStandardMaterial({color:WCOL[w],e
   if(w==='armor'){const a=mk(plate([[.05,0],[.035,.03],[-.04,.03],[-.05,0],[-.04,-.03],[.035,-.03]],.006),M.metal,.006),b=mk(plate([[.03,0],[.02,.018],[-.03,.018],[-.035,0],[-.03,-.018],[.02,-.018]],.005),M.dark,.014);return grp(a,b,mk(geoB(.06,.002,.004),M.trim,.017))}
   return grp(dome(.02,.02,M.trim),mk(new THREE.TorusGeometry(.024,.0025,6,24),M.metal,.006),mk(geoC(.003,.003,.03,6),M.metal,.035),mk(geoS(.006,8,6),e,.052))}
 // vaisseau amiral unique, généré à partir de l'identité du commandant
-function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;const r=rng(hash('flag:'+key)),M=shipMats(pt),g2=new THREE.Group(),spins=[],add=(...o)=>o.forEach(x=>g2.add(x));
+function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;{if(!SHIPLIB.init)shipLibInit();const mf=modelFlag(key,pt);if(mf)return mf}const r=rng(hash('flag:'+key)),M=shipMats(pt),g2=new THREE.Group(),spins=[],add=(...o)=>o.forEach(x=>g2.add(x));
   const col=new THREE.Color(RAR[C.r].col),acc=new THREE.MeshStandardMaterial({color:col,metalness:.85,roughness:.28,emissive:col,emissiveIntensity:.3});
   const L=.6+r()*.32+(C.r==='l'?.12:C.r==='e'?.06:0),W=.055+r()*.035+(C.sp==='hp'?.02:0)-(C.sp==='spd'?.012:0),arch=Math.floor(r()*5);
   const hull=(l,w,x=0,z=0,m=M.hullF,seg=8)=>add(mk(latheX([[0,-l/2],[w*.9,-l/2],[w,-l*.18],[w*.75,l*.22],[w*.28,l*.42],[0,l/2]],seg),m,0,x,z));
@@ -2057,7 +2057,7 @@ function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;const r=rng(hash(
   if(C.r==='l'){const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.35}));halo.scale.set(L*1.6,L*1.6,1);add(halo)}
   for(let i=0;i<8;i++)add(mk(geoB(.012+r()*.02,.006+r()*.008,.01+r()*.02),M.dark,W*.8,(r()-.5)*L*.6,(r()-.5)*W*1.2));
   g2.userData.spins=spins;return g2}
-function buildShip(type,pt,lo){if(type==='flag'){const b=buildShip('battleship',pt,null);b.scale.setScalar(1.25);const gold=new THREE.MeshStandardMaterial({color:0xffcf6b,metalness:.9,roughness:.25,emissive:0x6a4a10,emissiveIntensity:.6});
+function buildShipP(type,pt,lo){if(type==='flag'){const b=buildShip('battleship',pt,null);b.scale.setScalar(1.25);const gold=new THREE.MeshStandardMaterial({color:0xffcf6b,metalness:.9,roughness:.25,emissive:0x6a4a10,emissiveIntensity:.6});
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.13,.008,8,48),gold);ring.rotation.y=Math.PI/2;ring.position.x=-.05;b.add(ring);b.userData.spins.push({o:ring,ax:'x',sp:.8});
     for(const z of[-.1,.1]){const fin=new THREE.Mesh(new THREE.BoxGeometry(.22,.012,.05),gold);fin.position.set(-.05,.06,z);b.add(fin)}
     const crown=new THREE.Mesh(new THREE.ConeGeometry(.02,.06,5),gold);crown.position.set(.05,.15,0);b.add(crown);const g0=new THREE.Group();g0.add(b);g0.userData.spins=b.userData.spins;return g0}const M=shipMats(pt),spins=[],g2=new THREE.Group(),add=(...o)=>o.forEach(x=>g2.add(x));
@@ -2111,10 +2111,44 @@ function buildShip(type,pt,lo){if(type==='flag'){const b=buildShip('battleship',
   if(lo&&lo.includes('shield')){const L={fighter:.32,cruiser:.5,battleship:.88,colony:.48}[type];const sh=new THREE.Mesh(new THREE.SphereGeometry(.5,32,20),atmMat(0x5fd4ff,2.2,.55));sh.scale.set(L,L*.55,L*.62);g2.add(sh);g2.userData.shield=sh}
   g2.userData.spins=spins;return g2}
 
+// ---------- modèles 3D (Quaternius « Ultimate Spaceships », licence CC0) ----------
+const SHIPLIB={meta:null,init:false,geo:{},tex:{},mat:{},loading:{},ver:0,proto:{}};
+const SHIPMODEL={fighter:'striker',cruiser:'challenger',battleship:'imperial',colony:'pancake'};
+const TEXCOLS={blue:[80,130,255],red:[230,70,70],green:[90,200,110],orange:[240,160,60],purple:[170,90,240]};
+function texColorFor(pt){const c=new THREE.Color((pt&&pt.trim)||'#5ec8ff'),r=c.r*255,g=c.g*255,b=c.b*255;let best='blue',bd=1e9;for(const k in TEXCOLS){const[x,y,z]=TEXCOLS[k],d=(x-r)**2+(y-g)**2+(z-b)**2;if(d<bd){bd=d;best=k}}return best}
+function shipLibBump(){SHIPLIB.ver++;try{if(S.tab==='hangar')hgUpdate()}catch(e){}try{if(V3.running&&S.sel)v3Update(view(S.sel))}catch(e){}}
+async function shipLibInit(){if(SHIPLIB.init||!window.THREE)return;SHIPLIB.init=true;try{SHIPLIB.meta=await(await fetch('models/ships.json')).json();const col=texColorFor(typeof ME!=='undefined'?paintOf(ME):null);for(const t in SHIPMODEL){loadModel(SHIPMODEL[t]);loadTex(SHIPMODEL[t],col)}}catch(e){SHIPLIB.meta=null}}
+async function loadModel(n){if(!SHIPLIB.meta||!SHIPLIB.meta[n]||SHIPLIB.geo[n]||SHIPLIB.loading[n])return;SHIPLIB.loading[n]=1;
+  try{const buf=await(await fetch('models/'+n+'.bin')).arrayBuffer(),u=new Uint32Array(buf,0,2),nv=u[0],ni=u[1];
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buf,8,nv*3).slice(),3));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(buf,8+nv*12,nv*2).slice(),2));g.setIndex(new THREE.BufferAttribute(new Uint16Array(buf,8+nv*20,ni).slice(),1));
+    g.rotateY(Math.PI/2);g.computeBoundingBox();const c=new THREE.Vector3();g.boundingBox.getCenter(c);g.translate(-c.x,-c.y,-c.z);g.computeVertexNormals();g.computeBoundingBox();
+    const sz=new THREE.Vector3();g.boundingBox.getSize(sz);g.userData={shared:true,len:Math.max(sz.x,sz.z*.9),exh:(SHIPLIB.meta[n].exh||[]).map(([x,y,z,s])=>[z-c.x,y-c.y,-x-c.z,s])};SHIPLIB.geo[n]=g;shipLibBump()}catch(e){SHIPLIB.loading[n]=0}}
+function loadTex(n,col){const k=n+'_'+col;if(SHIPLIB.tex[k]||SHIPLIB.loading['t'+k])return;SHIPLIB.loading['t'+k]=1;
+  new THREE.TextureLoader().load('models/'+k+'.jpg',t=>{t.flipY=false;t.anisotropy=4;SHIPLIB.tex[k]=t;shipLibBump()},undefined,()=>{SHIPLIB.loading['t'+k]=0})}
+function libGlow(hex,op){const k=hex+op;let m=SHIPLIB.mat['g'+k];if(!m){if(!SHIPLIB.glow)SHIPLIB.glow=glowTex();m=SHIPLIB.mat['g'+k]=new THREE.SpriteMaterial({map:SHIPLIB.glow,color:new THREE.Color('#'+hex),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:op});m.userData.shared=true}return m}
+function protoLen(type){if(SHIPLIB.proto[type])return SHIPLIB.proto[type];const s=buildShipP(type,paintOf(null),null),b=new THREE.Box3().setFromObject(s),v=new THREE.Vector3();b.getSize(v);v3Clear(s);return SHIPLIB.proto[type]=v.x||.6}
+function modelShip(n,col,len,pt){const g=SHIPLIB.geo[n];if(!g){loadModel(n);return null}const k=n+'_'+col,t=SHIPLIB.tex[k];if(!t){loadTex(n,col);return null}
+  let m=SHIPLIB.mat[k];if(!m){m=SHIPLIB.mat[k]=new THREE.MeshStandardMaterial({map:t,metalness:.2,roughness:.55});m.userData.shared=true}
+  const grp=new THREE.Group(),mesh=new THREE.Mesh(g,m),sc=len/(g.userData.len||1);mesh.scale.setScalar(sc);grp.add(mesh);
+  const gc=new THREE.Color((pt&&pt.glow)||'#7fe8ff');for(const[x,y,z,s]of g.userData.exh){const sp=new THREE.Sprite(libGlow(gc.getHexString(),.85));sp.position.set((x-.25)*sc,y*sc,z*sc);sp.scale.setScalar(Math.max(.4,s)*sc*1.6);grp.add(sp)}
+  grp.userData.spins=[];grp.userData.model=n;return grp}
+// chaque commandant reçoit une combinaison unique de modèle et de couleurs
+const FLAGM=(()=>{const pools={c:['dispatcher','bob','striker','spitfire','zenith'],r:['challenger','insurgent','zenith','spitfire','dispatcher'],e:['executioner','omen','pancake','insurgent'],l:['imperial','omen','executioner','challenger']},cols=Object.keys(TEXCOLS),used=new Set(),o={};
+  for(const[k,,r]of CMDDB){const P=pools[r],h=hash('fm'+k);for(let t=0;t<80;t++){const m=P[(h+t)%P.length],c=cols[(Math.floor(h/7)+Math.floor(t/P.length))%5],key=m+'_'+c;if(!used.has(key)){used.add(key);o[k]={m,c};break}}}return o})();
+function modelFlag(key,pt){const F=FLAGM[key],C=CMDK[key];if(!F||!C)return null;const L=protoLen('battleship')*({c:.8,r:.88,e:.96,l:1.05}[C.r]),s=modelShip(F.m,F.c,L,pt);if(!s)return null;
+  const col=new THREE.Color(RAR[C.r].col);if(C.r==='e'||C.r==='l'){const ring=new THREE.Mesh(new THREE.TorusGeometry(L*.24,L*.01,8,56),new THREE.MeshStandardMaterial({color:col,metalness:.9,roughness:.25,emissive:col,emissiveIntensity:.5}));ring.rotation.y=Math.PI/2;ring.position.x=-L*.08;s.add(ring);s.userData.spins.push({o:ring,ax:'x',sp:.8})}
+  const halo=new THREE.Sprite(libGlow(col.getHexString(),C.r==='l'?.4:C.r==='e'?.28:.16));halo.scale.set(L*1.3,L*1.3,1);s.add(halo);return s}
+function buildShip(type,pt,lo){if(!SHIPLIB.init)shipLibInit();const n=SHIPMODEL[type];if(!n)return buildShipP(type,pt,lo);
+  const L=protoLen(type),s=modelShip(n,texColorFor(pt),L,pt);if(!s)return buildShipP(type,pt,lo);
+  const M=shipMats(pt),b=SHIPLIB.geo[n].boundingBox,sc=L/(SHIPLIB.geo[n].userData.len||1),top=b.max.y*sc;
+  (lo||[]).forEach((w,i)=>{if(!w||!HP[type]||!HP[type][i])return;const wm=weaponMesh(w,M),[x,y,z]=HP[type][i];wm.position.set(x,Math.sign(y||1)*Math.min(Math.abs(y),top*.9),z);if(type==='fighter')wm.rotation.x=Math.PI;s.add(wm)});
+  if(lo&&lo.includes('shield')){const R={fighter:.32,cruiser:.5,battleship:.88,colony:.48}[type];const sh=new THREE.Mesh(new THREE.SphereGeometry(.5,32,20),atmMat(0x5fd4ff,2.2,.55));sh.scale.set(R,R*.55,R*.62);s.add(sh);s.userData.shield=sh}
+  return s}
+
 function v3Update(p){if(!V3.ok)return;const L=p.lv,sh=p.ships,M=V3.MAT,body=isBody(p.pid);
   const cap=k=>Math.min(sh[k]||0,{fighter:18,cruiser:9,battleship:4,colony:3,probe:6}[k]);
   const pt=paintOf(ME),lo=loadoutOf(S.players[ME]);
-  const sig=JSON.stringify([p.pid,L,SK.map(cap),(p.bq&&p.bq[0]||{}).k,(p.shipQ||[]).length>0,(p.armQ||[]).length>0,p.capital,pt,lo]);
+  const sig=JSON.stringify([p.pid,L,SK.map(cap),(p.bq&&p.bq[0]||{}).k,(p.shipQ||[]).length>0,(p.armQ||[]).length>0,p.capital,pt,lo,SHIPLIB.ver]);
   const lv=Object.values(L).reduce((a,b)=>a+b,0),nShips=count(sh);
   document.getElementById('v3cap').innerHTML=`<b>${esc(PLANETS[p.pid].name)}</b> · ${lv} niveaux · ${nShips} vaisseau${nShips>1?'x':''}${body?' stationné'+(nShips>1?'s':''):' en orbite'}${p.bq&&p.bq.length?` · chantier : ${lvBase(p.bq[0].k).n}`:''}`;
   if(sig===V3.sig)return;V3.sig=sig;
@@ -2175,7 +2209,7 @@ function hgInit(){if(HG.tried)return HG.ok;HG.tried=true;if(!window.THREE)return
     window.addEventListener('resize',hgSize);document.addEventListener('visibilitychange',()=>{if(document.hidden)hgStop();else if(!hgel.hidden)hgStart()});
   }catch(e){HG.ok=false}return HG.ok}
 function hgSize(){if(!HG.ok)return;const w=hgc.clientWidth,h=hgc.clientHeight;if(!w||!h)return;HG.r.setSize(w,h,false);HG.cam.aspect=w/h;HG.cam.updateProjectionMatrix();if(HG.comp){HG.comp.setPixelRatio(HG.r.getPixelRatio());HG.comp.setSize(w,h)}}
-function hgUpdate(){if(!HG.ok)return;const cls=S.hcls,pt=paintOf(ME),lo=loadoutOf(S.players[ME])[cls]||[];const sig=JSON.stringify([cls,pt,lo,cls==='flag'?flagKey():0]);
+function hgUpdate(){if(!HG.ok)return;const cls=S.hcls,pt=paintOf(ME),lo=loadoutOf(S.players[ME])[cls]||[];const sig=JSON.stringify([cls,pt,lo,cls==='flag'?flagKey():0,SHIPLIB.ver]);
   document.getElementById('hgcap').innerHTML=cls==='flag'?`<b>Vaisseau amiral</b> · ${flagKey()?esc(CMDK[flagKey()].n):'réservé aux commandants'}`:`<b>${esc(SHIPS[cls].n)}</b> · ${lo.filter(Boolean).length}/${SLOTS[cls]} arme${SLOTS[cls]>1?'s':''} montée${SLOTS[cls]>1?'s':''}`;
   if(sig===HG.sig)return;const fresh=HG.ship&&JSON.parse(HG.sig)[0]!==cls;HG.sig=sig;
   if(HG.ship){HG.stage.remove(HG.ship);v3Clear(HG.ship)}const sc={fighter:7.5,cruiser:5.2,battleship:3.3,colony:5.2,flag:2.6}[cls];
@@ -2378,7 +2412,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='49';
+const APP_VERSION='50';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

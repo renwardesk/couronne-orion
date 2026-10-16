@@ -144,7 +144,11 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 #mp{padding-top:16px}
 .qcur{box-shadow:inset 3px 0 0 var(--brass)}
 .chatbtn{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:24;background:var(--brass);color:var(--brass-ink);border:0;border-radius:999px;padding:10px 16px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 6px 18px #0009;cursor:pointer}
-.chatbtn .n{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#2a0606;font-family:var(--f-data);font-size:11px;line-height:20px;text-align:center;padding:0 5px}
+.chatbtn .n{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;border-radius:11px;background:var(--bad);color:#fff;font-family:var(--f-data);font-size:12px;font-weight:600;line-height:22px;text-align:center;padding:0 6px;border:2px solid var(--void);animation:chatpulse 1.6s ease-in-out infinite}
+@keyframes chatpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+@media (prefers-reduced-motion:reduce){.chatbtn .n{animation:none}}
+.chatpeek{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(136px + env(safe-area-inset-bottom,0px));z-index:24;max-width:min(78vw,340px);background:var(--panel2);color:var(--ink);border:1px solid var(--brass);border-radius:14px 14px 4px 14px;padding:9px 13px;font:inherit;font-size:13.5px;text-align:left;box-shadow:0 8px 22px #000a;cursor:pointer}
+.chatpeek b{color:var(--brass);font-weight:600}
 .chatov{position:fixed;inset:0;z-index:45;background:#05081499;display:flex;align-items:flex-end;justify-content:center}
 .chatbox{background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 0 0;width:100%;max-width:560px;height:min(78vh,640px);display:grid;grid-template-rows:auto 1fr auto;padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (min-width:640px){.chatov{align-items:center}.chatbox{border-radius:14px}}
@@ -199,6 +203,7 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <nav class="tabs" id="tabs" hidden></nav>
 <div id="bt" class="btov" hidden><canvas id="btc" aria-label="Animation de la bataille"></canvas><div class="bthud"><div><b id="bttitle"></b><span id="btround" class="eff"></span></div><div class="btforces" id="btforces"></div><div class="btbtns"><button class="tgl" id="btreplay" type="button">Rejouer</button><button class="tgl" id="btclose" type="button">Fermer</button></div></div></div>
 <div id="btchip"></div>
+<button id="chatpeek" class="chatpeek" type="button" data-act="chat" hidden></button>
 <button id="chatbtn" class="chatbtn" type="button" data-act="chat" hidden>Chat<span id="chatn" class="n" hidden></span></button>
 <div id="chatov" class="chatov" hidden><div class="chatbox" role="dialog" aria-label="Chat des joueurs"><div class="ihead chathead"><h2>Chat de l’univers</h2><button class="tgl" type="button" data-act="chatx">Fermer</button></div><div id="chatlist" class="chatlist"></div><form id="chatform" class="chatform" autocomplete="off"><input id="chatin" maxlength="300" placeholder="Écris un message…" enterkeyhint="send"><button class="btn sm" type="submit">Envoyer</button></form></div></div>
 <div id="modal"></div>
@@ -510,13 +515,14 @@ const setChatSeen=t=>{try{localStorage.setItem('orion-chat-seen',String(t))}catc
 function chatBtnSync(show){const b=document.getElementById('chatbtn');b.hidden=!show;if(!show){document.getElementById('chatov').hidden=true;CHAT.open=false;return}
   const n=(S.chat||[]).filter(m=>m.uid!==ME&&m.at>chatSeen()).length,el=document.getElementById('chatn');el.hidden=!n||CHAT.open;el.textContent=n>9?'9+':String(n)}
 function chatUpdate(){const msgs=S.chat||[];
-  if(!CHAT.seenInit){CHAT.seenInit=true;msgs.forEach(m=>CHAT.heard.add(m.id))}else for(const m of msgs)if(!CHAT.heard.has(m.id)){CHAT.heard.add(m.id);if(m.uid!==ME&&!CHAT.open){tone(990,.08,{type:'sine',vol:.05});tone(1320,.1,{type:'sine',vol:.04,delay:.07})}}
+  if(!CHAT.seenInit){CHAT.seenInit=true;msgs.forEach(m=>CHAT.heard.add(m.id))}else for(const m of msgs)if(!CHAT.heard.has(m.id)){CHAT.heard.add(m.id);if(m.uid!==ME&&!CHAT.open){tone(990,.08,{type:'sine',vol:.05});tone(1320,.1,{type:'sine',vol:.04,delay:.07});chatPeek(m)}}
   const list=document.getElementById('chatlist');
   if(CHAT.open){const atBottom=list.scrollHeight-list.scrollTop-list.clientHeight<60;
     list.innerHTML=msgs.length?msgs.map(m=>`<div class="cmsg ${m.uid===ME?'me':''}"><div class="cmeta"><span class="dot" style="background:${esc(pcolor(m.uid))}"></span><b>${esc(pname(m.uid)||m.name||'?')}</b><time>${new Date(m.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</time></div><div class="ctext">${esc(m.text)}</div></div>`).join(''):'<p class="empty" style="padding:12px">Aucun message pour l’instant. Lance la conversation !</p>';
-    if(atBottom||!CHAT.scrolled){list.scrollTop=list.scrollHeight;CHAT.scrolled=true}setChatSeen(Date.now())}
+    if(atBottom||!CHAT.scrolled){list.scrollTop=list.scrollHeight;CHAT.scrolled=true}setChatSeen(Math.max(chatSeen(),...msgs.map(m=>m.at||0)))}
   chatBtnSync(!!S.players[ME]&&myPlanets().length>0)}
-function chatOpen(on){CHAT.open=on;document.getElementById('chatov').hidden=!on;document.body.style.overflow=on?'hidden':'';if(on){CHAT.scrolled=false;chatUpdate();setTimeout(()=>{try{document.getElementById('chatin').focus()}catch(e){}},50)}chatBtnSync(true)}
+function chatPeek(m){const el=document.getElementById('chatpeek');if(!el||!S.players[ME])return;el.innerHTML='';const b=document.createElement('b');b.textContent=(pname(m.uid)||m.name||'?')+' : ';const t=document.createElement('span');t.textContent=m.text.length>70?m.text.slice(0,70)+'…':m.text;el.append(b,t);el.hidden=false;clearTimeout(CHAT.peekT);CHAT.peekT=setTimeout(()=>{el.hidden=true},7000)}
+function chatOpen(on){if(on){const pk=document.getElementById('chatpeek');if(pk)pk.hidden=true}CHAT.open=on;document.getElementById('chatov').hidden=!on;document.body.style.overflow=on?'hidden':'';if(on){CHAT.scrolled=false;chatUpdate();setTimeout(()=>{try{document.getElementById('chatin').focus()}catch(e){}},50)}chatBtnSync(true)}
 async function chatSend(){const inp=document.getElementById('chatin'),text=(inp.value||'').trim().slice(0,300);if(!text)return;const now=Date.now();if(now-CHAT.lastSend<1500)return toast('Doucement, un message toutes les deux secondes.','bad');CHAT.lastSend=now;
   inp.value='';try{await db.collection('chat').doc(newId()).set({kind:'chat',uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()})}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
 let chatPruning=false;async function chatPrune(){if(chatPruning)return;chatPruning=true;try{const old=(S.chat||[]).filter(m=>Date.now()-m.at>3*864e5).slice(0,10);for(const m of old)await db.doc('chat/'+m.id).delete()}catch(e){}chatPruning=false}

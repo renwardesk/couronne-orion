@@ -306,7 +306,8 @@ const DEFONLY=['armor','shield'];
 const MAXP=10,MAXO=8,TECHMAX=5;
 const lvBase=k=>BUILD[k]||BUILD_OUT[k];
 const bCost=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
-const bTime=(k,L)=>Math.round(lvBase(k).t*1.45**L);
+const BT_MUL=7.2; // rythme d'une à deux connexions par jour
+const bTime=(k,L)=>Math.round(lvBase(k).t*BT_MUL*1.45**L);
 const g=l=>l*1.12**l;
 const isBody=pid=>!!(PLANETS[pid]&&PLANETS[pid].body);
 const richOf=pid=>GALS[SYSTEMS[PLANETS[pid].sys].gal].rich;
@@ -340,7 +341,7 @@ function bayUse(p,uid){let n=placesOf(p.ships);for(const it of p.shipQ||[]){cons
 // ---------- minerais rares exigés pour les hauts niveaux de bâtiments ----------
 const bRare=(k,L)=>{const t=L+1,o={};if(t>=5)o.ir=Math.round(30*1.45**(t-5));if(t>=8)o.xe=Math.round(20*1.45**(t-8));if(t>=11)o.am=Math.round(12*1.45**(t-11));return o};
 const rareCostHtml=(r,c)=>Object.keys(c).map(k=>`<span class="${(r[k]||0)<c[k]?'no':''}" style="color:#c9b6ff">${fmt(c[k])} ${RARE[k].toLowerCase()}</span>`).join('');
-const shipTime=(k,yard)=>Math.max(3,Math.round(SHIPS[k].t/(1+.2*(Math.max(1,yard)-1))));
+const shipTime=(k,yard)=>Math.max(3,Math.round(SHIPS[k].t*4/(1+.2*(Math.max(1,yard)-1))));
 const afford=(r,c,n=1)=>r.m>=c.m*n&&r.c>=c.c*n&&r.f>=c.f*n;
 const pay=(r,c,n=1)=>{r.m-=c.m*n;r.c-=c.c*n;r.f-=c.f*n};
 const affordR=(r,c,n=1)=>Object.keys(c||{}).every(k=>(r[k]||0)>=c[k]*n);
@@ -441,7 +442,7 @@ const COMET_BOUNTY={m:6000,c:4500,f:2500},COMET_RARE={ir:120,xe:80,am:25},HIVE_P
 function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR)return null;return{id:'c'+w,pid:ASTS[hash('comet'+w)%ASTS.length],start:s,end:s+3*HR}}
 function hiveAt(t=Date.now()){const w=Math.floor((t+HR)/(6*HR)),s=w*6*HR-HR;if(t<s||t>s+4*HR)return null;return{id:'h'+w,pid:HIVES[hash('hive'+w)%HIVES.length],start:s,end:s+4*HR}}
 function stormAt(t=Date.now()){const w=Math.floor((t+2*HR)/(6*HR)),s=w*6*HR-2*HR;if(t<s||t>s+2*HR)return null;return{id:'s'+w,gal:hash('storm'+w)%GALS.length,start:s,end:s+2*HR}}
-const TRAVEL=2.5; // multiplicateur global des temps de trajet
+const TRAVEL=37.5; // multiplicateur global des temps de trajet
 function etaOf(a,b,ships){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return 0;if(a===b)return 15;const d=dist(a,b);let t=TRAVEL*(40+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);if(galOf(a)!==galOf(b))t*=1.25;const st=stormAt();if(st&&(galOf(a)===st.gal||galOf(b)===st.gal))t*=1.5;return Math.round(t)}
 function fuelOf(a,b,ships){if(a===b)return 0;let s=0;for(const k of SK)s+=(ships[k]||0)*SHIPS[k].fuel;const d=dist(a,b);return Math.ceil(s*(1+Math.min(d,1000)/250+Math.max(0,d-1000)/900))}
 const cargoCap=s=>SK.reduce((t,k)=>t+(s[k]||0)*SHIPS[k].cap,0);
@@ -1140,7 +1141,9 @@ const sumLoot=a=>a.reduce((t,x)=>({m:t.m+x.m,c:t.c+x.c,f:t.f+x.f}),{m:0,c:0,f:0}
 const treasureOf=units=>{const w=worth(units);return{m:Math.round(w*55),c:Math.round(w*40),f:Math.round(w*20)}};
 const lootTxt=l=>`${fmt(l.m)} métal, ${fmt(l.c)} cristal, ${fmt(l.f)} hélium-3`;
 const cultureRate=uid=>.25*planetsOf(uid);
-const cultureCost=uid=>Math.round(40*Math.pow(Math.max(1,planetsOf(uid)),1.6));
+// 1 planète au départ, la 2e presque tout de suite, puis de plus en plus de culture
+const cultCostN=n=>n<=1?40:Math.round(600*Math.pow(n-1,1.5));
+const cultureCost=uid=>cultCostN(planetsOf(uid));
 async function payCulture(uid){try{return await withPlayer(uid,d=>{const c=cultureCost(uid);if(d.culture<c)return false;d.culture-=c;return true})}catch(e){return false}}
 async function award(list){const by={};for(const{uid,v,frag,cmd}of list){if(!uid||!S.players[uid])continue;const b=by[uid]=by[uid]||{v:0,frag:0,cx:{}};b.v+=v||0;b.frag+=frag||0;if(cmd)b.cx[cmd]=(b.cx[cmd]||0)+(v||0)*cmdXpMul(uid,cmd)}
   for(const[uid,b]of Object.entries(by)){const v=Math.round(b.v);if(v<=0&&!b.frag)continue;try{await withPlayer(uid,d=>{d.cp=(d.cp||0)+v;d.culture+=v;if(b.frag)d.frag=(d.frag||0)+b.frag;for(const id in b.cx){const c=(d.cmds||[]).find(x=>x.id===id);if(c)c.xp=(c.xp||0)+Math.round(b.cx[id])}})}catch(e){}}}
@@ -1318,7 +1321,7 @@ function renderTop(joined){top_.hidden=false;
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
-function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME);let left=cu,k=0;while(k<MAXP-np&&left>=Math.round(40*Math.pow(Math.max(1,np+k),1.6))){left-=Math.round(40*Math.pow(Math.max(1,np+k),1.6));k++}
+function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME);let left=cu,k=0;while(k<MAXP-np&&left>=cultCostN(np+k)){left-=cultCostN(np+k);k++}
   const cost=cultureCost(ME),pc=np>=MAXP?100:Math.min(100,cu/cost*100);
   return`<span class="emp"><span title="Planètes">🪐 <b>${np}</b>/${MAXP}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Culture pour la prochaine planète"><span>${np>=MAXP?'Planètes au maximum':`${k?`<b style="color:var(--good)">+${k} planète${k>1?'s':''} possible${k>1?'s':''}</b> · `:''}culture <b>${fmt(cu)}</b>/${fmt(cost)}`}</span><span class="prog"><b style="width:${pc}%"></b></span></span></span>`}
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length,qr=joined?questReady():0;badgeSeen(S.tab);
@@ -2480,7 +2483,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='57';
+const APP_VERSION='58';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

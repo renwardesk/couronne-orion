@@ -259,7 +259,10 @@ function fmtDur(s){s=Math.max(0,Math.ceil(s));const h=Math.floor(s/3600),m=Math.
 const clock=t=>new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 
 // ---------- règles du jeu ----------
-const COLORS=['#5ec8ff','#ff8a5c','#b98cff','#6fe3a1','#ff6fae','#ffd25e','#4fe0d6','#c7d36a'];
+const COLORS=['#5ec8ff','#ff8a5c','#b98cff','#6fe3a1','#ff6fae','#ffd25e','#4fe0d6','#c7d36a','#2f4fc4','#e5484d','#f0f0f0','#c08552'];
+// une couleur par empire : celles déjà prises ne sont plus proposées
+const takenColors=()=>new Set(Object.values(S.players).filter(p=>p&&p.uid!==ME&&p.color).map(p=>p.color.toLowerCase()));
+const freeColor=()=>{const t=takenColors();return COLORS.find(c=>!t.has(c))||COLORS[0]};
 const RES={m:'Métal',c:'Cristal',f:'Hélium-3'};
 const RARE={ir:'Iridium',xe:'Xénite',am:'Antimatière'};
 const PT4=['tel','vol','gla','gaz'];
@@ -1097,7 +1100,8 @@ async function launch(){const M=S.modal;if(M.fleet)return launchHeld(M);const sh
     await db.doc('fleets/'+id).set({kind:'fleet',fid:id,owner:ME,from:M.from,to:M.to,mission:M.mission,ships,cargo:{m:0,c:0,f:0},depart:now,arrive:LJ?LJ.arrive:now+eta*1000,phase:'out',...(LJ?{group:LJ.fid}:{}),...(M.cmd?{cmd:M.cmd,ships:{...ships,flag:1}}:{}),...(M.intercept?{target:M.intercept}:{})});
     S.modal=null;renderModal();sfx.launch();toast(`Flotte lancée. Arrivée à ${clock(LJ?LJ.arrive:now+eta*1000)}.`)})}
 async function join(){const name=(document.getElementById('pseudo').value||'').trim().slice(0,18);if(name.length<2)return toast('Choisis un nom d’au moins 2 caractères.','bad');
-  const color=S.joinColor||COLORS[Object.keys(S.players).length%COLORS.length];
+  if(S.joinColor&&takenColors().has(S.joinColor.toLowerCase()))return toast('Cette couleur est déjà prise par un autre empire.','bad');
+  const color=S.joinColor||freeColor();
   const used=new Set(Object.keys(S.planets));const ownedSys=new Set(Object.values(S.planets).filter(p=>p.owner).map(p=>PLANETS[p.pid].sys));
   const free=p=>!p.body&&!p.raid&&!used.has(p.pid)&&!ownedSys.has(p.sys)&&(lairInfoAt(SYSTEMS[p.sys])||{}).pid!==p.pid;
   // on démarre près du premier empire fondé (l'hôte), dans un système voisin libre
@@ -1307,7 +1311,7 @@ function renderJoin(){
       <label for="pseudo"><h2>Nom de ton empire</h2></label>
       <input id="pseudo" maxlength="18" placeholder="Ex. Dominion de Vega" autocomplete="off" value="${esc(S.pseudo||'')}">
       <h2>Couleur</h2>
-      <div class="swatches">${COLORS.map(c=>`<button class="sw" data-act="color" data-c="${c}" aria-label="Couleur ${c}" aria-pressed="${(S.joinColor||COLORS[0])===c}" style="background:${c}"></button>`).join('')}</div>
+      <div class="swatches">${(()=>{const t=takenColors();return COLORS.map(c=>t.has(c)?`<button class="sw" disabled aria-label="Couleur ${c} déjà prise" title="Déjà prise" style="background:${c};opacity:.18;cursor:not-allowed"></button>`:`<button class="sw" data-act="color" data-c="${c}" aria-label="Couleur ${c}" aria-pressed="${(S.joinColor||freeColor())===c}" style="background:${c}"></button>`).join('')})()}</div>
       <div><button class="btn" data-act="join">Fonder mon empire</button></div>
     </div>
     ${localId&&others.length?`<div class="card" style="display:grid;gap:10px"><h2>Déjà un empire sur un autre appareil ?</h2><div class="chips">${others.map(p=>`<button class="chip" data-act="claim" data-u="${esc(p.uid)}"><span class="dot" style="background:${esc(p.color)}"></span> ${esc(p.name)}</button>`).join('')}</div></div>`:''}
@@ -2483,7 +2487,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='59';
+const APP_VERSION='60';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

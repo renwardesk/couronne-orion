@@ -1109,9 +1109,11 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
   if(anchor){const A=SYSTEMS[PLANETS[anchor.pid].sys];c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].gal===A.gal).map(p=>({p,d:Math.hypot(SYSTEMS[p.sys].x-A.x,SYSTEMS[p.sys].y-A.y,SYSTEMS[p.sys].z-A.z)})).filter(x=>x.d>=30).sort((a,b)=>a.d-b.d);const near=[...new Set(c.map(x=>x.p.sys))].slice(0,4);c=c.filter(x=>near.includes(x.p.sys)).map(x=>x.p)}
   if(!c.length)c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].rad>250&&SYSTEMS[p.sys].gal===0);if(!c.length)c=Object.values(PLANETS).filter(p=>!p.body&&!p.raid&&!used.has(p.pid));
   c.sort(()=>Math.random()-.5);
-  await act(async()=>{for(const cand of c.slice(0,6)){let ok=false;await locked('planets/'+cand.pid,async(d,ref)=>{if(d&&d.owner)return;await ref.set(homePlanet(cand.pid,ME));ok=true});
+  // un double appui ne doit pas fonder deux capitales
+  if(S.joining)return;if(Object.values(S.planets).some(p=>p.owner===ME&&p.capital))return toast('Tu as déjà une capitale.','bad');S.joining=true;
+  try{await act(async()=>{for(const cand of c.slice(0,6)){let ok=false;await locked('planets/'+cand.pid,async(d,ref)=>{if(d&&d.owner)return;await ref.set(homePlanet(cand.pid,ME));ok=true});
     if(ok){await db.doc('players/'+ME).set({kind:'player',uid:ME,name,color,joined:Date.now(),rare:{ir:40,xe:10,am:0},rareAt:Date.now(),tech:{},loadout:{},paint:{}});S.sel=cand.pid;S.tab='planet';sfx.win();toast(`Bienvenue, ${name}. Ta capitale est ${cand.name}.`);return}}
-    throw err('Aucune planète libre trouvée.')})}
+    throw err('Aucune planète libre trouvée.')})}finally{S.joining=false}}
 
 // ---------- résolution des flottes (n'importe quel client) ----------
 const busy=new Set();
@@ -2487,7 +2489,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='61';
+const APP_VERSION='62';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -1822,7 +1822,7 @@ let started=false;
 function boot(){
   if(!sbInit()){S.nodb=true;render();return}
   sb.auth.onAuthStateChange((ev,session)=>{const u=session&&session.user;
-    if(!u){if(started&&ev==='SIGNED_OUT')location.reload();else if(!started)showLogin();return}
+    if(!u){if(window.__upd)return;if(started&&ev==='SIGNED_OUT')location.reload();else if(!started)showLogin();return}
     if(started)return;ME=u.id;try{const ps=localStorage.getItem('orion-pseudo');if(ps)S.pseudo=ps}catch(e){}if(!S.pseudo)S.pseudo=(u.email||'').split('@')[0];setTimeout(startGame,0)})}
 function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div class="join"><div class="hero">Couronne <span>d\'Orion</span></div><p class="lead">Connexion à la galaxie…</p></div>';
   const seen={p:0,pl:0,f:0,r:0};const ready=k=>{if(!seen[k]){seen[k]=1;S.ready++}render()};
@@ -1836,6 +1836,19 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
   setInterval(tick,1000);
 }
 boot();
+// ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
+const APP_VERSION='10';
+async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
+  if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
+  if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version
+  window.__upd=true;document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#05081acc;color:#fff;font:600 17px system-ui;text-align:center;padding:20px">Nouvelle version du jeu<br><span style="font-weight:400;font-size:14px;opacity:.8">Reconnexion en cours…</span></div>');
+  try{if(k.v!==v&&sb)await sb.auth.signOut()}catch(e){}
+  try{localStorage.setItem('orion-upd',JSON.stringify({v,at:Date.now()}))}catch(e){}
+  try{const ks=await caches.keys();await Promise.all(ks.map(x=>caches.delete(x)))}catch(e){}
+  try{const rg=await navigator.serviceWorker.getRegistration();if(rg)await rg.update()}catch(e){}
+  location.replace(location.pathname+'?v='+v)}
+setTimeout(checkUpdate,3000);setInterval(checkUpdate,120000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 

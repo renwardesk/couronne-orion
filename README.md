@@ -26,3 +26,7 @@ Mot de passe oublié : Supabase → Authentication → Users → retrouve `pseud
 - `supabase-config.js` : adresse du projet et clé publique.
 - `supabase-setup.sql` : table, sécurité et temps réel, à exécuter une fois.
 - `manifest.webmanifest`, `sw.js`, `icons/` : installation sur l'écran d'accueil.
+
+## Publier une mise à jour
+
+Avant chaque envoi sur GitHub, lancer `./bump.sh` : il augmente le numéro de version (`version.json`, `index.html`, `sw.js`). Les joueurs connectés détectent la nouvelle version en moins de 2 minutes (ou dès qu'ils rouvrent l'appli), sont déconnectés et l'appli se recharge proprement.

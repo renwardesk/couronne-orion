@@ -211,6 +211,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .ml.big{text-align:center;line-height:1.15}
 .ml.big i{display:block;font-style:normal;font-family:var(--f-data);font-size:9.5px;text-transform:none;letter-spacing:0;color:var(--dim)}
 .ml.me{outline:1px solid var(--brass)}
+.mppop{position:absolute;left:10px;right:10px;bottom:10px;z-index:5;display:grid;gap:6px;padding:10px 12px;border-radius:14px;background:rgba(10,14,30,.92);border:1px solid rgba(227,172,85,.45);box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(6px);animation:mppin .18s ease-out}@keyframes mppin{from{transform:translateY(12px);opacity:0}}.mppop .ihead{display:flex;align-items:center;gap:8px}.mppop .ihead .lv{margin-left:auto}.mppx{border:0;background:none;color:var(--dim);font-size:16px;padding:2px 4px;cursor:pointer}.mpacts{display:flex;flex-wrap:wrap;gap:6px}.mppop .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
 .mpnav{position:absolute;top:10px;left:10px;right:110px;display:flex;flex-wrap:wrap;gap:6px}
 .mpnav .tgl{background:color-mix(in srgb,var(--void) 70%,transparent);backdrop-filter:blur(6px)}
 details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
@@ -223,7 +224,7 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <header class="top" id="top" hidden></header>
 <section class="wrap" id="v3" hidden><div class="v3box"><canvas id="v3c" aria-label="Vue 3D de ta planète : glisse pour tourner, pince pour zoomer"></canvas><div class="v3cap" id="v3cap"></div><button class="tgl v3btn" id="v3full" type="button">Plein écran</button></div></section>
 <section class="wrap" id="hg" hidden><div class="v3box"><canvas id="hgc" aria-label="Hangar 3D : glisse pour tourner, pince pour zoomer"></canvas><div class="v3cap" id="hgcap"></div></div></section>
-<section class="wrap" id="mp" hidden><div class="v3box mpbox"><canvas id="mpc" aria-label="Carte 3D de l’univers : glisse pour tourner, pince pour zoomer, touche pour entrer"></canvas><div id="mplab" class="mplab"></div><div class="mpnav" id="mpnav"></div><button class="tgl v3btn" id="mpfull" type="button">Plein écran</button></div></section>
+<section class="wrap" id="mp" hidden><div class="v3box mpbox"><canvas id="mpc" aria-label="Carte 3D de l’univers : glisse pour tourner, pince pour zoomer, touche pour entrer"></canvas><div id="mplab" class="mplab"></div><div id="mppop" hidden></div><div class="mpnav" id="mpnav"></div><button class="tgl v3btn" id="mpfull" type="button">Plein écran</button></div></section>
 <main class="wrap" id="main"><div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">Connexion à la galaxie…</p></div></main>
 <nav class="tabs" id="tabs" hidden></nav>
 <div id="bt" class="btov" hidden><canvas id="btc" aria-label="Animation de la bataille"></canvas><div class="bthud"><div><b id="bttitle"></b><span id="btround" class="eff"></span></div><div class="btforces" id="btforces"></div><div class="btbtns"><button class="tgl" id="btreplay" type="button">Rejouer</button><button class="tgl" id="btclose" type="button">Fermer</button></div></div></div>
@@ -1637,7 +1638,7 @@ function mpZoomTo(d,wheel){const[lo,hi]=RANGE[MP.level],now=performance.now();
   MP.distT=Math.max(lo,Math.min(hi,d))}
 function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D=>[{w:D.m,i:D.hole.i},{w:D.wreck.w,i:D.wreck.i}]),x,y,40);if(dd){sfx.click();mpGoSystem(dd.i);return}const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
   if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
-  if(MP.level==='system'){const o=mpNearest(MP.orbs.filter(o=>!o.ghost).map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}}}
+  if(MP.level==='system'){const o=mpNearest(MP.orbs.filter(o=>!o.ghost).map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}else if(S.pickP){S.pickP=null;render()}}}
 function mpGoUniverse(at,dist){MP.level='universe';MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...UNI];MP.distT=dist||1350;mpClearSystem();render()}
 function mpGoGalaxy(g,at,dist){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...GALS[g].c];MP.distT=dist||115;mpClearSystem();render()}
 function mpGoSystem(i){const s=SYSTEMS[i];MP.level='system';MP.gal=s.gal;MP.sys=i;S.pickP=null;MP.tgtT=[...s.w];MP.distT=3.4;mpBuildSystem(i);render()}
@@ -1738,11 +1739,26 @@ function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t
   const spans=mplab.children,placed=[];for(let i=0;i<spans.length;i++){const l=MP.labels[i];if(!l)continue;let w=l.w;if(l.o){const v=new THREE.Vector3();l.o.mesh.getWorldPosition(v);w=[v.x,v.y,v.z]}if(l.fl){const fp=fleetPos(l.fl,Date.now());if(fp)w=fp.p}const p=mpProject(w);const el=spans[i];if(!p){el.style.visibility='hidden';continue}let z=(MP.labSz||(MP.labSz=[]))[i];if(!z||!z[0])z=MP.labSz[i]=[el.offsetWidth,el.offsetHeight];const R=[p[0]-z[0]/2-3,p[1]-z[1]*1.5-2,p[0]+z[0]/2+3,p[1]-z[1]*.5+2];if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])){el.style.visibility='hidden';continue}placed.push(R);el.style.visibility='visible';el.style.transform=`translate(${p[0]|0}px,${p[1]|0}px) translate(-50%,-150%)`}}
 function mpStart(){if(!MP.ok||MP.running)return;MP.running=true;mpSize();MP.last=performance.now();MP.raf=requestAnimationFrame(mpLoop)}
 function mpStop(){if(!MP.running)return;MP.running=false;cancelAnimationFrame(MP.raf)}
+// petit menu d'actions quand on touche une planète sur la carte
+function mpPopHtml(pid){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type],joined=!!S.players[ME],raw=S.planets[pid]||{},cm=cometAt(),body=isBody(pid),vis=m.raid||sysVisible(m.sys);
+  const B=(mis,lbl,cls='')=>`<button class="btn sm ${cls}" data-act="mpsend" data-p="${pid}" data-m="${mis}">${lbl}</button>`;let who,acts=[];
+  if(v.owner===ME){who=`<span class="dot" style="background:${esc(pcolor(ME))}"></span>À toi${raw.capital?' · capitale':raw.outpost?' · avant-poste':''}`;
+    acts.push(`<button class="btn sm" data-act="selp" data-p="${pid}">Gérer</button>`);if(pid!==S.sel)acts.push(B('transfer','Transférer','ghost'))}
+  else if(v.owner){const npc=isNpc(v.owner);who=`<span class="dot" style="background:${esc(npc?NPC_COL:pcolor(v.owner))}"></span>${esc(npc?NPC_NAME:pname(v.owner))}${raw.capital?' · capitale':raw.outpost?' · avant-poste':''}`;
+    acts.push(B('attack','⚔ Attaquer'),B('spy','👁 Espionner','ghost'));if(!npc)acts.push(B('reinforce','🛡 Renfort','ghost'))}
+  else{const n=worth(v.garrison||{}),wreck=m.type==='wreck';who=!vis?'Système dans le brouillard':n?`Pirates · menace ${threat(n)}`:wreck?'Épave à récupérer':body?'Libre · avant-poste possible':'Orbite libre';
+    if(n)acts.push(B('attack','⚔ Attaquer'));acts.push(B('spy','👁 Espionner','ghost'));
+    if(!n&&wreck)acts.push(B('salvage','Récupérer'));else if(!n&&vis)acts.push(B('colonize',body?'Avant-poste':'Coloniser'));
+    if(cm&&cm.pid===pid)acts.push(B('harvest','☄ Récolter'))}
+  const eta=joined&&S.sel&&pid!==S.sel?`<span class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</span>`:'';
+  return`<div class="mppop" role="dialog" aria-label="${esc(m.name)}"><div class="ihead"><b>${esc(m.name)}</b><span class="lv">${T.n}${body?` · ${RARE[T.rare]}`:''}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
+    <span class="eff mpwho">${who}</span>${v.owner&&v.owner!==ME?intelBox(pid):''}${eta}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}</div>`}
+function mpPopSync(){const el=document.getElementById('mppop');if(!el)return;const pid=MP.level==='system'&&S.pickP&&PLANETS[S.pickP]?S.pickP:null;el.innerHTML=pid?mpPopHtml(pid):'';el.hidden=!pid}
 function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpel.hidden=!show;
   if(!show&&MP.full){MP.full=false;mpel.classList.remove('v3full');document.body.style.overflow='';document.getElementById('mpfull').textContent='Plein écran'}
   if(!show){mpStop();return}
   if(MP.first){MP.first=false;MP.tgt=[...UNI];MP.dist=1700;const home=S.sel&&S.planets[S.sel]?SYSTEMS[PLANETS[S.sel].sys]:null;if(home){MP.level='galaxy';MP.gal=home.gal;MP.tgtT=[...GALS[home.gal].c];MP.distT=115}else{MP.level='universe';MP.tgtT=[...UNI];MP.distT=1350}}
-  mpStart();mpData()}
+  mpStart();mpData();mpPopSync()}
 
 // ---------- événements ----------
 document.addEventListener('click',e=>{
@@ -1766,6 +1782,8 @@ document.addEventListener('click',e=>{
   else if(a==='mapplgo'){S.mpPl=false;const pm=PLANETS[b.dataset.p];if(pm){mpGoSystem(pm.sys);S.pickP=b.dataset.p;render()}}
   else if(a==='selp'){S.sel=b.dataset.p;S.tab='planet';render();window.scrollTo(0,0)}
   else if(a==='send')openSend(b.dataset.p);
+  else if(a==='mpsend'){if(!S.sel)return toast('Choisis d’abord une planète de départ.','bad');openSend(b.dataset.p,b.dataset.m)}
+  else if(a==='mppopx'){S.pickP=null;render()}
   else if(a==='mmis'){S.modal.mission=b.dataset.m;renderModal()}
   else if(a==='mq'){const t=b.dataset.t,have=view(S.modal.from).ships[t]||0;S.modal.ships[t]=b.dataset.d==='max'?have:Math.max(0,Math.min(have,S.modal.ships[t]+Number(b.dataset.d)));renderModal()}
   else if(a==='mgo')launch();
@@ -2493,7 +2511,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='65';
+const APP_VERSION='66';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

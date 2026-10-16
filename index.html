@@ -615,7 +615,7 @@ const QUESTS=[
   {id:'q-cruiser',ch:'b',t:'Le triangle de combat',d:'Chasseur bat Cuirassé, Cuirassé bat Croiseur, Croiseur bat Chasseur. Une flotte variée encaisse mieux les surprises. Le croiseur demande un Chantier niveau 2.',need:s=>[s.ships('cruiser'),3],r:{m:900,c:700,f:300}},
   {id:'q-def',t:'Boucliers levés',d:'Tes tourelles défendent la planète quand tu dors. Une capitale ne peut jamais être annexée, mais elle peut être pillée : la moitié des stocks part avec l’ennemi.',need:s=>[s.lv('def'),3],r:{m:1000,c:800,f:300}},
   {id:'q-yard',t:'Vers d’autres mondes',d:'Le Chantier niveau 3 débloque le vaisseau colon, la clé de l’expansion.',need:s=>[s.lv('yard'),3],r:{m:1200,c:900,f:400}},
-  {id:'q-colony',ch:'b',t:'Une seconde colonie',d:'Fonder une colonie coûte de la culture. Elle se gagne en combattant (chaque PC rapporte autant de culture) et grâce à tes planètes. Le coût augmente à chaque nouvelle colonie.',need:s=>[s.planets,2],r:{m:1500,c:1200,f:500}},
+  {id:'q-colony',ch:'b',t:'Une seconde colonie',d:'Fonder une colonie coûte de la culture. Elle se gagne uniquement en combattant : chaque point de combat rapporte autant de culture. Le coût augmente à chaque nouvelle colonie.',need:s=>[s.planets,2],r:{m:1500,c:1200,f:500}},
   {id:'q-outpost',t:'Minerais rares',d:'Astéroïdes, lunes mortes et anomalies ne s’habitent pas mais s’exploitent : iridium, xénite et antimatière, indispensables aux armes. Un vaisseau colon y installe un avant-poste.',need:s=>[s.outposts,1],r:{m:1200,c:1000,f:500},rr:{ir:20}},
   {id:'q-tech',t:'L’Académie',d:'Construis l’Académie, puis recherche ta première arme dans l’onglet Labo.',need:s=>[s.tech?1:0,1],r:{m:1500,c:1500,f:500},rr:{ir:20,xe:10}},
   {id:'q-arm',t:'Armer la flotte',d:'Fabrique des modules à l’Arsenal, puis monte-les dans le Hangar : tous les vaisseaux de ce type en profitent, présents et futurs.',need:s=>[s.armed?1:0,1],r:{m:2000,c:1500,f:700},rr:{ir:30,xe:20}},
@@ -1146,7 +1146,7 @@ function splitLoot(avail,surv){const caps=surv.map(s=>cargoCap(s)),C=caps.reduce
 const sumLoot=a=>a.reduce((t,x)=>({m:t.m+x.m,c:t.c+x.c,f:t.f+x.f}),{m:0,c:0,f:0});
 const treasureOf=units=>{const w=worth(units);return{m:Math.round(w*55),c:Math.round(w*40),f:Math.round(w*20)}};
 const lootTxt=l=>`${fmt(l.m)} métal, ${fmt(l.c)} cristal, ${fmt(l.f)} hélium-3`;
-const cultureRate=uid=>.25*planetsOf(uid);
+const cultureRate=uid=>0; // la culture ne se gagne qu'au combat (1 point de combat = 1 culture)
 // 1 planète au départ, la 2e presque tout de suite, puis de plus en plus de culture
 const cultCostN=n=>n<=1?40:Math.round(600*Math.pow(n-1,1.5));
 const cultureCost=uid=>cultCostN(planetsOf(uid));
@@ -2489,7 +2489,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='63';
+const APP_VERSION='64';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

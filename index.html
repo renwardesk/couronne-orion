@@ -270,7 +270,7 @@ const BUILD={
   acad:{n:'Académie',cost:{m:220,c:280,f:60},t:45},
   arsenal:{n:'Arsenal',cost:{m:280,c:180,f:40},t:45},
 };
-const BUILD_OUT={drill:{n:'Foreuse',cost:{m:120,c:80,f:20},t:30},dock:{n:'Base de flotte',cost:{m:150,c:100,f:40},t:40},def:{n:'Batteries de défense',cost:{m:90,c:70,f:15},t:32}};
+const BUILD_OUT={drill:{n:'Foreuse',cost:{m:120,c:80,f:20},t:30},silo:{n:'Réserves de minerais',cost:{m:450,c:350,f:150},t:70},dock:{n:'Base de flotte',cost:{m:150,c:100,f:40},t:40},def:{n:'Batteries de défense',cost:{m:90,c:70,f:15},t:32}};
 const WEAP={
   laser:{n:'Laser à impulsion',tier:1,rc:{m:500,c:400,f:80},rr:{ir:20},mc:{m:120,c:90,f:10},mr:{ir:6},mt:20,att:.25,vs:{fighter:.5},d:'+25 % attaque, +50 % contre les chasseurs'},
   missile:{n:'Lance-missiles',tier:1,rc:{m:450,c:350,f:120},rr:{ir:15},mc:{m:150,c:60,f:30},mr:{ir:5},mt:20,att:.2,vs:{turret:.8},d:'+20 % attaque, +80 % contre les tourelles'},
@@ -459,7 +459,10 @@ const outpostsOf=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p
 const capitalOf=uid=>Object.values(S.planets).find(p=>p.owner===uid&&p.capital);
 function view(pid){if(PLANETS[pid]&&PLANETS[pid].raid){const st=raidState(pid);return{pid,owner:null,raid:true,garrison:st.garrison,done:st.done}}const d=S.planets[pid];if(d&&d.owner)return settle(d,Date.now());return{pid,owner:null,garrison:d&&d.garrison?d.garrison:seedGarrison(pid)}}
 function rareRates(uid){const r={ir:0,xe:0,am:0};const now=Date.now();for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid)){const x=rareRate(settle(p,now));for(const k in r)r[k]+=x[k]}return r}
-function rareNow(uid){const pl=S.players[uid],o={ir:0,xe:0,am:0};if(!pl)return o;const b=pl.rare||{},rt=rareRates(uid),dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);for(const k in o)o[k]=(b[k]||0)+rt[k]*dt;return o}
+const RARE_BASE=50,siloCapL=L=>L?Math.round(100*1.6**(L-1)):0;
+function rareCap(uid){let c=RARE_BASE;for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid))c+=siloCapL((p.lv&&p.lv.silo)||0);return c}
+const rareFill=(b,add,cap)=>b>=cap?b:Math.min(cap,b+add);
+function rareNow(uid){const pl=S.players[uid],o={ir:0,xe:0,am:0};if(!pl)return o;const b=pl.rare||{},rt=rareRates(uid),cap=rareCap(uid),dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);for(const k in o)o[k]=rareFill(b[k]||0,rt[k]*dt,cap);return o}
 const latestIntel=pid=>{const r=S.reports.find(x=>x.intel&&x.intel.pid===pid);return r&&r.intel};
 
 // ---------- Écumeurs du Vide ----------
@@ -663,9 +666,10 @@ async function locked(path,fn){const ref=db.doc(path);
   throw err('Cible occupée, réessaie dans un instant.')}
 // doc joueur : règle les minerais rares accumulés avant toute modification
 async function withPlayer(uid,fn){return locked('players/'+uid,async(d,ref)=>{if(!d)throw err('Empire introuvable.');const now=Date.now(),rt=rareRates(uid),dt=Math.max(0,(now-(d.rareAt||now))/60000);
-  d.rare=d.rare||{};for(const k in RARE)d.rare[k]=(d.rare[k]||0)+rt[k]*dt;d.culture=(d.culture??50)+cultureRate(uid)*dt;d.rareAt=now;
+  d.rare=d.rare||{};const rcap=rareCap(uid);for(const k in RARE)d.rare[k]=rareFill(d.rare[k]||0,rt[k]*dt,rcap);d.culture=(d.culture??50)+cultureRate(uid)*dt;d.rareAt=now;const r0={...d.rare};
   if(d.research&&d.research.until<=now){d.tech=d.tech||{};d.tech[d.research.k]=(d.tech[d.research.k]||0)+1;d.research=null}
-  const res=await fn(d);await ref.set(d);return res})}
+  const res=await fn(d);for(const k in RARE)if((d.rare[k]||0)>r0[k])d.rare[k]=Math.max(r0[k],Math.min(d.rare[k],rcap)); // le surplus au-delà des réserves est perdu
+  await ref.set(d);return res})}
 async function act(fn){try{await fn()}catch(e){if(e&&e.code==='invalid_argument'){S.spectator=true;render();toast('Tu es en lecture seule sur cette galaxie.','bad');return}toast((e&&e.message)||'Action impossible.','bad')}}
 
 // ---------- actions joueur ----------
@@ -920,6 +924,7 @@ function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='drill'){const t=PTYPES[PLANETS[p.pid].type].rare,r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
+  if(k==='silo')return`Réserves de l’empire <em>+${siloCapL(L)} → +${siloCapL(L+1)}</em> par minerai rare (total actuel ${fmt(rareCap(ME))})`;
   if(k==='dock')return`${L<1?'Permet de <em>stationner une flotte</em> ici et de lancer des missions':'Base opérationnelle'} · <em>${bayCapL(L,true)} → ${bayCapL(L+1,true)}</em> places`;
   const r0=rates(p),r1=rates(q);
   if(k==='mine')return`<em>${fmt(r0.m)} → ${fmt(r1.m)}</em> métal/min`;
@@ -961,7 +966,7 @@ function renderYard(){const p=view(S.sel);
     <div class="foot"><div class="costs">${lock?`<span class="no">Chantier niv. ${s.yard} requis</span>`:`${costHtml(p.res,s.cost,n)}<span class="t">${fmtDur(shipTime(k,p.lv.yard)*n)}</span>`}</div>
     ${lock?'':`<div style="display:flex;gap:8px;align-items:center"><span class="step"><button data-act="qty" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${n}</span><button data-act="qty" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="qty" data-t="${k}" data-d="10">+10</button></span><button class="btn sm" data-act="ship" data-t="${k}" ${ok?'':'disabled'}>${room?'Construire':'Hangars pleins'}</button></div>`}</div></div>`}).join('')}
   </div></section>`}
-function rareCard(){const r=rareNow(ME),rt=rareRates(ME),pl=S.players[ME]||{};return`<div class="card stats" style="font-size:13px">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b> <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small></span>`).join('')}<span>Éclats du Vide <b>${fmt(pl.frag||0)}</b></span><span>Points de combat <b>${fmt(pl.cp||0)}</b></span><span>Culture <b>${fmt(cultureNow(ME))}</b> <small style="color:var(--good)">+${cultureRate(ME).toFixed(2)}/min</small> · prochaine colonie : ${cultureCost(ME)}</span></div>`}
+function rareCard(){const r=rareNow(ME),rt=rareRates(ME),pl=S.players[ME]||{},rc=rareCap(ME);return`<div class="card stats" style="font-size:13px">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}" style="${r[k]>=rc?'color:var(--bad)':''}">${fmt(r[k])}</b> <small>/ ${fmt(rc)}</small> <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small></span>`).join('')}<span>Éclats du Vide <b>${fmt(pl.frag||0)}</b></span><span>Points de combat <b>${fmt(pl.cp||0)}</b></span><span>Culture <b>${fmt(cultureNow(ME))}</b> <small style="color:var(--good)">+${cultureRate(ME).toFixed(2)}/min</small> · prochaine colonie : ${cultureCost(ME)}</span></div>`}
 function renderLab(){const p=view(S.sel),pl=S.players[ME]||{},tech=techOf(pl),rs=pl.research&&pl.research.until>Date.now()?pl.research:null,r=rareNow(ME);
   if(isBody(p.pid))return`<h1>Labo</h1>${rareCard()}<p class="empty">L’Académie et l’Arsenal se construisent sur tes planètes. Choisis une planète dans le sélecteur « Lieu ».</p>`;
   const acad=p.lv.acad||0,ars=p.lv.arsenal||0,armQ=p.armQ||[];
@@ -1319,7 +1324,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.modal){S.modal=nu
 
 // ---------- horloge ----------
 function tickUi(){const now=Date.now();
-  if(S.sel&&S.planets[S.sel]&&S.planets[S.sel].owner===ME&&isBody(S.sel)){const r=rareNow(ME),rt=rareRates(ME);for(const k in RARE){const el=document.querySelector(`[data-res="${k}"]`);if(!el)continue;el.textContent=fmt(r[k]);document.querySelector(`[data-rate="${k}"]`).textContent=`+${rt[k].toFixed(1)}/min`}}
+  if(S.sel&&S.planets[S.sel]&&S.planets[S.sel].owner===ME&&isBody(S.sel)){const r=rareNow(ME),rt=rareRates(ME),rc=rareCap(ME);for(const k in RARE){const el=document.querySelector(`[data-res="${k}"]`);if(!el)continue;el.textContent=fmt(r[k]);{const cb=document.querySelector(`[data-capbar="${k}"]`);if(cb)cb.style.width=Math.min(100,r[k]/rc*100)+'%'}document.querySelector(`[data-rate="${k}"]`).textContent=`+${rt[k].toFixed(1)}/min`}}
   else if(S.sel&&S.planets[S.sel]&&S.planets[S.sel].owner===ME){const p=view(S.sel),r=rates(p),cp=capOf(p);
     for(const k in RES){const el=document.querySelector(`[data-res="${k}"]`);if(!el)continue;el.textContent=fmt(p.res[k]);document.querySelector(`[data-rate="${k}"]`).textContent=`+${fmt(r[k])}/min`;document.querySelector(`[data-capbar="${k}"]`).style.width=Math.min(100,p.res[k]/cp*100)+'%';document.querySelector(`[data-resbox="${k}"]`).classList.toggle('full',p.res[k]>=cp)}}
   {const rn=document.querySelector('[data-rare]')?rareNow(ME):null;if(rn)document.querySelectorAll('[data-rare]').forEach(el=>{el.textContent=fmt(rn[el.dataset.rare])})}
@@ -1878,7 +1883,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='14';
+const APP_VERSION='15';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

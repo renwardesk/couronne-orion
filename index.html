@@ -184,6 +184,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .shiphd{display:flex;align-items:center;gap:10px}.shipico{width:46px;height:46px;flex:none;background:radial-gradient(circle,#1c2848 0,#0d1428 70%);border:1px solid var(--line);border-radius:10px;padding:3px}.locked .shipico{opacity:.45;filter:grayscale(1)}
 .stbl{width:100%;border-collapse:collapse;font-size:12.5px}.stbl th{font-weight:500;font-size:11px;color:var(--dim);text-align:right;padding:4px 3px 6px;text-transform:uppercase;letter-spacing:0}.stbl td{text-align:right;padding:5px 3px;border-top:1px solid #ffffff12;font-family:var(--f-data);font-variant-numeric:tabular-nums}.stbl td:first-child{text-align:left;font-family:var(--f-body)}.stbl td.own{color:var(--ink);font-weight:600}.stbl td.best{color:var(--brass);font-weight:600}.stbl tr.locked td{opacity:.45}
 .shiphd.sm{gap:6px;font-size:13px}.shiphd.sm .shipico{width:28px;height:28px;padding:2px;border-radius:7px}
+.mppl{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .trrow{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;align-items:center}.trrow input,.trrow select{min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font:inherit}
 .ml.mini{font-size:9.5px;padding:1px 5px;color:#ff8a9a;background:#0a0f2070;opacity:.8}
 .ml.mini.hole{color:#ffb27a;font-size:10px}
@@ -1345,7 +1346,7 @@ function renderGalaxy(){return retaskBanner()+renderGalaxy0()}
 function renderGalaxy0(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];const lv=MP.level,G=GALS[MP.gal];
   const mineIn=g=>Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length;
   const rivalsIn=g=>new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner));
-  const hint=MP.ok?'<p class="meta" style="margin:0">Un doigt pour tourner, deux doigts pour zoomer et te déplacer. Touche un système pour y entrer, dézoome pour remonter.</p>':`<div class="chips"><button class="chip" data-act="mapuni">Univers</button>${lv==='system'?`<button class="chip" data-act="mapgal" data-g="${MP.gal}">${esc(G.name)}</button>`:''}</div>`;
+  const hint=MP.ok?'<p class="meta" style="margin:0">Un doigt pour te déplacer, deux doigts pour zoomer et tourner (pivote ou glisse à deux doigts). Touche un système pour y entrer, dézoome pour remonter.</p>':`<div class="chips"><button class="chip" data-act="mapuni">Univers</button>${lv==='system'?`<button class="chip" data-act="mapgal" data-g="${MP.gal}">${esc(G.name)}</button>`:''}</div>`;
   if(lv==='universe')return`<section style="display:grid;gap:10px"><h1>Univers</h1>${hint}</section>${eventsHtml()}<section style="display:grid;gap:10px"><h2>Galaxies</h2><div class="list">${GALS.map((G2,g)=>{const n=mineIn(g),rv=rivalsIn(g),first=SYSTEMS.find(s=>s.gal===g);
     return`<div class="item"><div class="ihead"><b>Niveau ${g+1} · ${esc(G2.name)}</b>${lockChip(g)}</div><div class="eff" style="font-style:italic">Chapitre ${g+1} · ${esc(G2.chap)} — ${esc(G2.story)}</div><div class="ihead"><b></b><span class="lv">${G2.rich>1?`+${Math.round((G2.rich-1)*100)} % production`:'galaxie de départ'}</span></div>
     <div class="eff">${SYSTEMS.filter(s=>s.gal===g&&!s.deep).length} systèmes${(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?` · <b style="color:var(--bad)">${n} groupe${n>1?'s':''} d’Écumeurs</b>`:''})()}${n?` · <b style="color:${esc(pcolor(ME))}">${n} lieu${n>1?'x':''} à toi</b>`:''}${rv.size?` · ${[...rv].map(u=>esc(pname(u))).join(', ')}`:''}${joined&&galOf(S.sel)!==g?` · ${fmtDur(etaOf(S.sel,first.planets[0],{fighter:1}))} en chasseurs`:''}</div>
@@ -1499,15 +1500,15 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
     const pts=()=>[...MP.ptr.values()];
     mpc.addEventListener('pointerdown',e=>{MP.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});try{mpc.setPointerCapture(e.pointerId)}catch(x){}
       MP.idle=performance.now()+8000;
-      if(MP.ptr.size===2){const[a,b]=pts();MP.pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,dist:MP.distT,mx:(a.x+b.x)/2,my:(a.y+b.y)/2};MP.drag=null;MP.pan=null;MP.down=null}
-      else if(e.pointerType==='mouse'&&(e.button===2||e.shiftKey)){MP.pan={x:e.clientX,y:e.clientY};MP.drag=null;MP.down=null}
-      else{MP.drag={x:e.clientX,y:e.clientY,yaw:MP.yaw,pitch:MP.pitch};MP.down={x:e.clientX,y:e.clientY,t:performance.now()}}});
+      if(MP.ptr.size===2){const[a,b]=pts();MP.pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,dist:MP.distT,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,mx0:(a.x+b.x)/2,my0:(a.y+b.y)/2,ang0:Math.atan2(b.y-a.y,b.x-a.x),yaw0:MP.yaw,pitch0:MP.pitch};MP.drag=null;MP.pan=null;MP.down=null}
+      else if(e.pointerType==='mouse'&&(e.button===2||e.shiftKey)){MP.drag={x:e.clientX,y:e.clientY,yaw:MP.yaw,pitch:MP.pitch};MP.pan=null;MP.down=null}
+      else{MP.pan={x:e.clientX,y:e.clientY};MP.drag=null;MP.down={x:e.clientX,y:e.clientY,t:performance.now()}}});
     mpc.addEventListener('contextmenu',e=>e.preventDefault());
     mpc.addEventListener('pointermove',e=>{if(!MP.ptr.has(e.pointerId))return;MP.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(MP.ptr.size>=2&&MP.pinch){const[a,b]=pts(),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;mpPan(mx-MP.pinch.mx,my-MP.pinch.my);MP.pinch.mx=mx;MP.pinch.my=my;const cur=Math.hypot(a.x-b.x,a.y-b.y)||1;mpZoomTo(MP.pinch.dist*MP.pinch.d/cur);if(MP.rebase){MP.rebase=false;MP.pinch.dist=MP.distT;MP.pinch.d=cur}}
+      if(MP.ptr.size>=2&&MP.pinch){const[a,b]=pts(),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,P=MP.pinch;let da=Math.atan2(b.y-a.y,b.x-a.x)-P.ang0;if(da>Math.PI)da-=2*Math.PI;if(da<-Math.PI)da+=2*Math.PI;MP.yaw=P.yaw0-da-(mx-P.mx0)*.006;MP.pitch=Math.max(-1.45,Math.min(1.45,P.pitch0+(my-P.my0)*.005));P.mx=mx;P.my=my;const cur=Math.hypot(a.x-b.x,a.y-b.y)||1;mpZoomTo(MP.pinch.dist*MP.pinch.d/cur);if(MP.rebase){MP.rebase=false;MP.pinch.dist=MP.distT;MP.pinch.d=cur;P.mx0=mx;P.my0=my;P.ang0=Math.atan2(b.y-a.y,b.x-a.x);P.yaw0=MP.yaw;P.pitch0=MP.pitch}}
       else if(MP.pan){mpPan(e.clientX-MP.pan.x,e.clientY-MP.pan.y);MP.pan={x:e.clientX,y:e.clientY}}
       else if(MP.drag){MP.yaw=MP.drag.yaw-(e.clientX-MP.drag.x)*.006;MP.pitch=Math.max(-1.45,Math.min(1.45,MP.drag.pitch+(e.clientY-MP.drag.y)*.005))}});
-    const up=e=>{const dn=MP.down;MP.ptr.delete(e.pointerId);if(MP.ptr.size<2)MP.pinch=null;
+    const up=e=>{const dn=MP.down;MP.ptr.delete(e.pointerId);if(MP.ptr.size<2)MP.pinch=null;if(MP.ptr.size===1){const[r]=pts();MP.pan={x:r.x,y:r.y}}
       if(dn&&!MP.ptr.size&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<9&&performance.now()-dn.t<450){const rc=mpc.getBoundingClientRect();mpPick(e.clientX-rc.left,e.clientY-rc.top)}
       MP.down=null;if(MP.ptr.size===1)MP.drag=null;else if(!MP.ptr.size){MP.drag=null;MP.pan=null}};
     mpc.addEventListener('pointerup',up);mpc.addEventListener('pointercancel',e=>{MP.down=null;up(e)});
@@ -1600,6 +1601,7 @@ function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal]
   if(MP.level!=='universe')parts.push(`<button class="tgl" data-act="mapgal" data-g="${MP.gal}" aria-pressed="${MP.level==='galaxy'}">${esc(G.name)}</button>`);
   if(MP.level==='system')parts.push(`<button class="tgl" aria-pressed="true">${sysVisible(MP.sys)?esc(SYSTEMS[MP.sys].name):'Inexploré'}</button>`);
   if(S.sel&&S.planets[S.sel])parts.push(`<button class="tgl" data-act="maphome">Ma planète</button>`);
+  {const caps=Object.values(S.planets).filter(p=>p.capital&&p.owner&&p.owner!==ME&&PLANETS[p.pid]);if(caps.length){parts.push(`<button class="tgl" data-act="mappl" aria-pressed="${!!S.mpPl}">Joueurs ▾</button>`);if(S.mpPl)parts.push(`<div class="mppl">${caps.map(p=>`<button class="tgl" data-act="mapplgo" data-p="${p.pid}"><b style="color:${esc(pcolor(p.owner))}">●</b> ${esc(pname(p.owner))}</button>`).join('')}</div>`)}}
   const h=parts.join('');if(nav.innerHTML!==h)nav.innerHTML=h}
 function nodePos(pid){const m=PLANETS[pid];if(!m)return null;
   if(MP.level==='system'&&MP.sys===m.sys){const o=MP.orbs.find(o=>o.pid===pid);if(o){const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return[v.x,v.y,v.z]}}
@@ -1659,6 +1661,8 @@ document.addEventListener('click',e=>{
   else if(a==='mapsys')mpGoSystem(+b.dataset.s);
   else if(a==='pmap'){const si=+b.dataset.s;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok)mpGoSystem(si)},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
+  else if(a==='mappl'){S.mpPl=!S.mpPl;mpNav()}
+  else if(a==='mapplgo'){S.mpPl=false;const pm=PLANETS[b.dataset.p];if(pm){mpGoSystem(pm.sys);S.pickP=b.dataset.p;render()}}
   else if(a==='selp'){S.sel=b.dataset.p;S.tab='planet';render();window.scrollTo(0,0)}
   else if(a==='send')openSend(b.dataset.p);
   else if(a==='mmis'){S.modal.mission=b.dataset.m;renderModal()}
@@ -2283,7 +2287,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='44';
+const APP_VERSION='45';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -2120,7 +2120,7 @@ function shipLibBump(){SHIPLIB.ver++;try{if(S.tab==='hangar')hgUpdate()}catch(e)
 async function shipLibInit(){if(SHIPLIB.init||!window.THREE)return;SHIPLIB.init=true;try{SHIPLIB.meta=await(await fetch('models/ships.json')).json();const col=texColorFor(typeof ME!=='undefined'?paintOf(ME):null);for(const t in SHIPMODEL){loadModel(SHIPMODEL[t]);loadTex(SHIPMODEL[t],col)}}catch(e){SHIPLIB.meta=null}}
 async function loadModel(n){if(!SHIPLIB.meta||!SHIPLIB.meta[n]||SHIPLIB.geo[n]||SHIPLIB.loading[n])return;SHIPLIB.loading[n]=1;
   try{const buf=await(await fetch('models/'+n+'.bin')).arrayBuffer(),u=new Uint32Array(buf,0,2),nv=u[0],ni=u[1];
-    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buf,8,nv*3).slice(),3));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(buf,8+nv*12,nv*2).slice(),2));g.setIndex(new THREE.BufferAttribute(new Uint16Array(buf,8+nv*20,ni).slice(),1));
+    const g0=new THREE.BufferGeometry(),ix=new Uint16Array(buf,8+nv*20,ni).slice();for(let i=0;i+2<ni;i+=3){const t=ix[i+1];ix[i+1]=ix[i+2];ix[i+2]=t}g0.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buf,8,nv*3).slice(),3));g0.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(buf,8+nv*12,nv*2).slice(),2));g0.setIndex(new THREE.BufferAttribute(ix,1));const g=g0.toNonIndexed();g0.dispose();
     g.rotateY(Math.PI/2);g.computeBoundingBox();const c=new THREE.Vector3();g.boundingBox.getCenter(c);g.translate(-c.x,-c.y,-c.z);g.computeVertexNormals();g.computeBoundingBox();
     const sz=new THREE.Vector3();g.boundingBox.getSize(sz);g.userData={shared:true,len:Math.max(sz.x,sz.z*.9),exh:(SHIPLIB.meta[n].exh||[]).map(([x,y,z,s])=>[z-c.x,y-c.y,-x-c.z,s])};SHIPLIB.geo[n]=g;shipLibBump()}catch(e){SHIPLIB.loading[n]=0}}
 function loadTex(n,col){const k=n+'_'+col;if(SHIPLIB.tex[k]||SHIPLIB.loading['t'+k])return;SHIPLIB.loading['t'+k]=1;
@@ -2128,9 +2128,9 @@ function loadTex(n,col){const k=n+'_'+col;if(SHIPLIB.tex[k]||SHIPLIB.loading['t'
 function libGlow(hex,op){const k=hex+op;let m=SHIPLIB.mat['g'+k];if(!m){if(!SHIPLIB.glow)SHIPLIB.glow=glowTex();m=SHIPLIB.mat['g'+k]=new THREE.SpriteMaterial({map:SHIPLIB.glow,color:new THREE.Color('#'+hex),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:op});m.userData.shared=true}return m}
 function protoLen(type){if(SHIPLIB.proto[type])return SHIPLIB.proto[type];const s=buildShipP(type,paintOf(null),null),b=new THREE.Box3().setFromObject(s),v=new THREE.Vector3();b.getSize(v);v3Clear(s);return SHIPLIB.proto[type]=v.x||.6}
 function modelShip(n,col,len,pt){const g=SHIPLIB.geo[n];if(!g){loadModel(n);return null}const k=n+'_'+col,t=SHIPLIB.tex[k];if(!t){loadTex(n,col);return null}
-  let m=SHIPLIB.mat[k];if(!m){m=SHIPLIB.mat[k]=new THREE.MeshStandardMaterial({map:t,metalness:.2,roughness:.55});m.userData.shared=true}
+  let m=SHIPLIB.mat[k];if(!m){m=SHIPLIB.mat[k]=new THREE.MeshStandardMaterial({map:t,color:0xc8ccd6,metalness:.1,roughness:.75});m.userData.shared=true}
   const grp=new THREE.Group(),mesh=new THREE.Mesh(g,m),sc=len/(g.userData.len||1);mesh.scale.setScalar(sc);grp.add(mesh);
-  const gc=new THREE.Color((pt&&pt.glow)||'#7fe8ff');for(const[x,y,z,s]of g.userData.exh){const sp=new THREE.Sprite(libGlow(gc.getHexString(),.85));sp.position.set((x-.25)*sc,y*sc,z*sc);sp.scale.setScalar(Math.max(.4,s)*sc*1.6);grp.add(sp)}
+  
   grp.userData.spins=[];grp.userData.model=n;return grp}
 // chaque commandant reçoit une combinaison unique de modèle et de couleurs
 const FLAGM=(()=>{const pools={c:['dispatcher','bob','striker','spitfire','zenith'],r:['challenger','insurgent','zenith','spitfire','dispatcher'],e:['executioner','omen','pancake','insurgent'],l:['imperial','omen','executioner','challenger']},cols=Object.keys(TEXCOLS),used=new Set(),o={};
@@ -2412,7 +2412,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='50';
+const APP_VERSION='51';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

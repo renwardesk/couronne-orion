@@ -1190,9 +1190,9 @@ function renderTop(joined){top_.hidden=false;
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
-function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;
+function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;badgeSeen(S.tab);
   const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['players','Joueurs'],['news','Actus'],['log','Journal']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
-  document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
+  document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='drill'){const t=rkOf(p),r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
@@ -1720,7 +1720,11 @@ function ambient(on){const c=audio();if(!c)return;
 function musicTension(on){if(MUS.tension!==on){MUS.tension=on;MUS.step=0}}
 
 // ---------- événements sonores (constructions finies, attaques, rapports) ----------
-const EV={init:false,seen:new Set(),repInit:false,reps:new Set()};
+const EV={init:false,seen:new Set(),repInit:false,reps:new Set(),badge:{planet:[],yard:[],lab:[]}};
+// pastilles rouges sur les onglets : travaux terminés que tu n'as pas encore consultés
+let BSEEN=null;const bseen=()=>{if(!BSEEN){BSEEN=new Set();try{for(const k of JSON.parse(localStorage.getItem('orion-bseen-'+ME)||'[]'))BSEEN.add(k)}catch(e){}}return BSEEN};
+const badgeN=t=>(EV.badge[t]||[]).filter(k=>!bseen().has(k)).length;
+function badgeSeen(t){const L=EV.badge[t]||[];if(!L.length)return;const S0=bseen();let ch=false;for(const k of L)if(!S0.has(k)){S0.add(k);ch=true}if(ch)try{localStorage.setItem('orion-bseen-'+ME,JSON.stringify([...S0].slice(-300)))}catch(e){}}
 function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=[];
   for(const p of myPlanets()){const nm=PLANETS[p.pid].name;
     for(const it of[...(p.build?[p.build]:[]),...(p.bq||[])])if(it.until<=now)keys.push(['d','b'+p.pid+it.until+it.k,`${lvBase(it.k).n} : amélioration terminée sur ${nm}.`]);
@@ -1728,6 +1732,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
   for(const it of Object.values(S.planets).filter(p=>p.owner===ME).flatMap(p=>(p.armQ||[]).map(x=>[p,x]))){const[p,x]=it,end=x.start+x.n*x.per*1000;if(end<=now)keys.push(['d','m'+p.pid+end+x.t,`Modules « ${WEAP[x.t].n} » prêts sur ${PLANETS[p.pid].name}.`])}
   {const rs=S.players[ME].research;if(rs&&rs.until<=now)keys.push(['d','r'+rs.until,`Recherche terminée : ${WEAP[rs.k].n}.`]);const cm=cometAt(),hv=hiveAt();if(cm)keys.push(['d','cm'+cm.id,`Une comète traverse ${PLANETS[cm.pid].name} (${GALS[galOf(cm.pid)].name}). Le premier qui la récolte gagne gros.`]);if(hv)keys.push(['a','hv'+hv.id,`La Ruche a surgi à ${PLANETS[hv.pid].name}. Unissez vos flottes pour l’abattre.`])}
   musicTension(incoming().length>0);for(const f of incoming())keys.push(['a','a'+f.fid,`Alerte : ${pname(f.owner)} attaque ${PLANETS[f.to].name}, arrivée à ${clock(f.arrive)}.`]);
+  {const B={planet:[],yard:[],lab:[]};for(const[t,k]of keys){if(t!=='d')continue;const c=k[0];if(c==='b')B.planet.push(k);else if(c==='s')B.yard.push(k);else if(c==='m'||(c==='r'&&/^r\d/.test(k)))B.lab.push(k)}EV.badge=B}
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
   for(const[t,k,msg]of keys){if(EV.seen.has(k))continue;EV.seen.add(k);if(t==='a'){sfx.alert();toast(msg,'alert')}else{sfx.done();toast(msg)}}}
 function reportSounds(){if(!EV.repInit){S.reports.forEach(r=>EV.reps.add(r.id));EV.repInit=true;return}
@@ -2215,7 +2220,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='37';
+const APP_VERSION='38';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

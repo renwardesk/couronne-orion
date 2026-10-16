@@ -792,6 +792,7 @@ function cmdBadge(c,sz=20){const i=typeof c==='string'?CMDK[c]:cmdInfo(c);if(!i|
 ${ring}${laurel}${wings}${crown}<path d="${BADGE_EMB[i.sp]||BADGE_EMB.att}" fill="url(#${id})" fill-rule="evenodd" stroke="#0a0f1e" stroke-width="1.1"/>
 <circle cx="20" cy="19" r="${R==='c'?1.6:2}" fill="${gem}" stroke="#0a0f1e" stroke-width=".6"/><g fill="url(#${id})" stroke="#0a0f1e" stroke-width=".5">${chev}${stars}</g></svg>`}
 const cmdTag=(uid,id,sz=16)=>{const c=cmdById(uid,id);return c?`<span class="ctag" style="color:${RAR[cmdInfo(c).r].col}">${cmdBadge(c,sz)}${esc(cmdInfo(c).n)}</span>`:''};
+const cmdAvatar=c=>cmdBadge(c,40);
 const cmdAvatar0=c=>{const i=cmdInfo(c),col=RAR[i.r].col,ini=i.n.replace(/^(Le |La |L’)/,'').split(/[\s’']+/).filter(w=>w.length>1).slice(-2).map(w=>w[0]).join('').toUpperCase();
   return`<span class="cav" style="--rc:${col}">${esc(ini)}</span>`};
 function cmdCard(x){const i=cmdInfo(x),lv=cmdLvl(x.xp),nx=cmdNext(lv),busy=Object.values(S.fleets).some(f=>f.owner===ME&&f.cmd===x.id),hurt=cmdHurt(x),pc=lv>=CMD_LMAX?100:Math.min(100,(x.xp||0)/nx*100),ins=insOf(ME);
@@ -2479,7 +2480,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='56';
+const APP_VERSION='57';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

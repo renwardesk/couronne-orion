@@ -790,7 +790,7 @@ async function reinforceArrival(f,fref){if(await joinBattle(f,fref,'dal',0))retu
 
 // ---------- commerce entre joueurs ----------
 const TRK={m:'Métal',c:'Cristal',f:'Hélium-3',ir:'Iridium',xe:'Xénite',am:'Antimatière'};
-const isRareK=k=>k in RARE;
+const isRareK=k=>k in RARE;const TRADE_K=['m','c','f'];
 const tradeOpen=()=>Object.values(S.events).filter(e=>e.trade&&e.status==='open').sort((a,b)=>b.at-a.at);
 async function takeGoods(uid,pid,k,n){if(isRareK(k))await withPlayer(uid,d=>{if((d.rare[k]||0)<n)throw err(`${TRK[k]} insuffisant.`);d.rare[k]-=n});
   else await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==uid)throw err('Planète perdue.');const p=settle(d,Date.now());if((p.res[k]||0)<n)throw err(`${TRK[k]} insuffisant sur ${plName(pid)}.`);p.res[k]-=n;await ref.set(p)})}
@@ -798,7 +798,7 @@ async function giveGoods(uid,pid,goods){const res={m:0,c:0,f:0},rare={};let any=
   if(Object.keys(rare).length&&S.players[uid])await withPlayer(uid,d=>{for(const k in rare)d.rare[k]=(d.rare[k]||0)+rare[k]}).catch(()=>{});
   if(any){let dest=pid;const o=S.planets[dest];if(!o||o.owner!==uid||isBody(dest)){const c=capitalOf(uid);dest=c&&c.pid}if(dest)await locked('planets/'+dest,async(d,ref)=>{if(!d||d.owner!==uid)return;const p=settle(d,Date.now());addRes(p.res,res);await ref.set(p)}).catch(()=>{})}}
 async function tradeCreate(){await act(async()=>{const g=document.getElementById('trgk').value,gn=Math.floor(+document.getElementById('trgn').value||0),w=document.getElementById('trwk').value,wn=Math.floor(+document.getElementById('trwn').value||0);
-  if(gn<1||wn<1)throw err('Indique des quantités.');if(g===w)throw err('Choisis deux ressources différentes.');const pid=S.sel;if(isBody(pid))throw err('Le commerce part d’une planète, pas d’un avant-poste.');
+  if(!TRADE_K.includes(g)||!TRADE_K.includes(w))throw err('Les minerais rares ne s’échangent pas.');if(gn<1||wn<1)throw err('Indique des quantités.');if(g===w)throw err('Choisis deux ressources différentes.');const pid=S.sel;if(isBody(pid))throw err('Le commerce part d’une planète, pas d’un avant-poste.');
   if(tradeOpen().filter(e=>e.seller===ME).length>=4)throw err('4 offres ouvertes au maximum.');
   await takeGoods(ME,pid,g,gn);const id='tr-'+newId();await db.doc('events/'+id).set({kind:'event',id,trade:true,seller:ME,pid,give:{[g]:gn},want:{[w]:wn},status:'open',at:Date.now()});sfx.build();toast('Offre publiée au marché.')})}
 async function tradeCancel(id){await act(async()=>{let back=null;await locked('events/'+id,async(e,ref)=>{if(!e||e.status!=='open'||e.seller!==ME)throw err('Offre déjà conclue.');e.status='cancelled';back=e;await ref.set(e)});
@@ -818,18 +818,18 @@ const MKV={m:1,c:1.5,f:2.5,ir:40,xe:60,am:120},MK_RATE=.6;
 const mkOut=(g,w,n)=>g===w?0:Math.floor(n*MKV[g]/MKV[w]*MK_RATE);
 function mkPreview(){const g=(document.getElementById('mkg')||{}).value,w=(document.getElementById('mkw')||{}).value,n=Math.floor(+((document.getElementById('mkn')||{}).value)||0),el=document.getElementById('mkout');if(el&&g&&w)el.textContent=g===w?'Choisis deux ressources différentes.':`Tu recevras ${fmt(mkOut(g,w,n))} ${TRK[w].toLowerCase()}.`}
 async function mkTrade(){await act(async()=>{const g=document.getElementById('mkg').value,w=document.getElementById('mkw').value,n=Math.floor(+document.getElementById('mkn').value||0),pid=S.sel;
-  if(g===w)throw err('Choisis deux ressources différentes.');if(n<1)throw err('Indique une quantité.');if(isBody(pid)&&!(isRareK(g)&&isRareK(w)))throw err('Choisis une planète (pas un avant-poste) dans « Lieu ».');
+  if(!TRADE_K.includes(g)||!TRADE_K.includes(w))throw err('Les minerais rares ne s’échangent pas.');if(g===w)throw err('Choisis deux ressources différentes.');if(n<1)throw err('Indique une quantité.');if(isBody(pid))throw err('Choisis une planète (pas un avant-poste) dans « Lieu ».');
   const out=mkOut(g,w,n);if(out<1)throw err('Quantité trop faible pour cet échange.');await takeGoods(ME,pid,g,n);await giveGoods(ME,pid,{[w]:out});
   sfx.build();toast(`Comptoir : ${fmt(n)} ${TRK[g].toLowerCase()} → ${fmt(out)} ${TRK[w].toLowerCase()}.`);document.getElementById('mkn').value='';render()})}
-function mkHtml(){const opt=s=>Object.keys(TRK).map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
+function mkHtml(){const opt=s=>TRADE_K.map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
   return`<section style="display:grid;gap:10px"><h2>Comptoir universel</h2><p class="meta" style="margin:0">Échange immédiat avec les marchands neutres, sans convoi, mais tu perds ${Math.round((1-MK_RATE)*100)} % de la valeur au passage. Entre joueurs, le taux est libre et souvent bien meilleur.</p>
   <div class="card" style="display:grid;gap:8px"><div class="trrow"><span>Je vends</span><input id="mkn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="mkg">${opt('m')}</select></div><div class="trrow"><span>Contre</span><span id="mkout" class="eff">Indique une quantité.</span><select id="mkw">${opt('c')}</select></div>
-  <div class="foot"><span class="eff">Valeurs : 1 cristal = 1,5 métal · 1 hélium-3 = 2,5 · 1 iridium = 40 · 1 xénite = 60 · 1 antimatière = 120</span><button class="btn sm" data-act="mktrade">Échanger</button></div></div></section>`}
+  <div class="foot"><span class="eff">Valeurs : 1 cristal = 1,5 métal · 1 hélium-3 = 2,5 métal · les minerais rares ne s’échangent pas</span><button class="btn sm" data-act="mktrade">Échanger</button></div></div></section>`}
 document.addEventListener('input',e=>{if(e.target&&/^mk[gwn]$/.test(e.target.id))mkPreview()});document.addEventListener('change',e=>{if(e.target&&/^mk[gw]$/.test(e.target.id))mkPreview()});
-function tradeHtml(){if(!S.players[ME])return'';const open=tradeOpen(),mine=open.filter(e=>e.seller===ME),others=open.filter(e=>e.seller!==ME),opt=s=>Object.keys(TRK).map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
+function tradeHtml(){if(!S.players[ME])return'';const open=tradeOpen(),mine=open.filter(e=>e.seller===ME),others=open.filter(e=>e.seller!==ME),opt=s=>TRADE_K.map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
   const conv=Object.values(S.fleets).filter(f=>f.mission==='convoy'&&f.phase==='out'&&(f.owner===ME||f.sender===ME));
-  return`${mkHtml()}<section style="display:grid;gap:10px"><h2>Marché entre joueurs</h2><p class="meta" style="margin:0">Échange des ressources avec les autres empires. La marchandise est mise de côté dès la publication. Une fois l’offre acceptée, deux convois traversent l’espace : n’importe qui peut tenter de les intercepter.</p>
-  <div class="card" style="display:grid;gap:8px"><b>Nouvelle offre depuis ${esc(plName(S.sel))}</b><div class="trrow"><span>Je donne</span><input id="trgn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trgk">${opt('m')}</select></div><div class="trrow"><span>Contre</span><input id="trwn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trwk">${opt('ir')}</select></div><div><button class="btn sm" data-act="trnew">Publier l’offre</button></div></div>
+  return`${mkHtml()}<section style="display:grid;gap:10px"><h2>Marché entre joueurs</h2><p class="meta" style="margin:0">Échange du métal, du cristal et de l’hélium-3 avec les autres empires (les minerais rares ne s’échangent pas). La marchandise est mise de côté dès la publication. Une fois l’offre acceptée, deux convois traversent l’espace : n’importe qui peut tenter de les intercepter.</p>
+  <div class="card" style="display:grid;gap:8px"><b>Nouvelle offre depuis ${esc(plName(S.sel))}</b><div class="trrow"><span>Je donne</span><input id="trgn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trgk">${opt('m')}</select></div><div class="trrow"><span>Contre</span><input id="trwn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trwk">${opt('c')}</select></div><div><button class="btn sm" data-act="trnew">Publier l’offre</button></div></div>
   ${others.length?`<div class="list">${others.map(e=>`<div class="item"><div class="ihead"><b>${esc(pname(e.seller))} propose</b><span class="lv">${ago(e.at)}</span></div><div class="eff"><b>${lootLine(e.give)}</b> contre <b>${lootLine(e.want)}</b> · convoi ${fmtDur(Math.max(60,etaOf(e.pid,S.sel,{cruiser:1})))}</div><div class="foot"><span class="eff">Tu paies depuis ${esc(plName(S.sel))}</span><button class="btn sm" data-act="trok" data-id="${e.id}">Accepter</button></div></div>`).join('')}</div>`:'<p class="empty">Aucune offre d’autres empires pour l’instant.</p>'}
   ${mine.length?`<h2>Mes offres</h2><div class="list">${mine.map(e=>`<div class="item"><div class="ihead"><b>${lootLine(e.give)} contre ${lootLine(e.want)}</b><span class="lv">${ago(e.at)}</span></div><div class="foot"><span></span><button class="btn ghost sm" data-act="trx" data-id="${e.id}">Retirer</button></div></div>`).join('')}</div>`:''}
   ${conv.length?`<h2>Mes convois</h2><div class="list">${conv.map(f=>`<div class="item"><div class="ihead"><b>${f.owner===ME?'Arrivée':'Départ'} · ${esc(plName(f.from))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">${lootLine(goodsOf(f))}${Object.values(S.fleets).some(w=>w.mission==='intercept'&&w.target===f.fid&&w.owner!==ME)?' · <b style="color:var(--bad)">flotte hostile signalée</b>':''}</div></div>`).join('')}</div>`:''}</section>`}
@@ -2131,7 +2131,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='22';
+const APP_VERSION='23';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

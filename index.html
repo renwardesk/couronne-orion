@@ -1439,7 +1439,7 @@ function mpZoomTo(d,wheel){const[lo,hi]=RANGE[MP.level],now=performance.now();
   if(now<(MP.lockT||0)){MP.distT=Math.max(lo,Math.min(hi,d));return}
   const over=d>hi?(wheel?(MP.ow=(MP.ow||0)+Math.log(d/hi)):Math.log(d/hi)):(MP.ow=0);
   const lv0=MP.level,after=()=>{if(MP.level!==lv0){MP.lockT=now+900;MP.ow=0;MP.rebase=true}};
-  if(over>Math.log(1.7)){if(MP.level==='system'){const ss=SYSTEMS[MP.sys];if(ss&&ss.deep)mpGoUniverse(ss.w,340);else mpGoGalaxy(MP.gal);after();return}if(MP.level==='galaxy'){mpGoUniverse(GALS[MP.gal].c,620);after();return}}
+  if(over>Math.log(1.7)){if(MP.level==='system'){const ss=SYSTEMS[MP.sys];if(ss&&ss.deep)mpGoUniverse(ss.w,340);else mpGoGalaxy(MP.gal,ss&&ss.w,30);after();return}if(MP.level==='galaxy'){mpGoUniverse(GALS[MP.gal].c,620);after();return}}
   if(d<lo*(wheel?.95:.8)){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;
     if(MP.level==='universe'){const g=mpNearest([...GALS.map((G,i)=>({w:G.c,i})),...DEEP.flatMap(D=>[{w:D.m,s:D.hole.i},{w:D.wreck.w,s:D.wreck.i}])],cx,cy,1e9);if(g){if(g.s!=null)mpGoSystem(g.s);else mpGoGalaxy(g.i);after();return}}
     if(MP.level==='galaxy'){const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),cx,cy,mpc.clientWidth*.3);if(s){mpGoSystem(s.i);after();return}}}
@@ -1448,7 +1448,7 @@ function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D
   if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
   if(MP.level==='system'){const o=mpNearest(MP.orbs.filter(o=>!o.ghost).map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}}}
 function mpGoUniverse(at,dist){MP.level='universe';MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...UNI];MP.distT=dist||1350;mpClearSystem();render()}
-function mpGoGalaxy(g){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=[...GALS[g].c];MP.distT=115;mpClearSystem();render()}
+function mpGoGalaxy(g,at,dist){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...GALS[g].c];MP.distT=dist||115;mpClearSystem();render()}
 function mpGoSystem(i){const s=SYSTEMS[i];MP.level='system';MP.gal=s.gal;MP.sys=i;S.pickP=null;MP.tgtT=[...s.w];MP.distT=3.4;mpBuildSystem(i);render()}
 function mpClearSystem(){if(!MP.ok)return;if(MP.sysG){MP.scene.remove(MP.sysG);v3Clear(MP.sysG);MP.sysG=null}MP.orbs=[]}
 const STARC=['#ffd27a','#fff4e0','#a9c8ff','#ffb08a','#ffe9b8'];
@@ -2169,7 +2169,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='31';
+const APP_VERSION='32';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

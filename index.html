@@ -239,7 +239,7 @@ const RES={m:'Métal',c:'Cristal',f:'Hélium-3'};
 const RARE={ir:'Iridium',xe:'Xénite',am:'Antimatière'};
 const PT4=['tel','vol','gla','gaz'];
 const PTYPES={tel:{n:'Tellurique',m:1,c:1,f:1,col:'#6f9d77'},vol:{n:'Volcanique',m:1.3,c:.9,f:1,col:'#d0714a'},gla:{n:'Glaciaire',m:.9,c:1.3,f:1,col:'#8fd0ea'},gaz:{n:'Gazeuse',m:.85,c:1,f:1.4,col:'#c9a0e8'},
-  ast:{n:'Ceinture d’astéroïdes',m:0,c:0,f:0,col:'#a39684',rare:'ir'},moon:{n:'Lune morte',m:0,c:0,f:0,col:'#b9c2cf',rare:'xe'},anom:{n:'Anomalie',m:0,c:0,f:0,col:'#6ff0d0',rare:'am'},raid:{n:'Écumeurs du Vide',m:0,c:0,f:0,col:'#ff4d6d'}};
+  ast:{n:'Ceinture d’astéroïdes',m:0,c:0,f:0,col:'#a39684',rare:'ir'},moon:{n:'Lune morte',m:0,c:0,f:0,col:'#b9c2cf',rare:'xe'},anom:{n:'Anomalie',m:0,c:0,f:0,col:'#6ff0d0',rare:'am'},raid:{n:'Écumeurs du Vide',m:0,c:0,f:0,col:'#ff4d6d'},wreck:{n:'Épave ancienne',m:0,c:0,f:0,col:'#c9a36b',rare:'am'}};
 const SHIPS={
   fighter:{n:'Chasseur',cost:{m:40,c:15,f:0},t:12,att:6,hp:22,spd:1.6,cap:15,fuel:1,yard:1},
   cruiser:{n:'Croiseur',cost:{m:140,c:70,f:15},t:40,att:24,hp:75,spd:1.1,cap:50,fuel:3,yard:2},
@@ -282,7 +282,7 @@ const g=l=>l*1.12**l;
 const isBody=pid=>!!(PLANETS[pid]&&PLANETS[pid].body);
 const richOf=pid=>GALS[SYSTEMS[PLANETS[pid].sys].gal].rich;
 function rates(p){if(isBody(p.pid))return{m:0,c:0,f:0};const L=p.lv,T=PTYPES[PLANETS[p.pid].type],R=richOf(p.pid);return{m:(20+12*g(L.mine))*T.m*R,c:(10+8*g(L.crys))*T.c*R,f:(3+5*g(L.fuel))*T.f*R}}
-function rareRate(p){const o={ir:0,xe:0,am:0};if(!isBody(p.pid))return o;const L=p.lv.drill||0;if(!L)return o;const t=PTYPES[PLANETS[p.pid].type].rare;o[t]=(1.5+2.5*g(L))*richOf(p.pid)*(t==='am'?.5:1);return o}
+function rareRate(p){const o={ir:0,xe:0,am:0};if(!isBody(p.pid))return o;const L=p.lv.drill||0;if(!L)return o;const t=PTYPES[PLANETS[p.pid].type].rare;o[t]=(1.5+2.5*g(L))*richOf(p.pid)*(PLANETS[p.pid].type==='wreck'?1:t==='am'?.5:1);return o}
 const capOf=p=>Math.round(2500*1.6**(p.lv.store||0));
 const shipTime=(k,yard)=>Math.max(3,Math.round(SHIPS[k].t/(1+.2*(Math.max(1,yard)-1))));
 const afford=(r,c,n=1)=>r.m>=c.m*n&&r.c>=c.c*n&&r.f>=c.f*n;
@@ -300,8 +300,8 @@ const SYL=['ka','ri','on','te','zar','vel','mi','dra','sol','nex','ul','ta','phe
 const ROM=['I','II','III','IV','V','VI','VII'];
 const GALS=[
   {name:'Orion',shape:'spiral',arms:3,twist:3.4,N:72,c:[0,0,0],tilt:[.35,0,.12],rich:1},
-  {name:'Céphéide',shape:'spiral',arms:2,twist:4.4,N:64,c:[430,70,-200],tilt:[-.6,.4,.3],rich:1.15},
-  {name:'Voile de Lyra',shape:'spiral',arms:4,twist:2.7,N:60,c:[-400,-80,-250],tilt:[.9,-.2,-.4],rich:1.15},
+  {name:'Céphéide',shape:'bar',arms:2,twist:4.4,N:64,c:[430,70,-200],tilt:[-.6,.4,.3],rich:1.15},
+  {name:'Voile de Lyra',shape:'irr',arms:4,twist:2.7,N:60,c:[-400,-80,-250],tilt:[.9,-.2,-.4],rich:1.15},
   {name:'Tourbillon d’Ixar',shape:'spiral',arms:2,twist:6,N:56,c:[160,160,-560],tilt:[.2,.8,.6],rich:1.3},
   {name:'Nuage de Sélène',shape:'ellipse',N:50,c:[-580,130,160],tilt:[-.3,.2,1.0],rich:1.3},
   {name:'Spirale de Vesta',shape:'spiral',arms:5,twist:3,N:66,c:[540,-170,330],tilt:[1.1,.3,-.2],rich:1.45},
@@ -314,9 +314,12 @@ function galToWorld(g,x,y,z){const G=GALS[g];let px=(x-500)/10,py=z/10,pz=(y-500
   t1=px*Math.cos(c)-py*Math.sin(c);t2=px*Math.sin(c)+py*Math.cos(c);px=t1;py=t2;
   return[px+G.c[0],py+G.c[1],pz+G.c[2]]}
 function makeName(r){let name='';const ns=2+(r()<.4?1:0);for(let j=0;j<ns;j++)name+=SYL[Math.floor(r()*SYL.length)];return name[0].toUpperCase()+name.slice(1)}
+const IRRC=GALS.map((G,g)=>{const r=rng(4242+g);return Array.from({length:6},()=>[(r()-.5)*720,(r()-.5)*720,110+r()*150])});
 GALS.forEach((G,g)=>{const r=rng(g===0?424242:9000+g*131),rz=rng(77+g);
   for(let li=0;li<G.N;li++){let ang,rad;
     if(G.shape==='spiral'){const arm=li%G.arms,t=Math.floor(li/G.arms)/Math.ceil(G.N/G.arms);ang=arm*2*Math.PI/G.arms+t*G.twist+(r()-.5)*.4;rad=60+t*400+(r()-.5)*36}
+    else if(G.shape==='bar'){if(r()<.32){const u=r()*2-1;ang=(u<0?Math.PI:0)+(r()-.5)*.35;rad=40+Math.abs(u)*230}else{const arm=li%2,t=r();ang=arm*Math.PI+t*2.5+(r()-.5)*.35;rad=250+t*230+(r()-.5)*30}}
+    else if(G.shape==='irr'){const c=IRRC[g][li%IRRC[g].length],px=c[0]+(r()-.5)*c[2],py=c[1]+(r()-.5)*c[2];ang=Math.atan2(py,px);rad=Math.hypot(px,py)}
     else if(G.shape==='ellipse'){ang=r()*Math.PI*2;rad=40+Math.pow(r(),.7)*420}
     else{ang=li/G.N*Math.PI*2+(r()-.5)*.2;rad=330+(r()-.5)*110}
     const x=500+Math.cos(ang)*rad,y=500+Math.sin(ang)*rad*(G.shape==='ellipse'?.62:1),z=(rz()-.5)*(G.shape==='ellipse'?160:50)*(1-Math.min(rad,500)/600);
@@ -328,6 +331,8 @@ GALS.forEach((G,g)=>{const r=rng(g===0?424242:9000+g*131),rz=rng(77+g);
 GALS.forEach((G,g)=>{const r=rng(31337+g*977),rz=rng(555+g),extra=Math.round(G.N*1.6),near=SYSTEMS.filter(s=>s.gal===g);let made=0,tries=0;
   while(made<extra&&tries<extra*40){tries++;let ang,rad;
     if(G.shape==='spiral'){const t=Math.pow(r(),.9);ang=Math.floor(r()*G.arms)*2*Math.PI/G.arms+t*G.twist+(r()-.5)*.6;rad=50+t*430+(r()-.5)*55}
+    else if(G.shape==='bar'){if(r()<.3){const u=r()*2-1;ang=(u<0?Math.PI:0)+(r()-.5)*.4;rad=40+Math.abs(u)*240}else{const arm=Math.floor(r()*2),t=r();ang=arm*Math.PI+t*2.5+(r()-.5)*.45;rad=250+t*240+(r()-.5)*40}}
+    else if(G.shape==='irr'){const c=IRRC[g][Math.floor(r()*IRRC[g].length)],px=c[0]+(r()-.5)*c[2]*1.2,py=c[1]+(r()-.5)*c[2]*1.2;ang=Math.atan2(py,px);rad=Math.hypot(px,py)}
     else if(G.shape==='ellipse'){ang=r()*Math.PI*2;rad=30+Math.pow(r(),.7)*440}
     else{ang=r()*Math.PI*2;rad=330+(r()-.5)*140}
     const x=500+Math.cos(ang)*rad,y=500+Math.sin(ang)*rad*(G.shape==='ellipse'?.62:1),z=(rz()-.5)*(G.shape==='ellipse'?160:50)*(1-Math.min(rad,500)/600);
@@ -338,8 +343,36 @@ GALS.forEach((G,g)=>{const r=rng(31337+g*977),rz=rng(555+g),extra=Math.round(G.N
 const GREEK=['α','β','γ','δ'];
 SYSTEMS.forEach(s=>{const r=rng(hash('b'+s.i)),G=GALS[s.gal],kinds=[];const nb=r()<.75?1+Math.floor(r()*2):0;for(let k=0;k<nb;k++)kinds.push(r()<.6?'ast':'moon');if(r()<.05+(G.rich-1)*.35)kinds.push('anom');
   kinds.forEach((t,k)=>{const pid=`b${s.i}-${k}`;PLANETS[pid]={pid,sys:s.i,slot:s.planets.length+k,name:t==='ast'?`Ceinture ${GREEK[k]} de ${s.name}`:t==='moon'?`Lune ${GREEK[k]} de ${s.name}`:`Anomalie de ${s.name}`,type:t,body:true};s.bodies.push(pid)})});
+// ---------- histoire : une galaxie = un niveau ----------
+const STORY=[
+  {chap:'L’Éveil',story:'La Couronne d’Orion s’est effondrée il y a mille ans. Ton peuple se réveille parmi ses ruines, tandis que les Écumeurs du Vide pillent ce qu’il reste. Rebâtis, arme-toi, et trouve la route des étoiles.'},
+  {chap:'Les Pulsations',story:'Au-delà du Gouffre d’Ixion, Céphéide bat comme un cœur : sa barre d’étoiles pulsantes cache les chantiers abandonnés de l’ancienne flotte impériale.'},
+  {chap:'Le Voile déchiré',story:'Lyra n’est plus qu’un archipel de nuées éparses. On raconte que l’Essaim y a dévoré des mondes entiers, et qu’il dort encore entre ses amas.'},
+  {chap:'Le Tourbillon',story:'Ixar tourne si vite que le temps s’y plie. Les anciens y cachèrent leurs armes les plus terribles, gardées par des machines qui ne meurent jamais.'},
+  {chap:'Le Nuage silencieux',story:'Sélène est une galaxie vieille et calme, peuplée d’étoiles mourantes. Le silence y est trompeur : les Écumeurs y ont bâti leurs forteresses.'},
+  {chap:'La Forge',story:'Vesta brûle de jeunes soleils. C’est ici que la Couronne forgeait ses vaisseaux-mondes ; leurs carcasses dérivent encore entre ses cinq bras.'},
+  {chap:'L’Anneau de Nyx',story:'Au bout du voyage, un anneau d’étoiles parfait entoure le vide. Au centre attend ce qui a brisé la Couronne. Celui qui le vaincra la portera.'},
+];
+GALS.forEach((G,i)=>Object.assign(G,STORY[i]));
+// ---------- espace profond : trous noirs gardés et cimetières de vaisseaux entre les galaxies ----------
+const HOLES=[
+  {n:'Gouffre d’Ixion',boss:'Le Léviathan',lore:'Un trou noir affamé dont l’horizon scintille d’épaves. Le Léviathan, vaisseau-ruche des Écumeurs, en garde le seul passage stable.'},
+  {n:'Œil de Charybde',boss:'La Reine-Essaim',lore:'Le disque d’accrétion tourne comme une pupille. La Reine-Essaim y pond ses escadrilles par milliers.'},
+  {n:'Maelström de Thanatos',boss:'Le Colosse du Néant',lore:'Ici la lumière hésite. Le Colosse, forteresse ancienne réactivée, foudroie tout ce qui approche.'},
+  {n:'Abîme de Kerberos',boss:'L’Hydre d’obsidienne',lore:'Trois singularités jumelles, une seule route. L’Hydre se reforme tant qu’une seule de ses têtes survit.'},
+  {n:'Nadir d’Érèbe',boss:'Le Héraut du Vide',lore:'Le Héraut annonce ce qui vient. Sa flotte n’a jamais connu la défaite.'},
+  {n:'Singularité d’Ouroboros',boss:'L’Archonte',lore:'La dernière porte. L’Archonte est le geôlier de l’Anneau de Nyx et l’héritier de ceux qui brisèrent la Couronne.'},
+];
+const WRECKN=['Cimetière de l’Aube','Épaves de la Flotte perdue','Nécropole d’acier','Champ des Titans','Carcasses de l’Exode','Reliquaire de la Couronne'];
+const DEEP=[];
+for(let g=0;g<GALS.length-1;g++){const A=GALS[g].c,B=GALS[g+1].c,m=[0,1,2].map(i=>(A[i]+B[i])/2),d=[0,1,2].map(i=>B[i]-A[i]),L=Math.hypot(...d),u=d.map(x=>x/L),pl=Math.hypot(u[0],u[2])||1,perp=[-u[2]/pl,0,u[0]/pl];
+  const hs={i:SYSTEMS.length,li:-1,gal:g,x:0,y:0,z:0,rad:0,ang:0,name:HOLES[g].n,planets:[],bodies:[],packs:[],w:m,deep:'hole',gate:g};SYSTEMS.push(hs);
+  const wp=[0,1,2].map(i=>m[i]-u[i]*L*.2+perp[i]*L*.13);
+  const ws={i:SYSTEMS.length,li:-1,gal:g,x:0,y:0,z:0,rad:0,ang:0,name:WRECKN[g],planets:[],bodies:[],packs:[],w:wp,deep:'wreck',gate:g};SYSTEMS.push(ws);
+  for(let k=0;k<4;k++){const pid=`wk${g}-${k}`;PLANETS[pid]={pid,sys:ws.i,slot:k,name:`${WRECKN[g]} · Épave ${GREEK[k]}`,type:'wreck',body:true,deep:true};ws.bodies.push(pid)}
+  DEEP.push({g,hole:hs,wreck:ws,a:A,b:B,m,u,L})}
 const galOf=pid=>SYSTEMS[PLANETS[pid].sys].gal;
-function seedGarrison(pid){const sys=SYSTEMS[PLANETS[pid].sys];const r=rng(hash(pid+'g'));if(r()<(isBody(pid)?.55:.3))return{};const lvl=1+Math.floor(r()*3)+Math.max(0,Math.floor((300-sys.rad)/70))+Math.round((GALS[sys.gal].rich-1)*7)-(isBody(pid)?1:0);return{fighter:Math.max(2,lvl*4+Math.floor(r()*4)),cruiser:Math.floor(lvl*lvl/3),battleship:lvl>=5?lvl-4:0}}
+function seedGarrison(pid){if(PLANETS[pid].deep)return{};const sys=SYSTEMS[PLANETS[pid].sys];const r=rng(hash(pid+'g'));if(r()<(isBody(pid)?.55:.3))return{};const lvl=1+Math.floor(r()*3)+Math.max(0,Math.floor((300-sys.rad)/70))+Math.round((GALS[sys.gal].rich-1)*7)-(isBody(pid)?1:0);return{fighter:Math.max(2,lvl*4+Math.floor(r()*4)),cruiser:Math.floor(lvl*lvl/3),battleship:lvl>=5?lvl-4:0}}
 const dist=(a,b)=>{const A=SYSTEMS[PLANETS[a].sys].w,B=SYSTEMS[PLANETS[b].sys].w;return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2])*10};
 
 // ---------- événements partagés (calendrier déterministe) ----------
@@ -352,7 +385,7 @@ function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR
 function hiveAt(t=Date.now()){const w=Math.floor((t+HR)/(6*HR)),s=w*6*HR-HR;if(t<s||t>s+4*HR)return null;return{id:'h'+w,pid:HIVES[hash('hive'+w)%HIVES.length],start:s,end:s+4*HR}}
 function stormAt(t=Date.now()){const w=Math.floor((t+2*HR)/(6*HR)),s=w*6*HR-2*HR;if(t<s||t>s+2*HR)return null;return{id:'s'+w,gal:hash('storm'+w)%GALS.length,start:s,end:s+2*HR}}
 const TRAVEL=2.5; // multiplicateur global des temps de trajet
-function etaOf(a,b,ships){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return 0;const d=dist(a,b);let t=TRAVEL*(40+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);const st=stormAt();if(st&&(galOf(a)===st.gal||galOf(b)===st.gal))t*=1.5;return Math.round(t)}
+function etaOf(a,b,ships){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return 0;const d=dist(a,b);let t=TRAVEL*(40+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);if(galOf(a)!==galOf(b))t*=1.25;const st=stormAt();if(st&&(galOf(a)===st.gal||galOf(b)===st.gal))t*=1.5;return Math.round(t)}
 function fuelOf(a,b,ships){let s=0;for(const k of SK)s+=(ships[k]||0)*SHIPS[k].fuel;const d=dist(a,b);return Math.ceil(s*(1+Math.min(d,1000)/250+Math.max(0,d-1000)/900))}
 const cargoCap=s=>SK.reduce((t,k)=>t+(s[k]||0)*SHIPS[k].cap,0);
 
@@ -416,12 +449,39 @@ const RESPAWN=3*HR,RAIDW=3*HR,RAID_GALS=[0,0,1,2,3,4,5,6],EPOCH=Date.UTC(2026,9,
 const SYS_BY_GAL=GALS.map((G,g)=>SYSTEMS.filter(s=>s.gal===g));
 const raidLoot=kk=>({treasure:{m:Math.round(1500*kk),c:Math.round(1100*kk),f:Math.round(600*kk)},frag:Math.round(5*kk)});
 const scaleShips=(s,f)=>{const o={};for(const k in s)o[k]=Math.round((s[k]||0)*f);return o};
-(function registerPacks(){for(const s of SYSTEMS){const r=rng(hash('pack'+s.i)),n=r()<.35?2:3,lvl=GALS[s.gal].rich*(1+(500-Math.min(s.rad,500))/400);s.packs=[];let hk=1;
+(function registerPacks(){for(const s of SYSTEMS){if(s.deep)continue;const r=rng(hash('pack'+s.i)),n=r()<.35?2:3,lvl=GALS[s.gal].rich*(1+(500-Math.min(s.rad,500))/400);s.packs=[];let hk=1;
   for(let k=0;k<n;k++){const big=k===0,kk=(big?3:1.2)*lvl*(.85+r()*.3),pid=`e${s.i}-${k}`;if(big)hk=kk;
     RAIDS[pid]={pid,sys:s.i,gal:s.gal,tier:big?1:0,local:true,start:0,end:Infinity,ships:{fighter:Math.round(10*kk+r()*5),cruiser:Math.round(3.5*kk),battleship:Math.round((big?.5:.15)*kk)},...raidLoot(kk)};
     PLANETS[pid]={pid,sys:s.i,slot:8+k,name:`${big?'Horde':'Meute'} des Écumeurs · ${s.name}`,type:'raid',raid:true,local:true};s.packs.push(pid)}
   const lid='l'+s.i;s.lair=lid;RAIDS[lid]={pid:lid,sys:s.i,gal:s.gal,tier:2,local:true,lair:true,start:0,end:Infinity,ships:scaleShips(RAIDS[s.packs[0]].ships,2),...raidLoot(hk*2.4)};
   PLANETS[lid]={pid:lid,sys:s.i,slot:11,name:`Repaire des Écumeurs · ${s.name}`,type:'raid',raid:true,local:true,lair:true}}})();
+// gardiens des trous noirs et sentinelles des épaves
+(function registerDeep(){for(const D of DEEP){const g=D.g,k=Math.pow(1.85,g);
+  const bid='bh'+g;RAIDS[bid]={pid:bid,sys:D.hole.i,gal:g,tier:2,local:true,boss:true,gate:g,start:0,end:Infinity,ships:{fighter:Math.round(160*k),cruiser:Math.round(60*k),battleship:Math.round(16*k)},treasure:{m:Math.round(15000*k),c:Math.round(11000*k),f:Math.round(6000*k)},frag:Math.round(60*k)};
+  PLANETS[bid]={pid:bid,sys:D.hole.i,slot:0,name:`${HOLES[g].boss}, gardien du ${HOLES[g].n}`,type:'raid',raid:true,local:true,boss:true};D.hole.packs.push(bid);
+  const sid='sn'+g,kk=2.2*GALS[g].rich*(1+g*.5);RAIDS[sid]={pid:sid,sys:D.wreck.i,gal:g,tier:1,local:true,guard:true,start:0,end:Infinity,ships:{fighter:Math.round(14*kk),cruiser:Math.round(5*kk),battleship:Math.round(.6*kk)},...raidLoot(kk)};
+  PLANETS[sid]={pid:sid,sys:D.wreck.i,slot:8,name:`Sentinelles de l’épave · ${WRECKN[g]}`,type:'raid',raid:true,local:true};D.wreck.packs.push(sid)}})();
+function unlockedOf(uid){const pl=S.players[uid]||{};let u=pl.unlocked||0;for(const p of Object.values(S.planets))if(p.owner===uid&&PLANETS[p.pid])u=Math.max(u,galOf(p.pid));return u}
+const lockChip=g=>S.players[ME]?(g<=unlockedOf(ME)?'<span class="lv" style="color:var(--good)">ouverte</span>':'<span class="lv" style="color:var(--bad)">verrouillée</span>'):'';
+function deepListHtml(){return`<section style="display:grid;gap:10px"><h2>Trous noirs et épaves</h2><p class="meta" style="margin:0">Chaque trou noir garde le passage vers la galaxie suivante. Les épaves voisines regorgent de ressources et de modules d’armes.</p><div class="list">${DEEP.map(D=>{const bid=D.hole.packs[0],st=raidState(bid);
+  return`<div class="item hostile"><div class="ihead"><b>${esc(D.hole.name)}</b><span class="lv">${st.done?'gardien vaincu':`menace ${threat(worth(st.garrison))}`}</span></div><div class="eff">${esc(HOLES[D.g].boss)} · ouvre ${esc(GALS[D.g+1].name)} (niveau ${D.g+2})${S.players[ME]&&unlockedOf(ME)>D.g?' · <b style="color:var(--good)">passage ouvert pour toi</b>':''}</div><div class="foot"><span class="eff">Épaves : ${esc(D.wreck.name)}</span><div style="display:flex;gap:6px"><button class="btn ghost sm" data-act="mapsys" data-s="${D.wreck.i}">Épaves</button><button class="btn sm" data-act="mapsys" data-s="${D.hole.i}">Trou noir</button></div></div></div>`}).join('')}</div></section>`}
+function deepHtml(joined){const s=SYSTEMS[MP.sys],g=s.gate,un=S.players[ME]?unlockedOf(ME):99;
+  if(s.deep==='hole'){const bid=s.packs[0],nxt=GALS[g+1];
+    return`<section style="display:grid;gap:10px"><h1>${esc(s.name)}</h1><p class="meta" style="margin:0">Trou noir entre ${esc(GALS[g].name)} et ${esc(nxt.name)} · passage vers le niveau ${g+2}</p>
+    <div class="card" style="display:grid;gap:8px"><p class="eff" style="margin:0">${esc(HOLES[g].lore)}</p><p class="eff" style="margin:0">${un>g?`<b style="color:var(--good)">Passage ouvert</b> : tes flottes peuvent voyager vers ${esc(nxt.name)}.`:`<b style="color:var(--bad)">Passage fermé</b> : vaincs ${esc(HOLES[g].boss)} pour accéder à ${esc(nxt.name)}. Tous les empires qui participent à la victoire ouvrent la route. Le gardien renaît 3 heures après sa chute.`}</p></div>
+    <h2>Gardien</h2><div class="list">${packRow(bid,joined&&un>=g)}</div></section>`}
+  const sen=s.packs[0],ev=S.events['salv-'+s.i],fr=Math.min(1,(Date.now()-(ev&&ev.at||0))/(6*HR));
+  return`<section style="display:grid;gap:10px"><h1>${esc(s.name)}</h1><p class="meta" style="margin:0">Cimetière de vaisseaux près du ${esc(HOLES[g].n)} · espace de ${esc(GALS[g].name)}</p>
+    <div class="card" style="display:grid;gap:8px"><p class="eff" style="margin:0">Les carcasses d’une flotte oubliée dérivent ici. Mission « Récupérer » : ressources, minerais rares et modules d’armes, selon ta soute. Ou installe un avant-poste sur une épave : 4 places, plusieurs empires peuvent s’y côtoyer, chacun extrait de l’antimatière.</p><p class="eff" style="margin:0">Butin récupérable : <b>${Math.round(fr*100)} %</b> · se reconstitue en 6 heures.</p></div>
+    <h2>Gardiens</h2><div class="list">${packRow(sen,joined)}</div><h2>Épaves</h2><div class="list">${s.bodies.map(p=>planetRow(p,joined)).join('')}</div></section>`}
+async function salvageArrival(f,fref,meta,tn){let got=null;const s=SYSTEMS[meta.sys];
+  await locked('events/salv-'+meta.sys,async(ev,eref)=>{const nw=Date.now(),fr=Math.min(1,(nw-(ev&&ev.at||0))/(6*HR)),k=GALS[s.gal].rich*(1+s.gate*.4);if(fr<.05)return;
+    const capT=cargoCap(f.ships),pool={m:5000*k*fr,c:3800*k*fr,f:1800*k*fr},ratio=Math.min(1,capT/(pool.m+pool.c+pool.f)),r=rng(hash(f.fid+'salv')),avail=WK.filter(w=>WEAP[w].tier<=1+Math.floor(s.gate/2)),mods={};
+    for(let i=0;i<Math.round((2+r()*3)*fr);i++){const w=avail[Math.floor(r()*avail.length)];mods[w]=(mods[w]||0)+1+Math.floor(r()*2)}
+    got={res:{m:Math.floor(pool.m*ratio),c:Math.floor(pool.c*ratio),f:Math.floor(pool.f*ratio)},rare:{ir:Math.round(30*k*fr),xe:Math.round(20*k*fr),am:Math.round(8*k*fr)},mods};await eref.set({kind:'event',id:'salv-'+meta.sys,at:nw})});
+  if(!got){await holdAt(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`${tn} déjà fouillée`,lines:['D’autres équipes viennent de passer. L’épave se reconstitue en 6 heures.']});return}
+  await holdAt(f,fref,f.ships,got.res,{rareCargo:got.rare,modCargo:got.mods});
+  await report({to:[f.owner],tone:'win',title:`Récupération sur ${tn}`,lines:[`Cargaison : ${lootTxt(got.res)} · ${got.rare.ir} iridium, ${got.rare.xe} xénite, ${got.rare.am} antimatière.`,Object.keys(got.mods).length?`Modules d’armes : ${Object.entries(got.mods).map(([w,n])=>`${n} × ${WEAP[w].n}`).join(', ')}. Ils seront déposés à l’Arsenal de ta planète d’origine.`:'Aucun module récupérable cette fois.','Rentre pour livrer ta cargaison : en restant sur place, tu risques une embuscade.']})}
 function registerRaids(t=Date.now()){const w=Math.floor(t/RAIDW);for(let ww=w-2;ww<=w;ww++){const r=rng(hash('raid'+ww));
   RAID_GALS.forEach((g,i)=>{const pid=`x${ww}-${i}`,list=SYS_BY_GAL[g],sys=list[Math.floor(r()*list.length)],kk=6.5*GALS[g].rich*(.9+r()*.3);
     RAIDS[pid]={pid,sys:sys.i,gal:g,tier:2,start:ww*RAIDW,end:(ww+1)*RAIDW,ships:{fighter:Math.round(12*kk),cruiser:Math.round(4*kk),battleship:Math.round(.7*kk)},...raidLoot(kk)};
@@ -435,6 +495,7 @@ function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
   else{let born=packBorn(S.events[s.packs[0]]);if(le&&le.done)born=Math.max(born,le.doneAt||0);founded=born+lairDelay(s);if(now<founded)return null}
   const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:R.ships;
+  if(R.boss){if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;return R.ships}
   if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;
   const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-L.founded)/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?6:4,1+(fz?.3:.15)*h))}
   const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?5:3,1+(fz?.2:.08)*h)*(lairInfoAt(s,now)?1.5:1))}
@@ -462,9 +523,9 @@ function visibleSet(){if(!ME||!S.players[ME])return null;
   if(sig===VISC.sig&&VISC.set)return VISC.set;const set=new Set(ex);
   for(const p of mine){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
   VISC={sig,set};return set}
-const sysVisible=i=>{const v=visibleSet();return!v||v.has(i)};
+const sysVisible=i=>{const v=visibleSet();return!v||v.has(i)||!!(SYSTEMS[i]&&SYSTEMS[i].deep)};
 async function exploreMark(uids,si){if(si==null)return;for(const u of new Set(uids)){const pl=S.players[u];if(!pl||(pl.explored||[]).includes(si))continue;try{await withPlayer(u,d=>{d.explored=[...new Set([...(d.explored||[]),si])]})}catch(e){}}}
-function fogSystemHtml(joined){const s=SYSTEMS[MP.sys],G=GALS[s.gal],tgt=s.planets[0];
+function fogSystemHtml(joined){const s=SYSTEMS[MP.sys],G=GALS[s.gal],tgt=s.planets[0]||s.bodies[0]||(s.packs||[])[0];
   return`<section style="display:grid;gap:10px"><h1>Système inexploré</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length+s.bodies.length} astres détectés · le brouillard cache ce qui s’y trouve</p>
   <div class="card" style="display:grid;gap:10px"><p class="eff" style="margin:0">Les Écumeurs prolifèrent deux fois plus vite dans le brouillard, et y attaquent plus souvent les flottes en position. Envoie une sonde ou une flotte : dès son arrivée, le système est révélé pour toujours. Tes planètes révèlent aussi les systèmes voisins, et tes avant-postes un peu moins loin.</p>
   ${joined?`<div class="foot"><span class="eff">${fmtDur(etaOf(S.sel,tgt,{probe:1}))} en sonde</span><button class="btn sm" data-act="scout" data-p="${tgt}">Envoyer une sonde</button></div>`:''}</div></section>`}
@@ -534,7 +595,7 @@ function allVisible(){const sig=Object.values(S.planets).filter(p=>p.owner).map(
   if(sig===AVIS.sig&&AVIS.set)return AVIS.set;const set=new Set();for(const pl of Object.values(S.players))for(const i of pl.explored||[])set.add(i);
   for(const p of Object.values(S.planets))if(p.owner&&PLANETS[p.pid]){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
   AVIS={sig,set};return set}
-const inFog=i=>!allVisible().has(i);
+const inFog=i=>!(SYSTEMS[i]&&SYSTEMS[i].deep)&&!allVisible().has(i);
 
 // ---------- flottes en position et embuscades ----------
 const AMB_INT=20*60e3,AMB_INT_FOG=10*60e3;
@@ -545,7 +606,7 @@ function ambushNext(f){const m=PLANETS[f.to];if(!m||!sysPacksAlive(m.sys).length
 async function ambush(f,fref){const si=PLANETS[f.to].sys,alive=sysPacksAlive(si),now=Date.now();if(!alive.length){await fref.set({...f,lastAmb:now});return}
   const n=(f.amb||0)+1,chance=Math.min(.9,.35+.15*Math.floor((now-(f.holdAt||now))/AMB_INT)),roll=(hash(f.fid+':'+n)%1000)/1000;
   if(roll>chance){await fref.set({...f,lastAmb:now,amb:n});return}
-  const roam=alive.filter(x=>!RAIDS[x].lair);if(!roam.length){await fref.set({...f,lastAmb:now,amb:n});return}const pid=roam.sort((a,b)=>worth(raidState(b).garrison)-worth(raidState(a).garrison))[0],R=RAIDS[pid];let B=null;
+  const roam=alive.filter(x=>!RAIDS[x].lair&&!RAIDS[x].boss);if(!roam.length){await fref.set({...f,lastAmb:now,amb:n});return}const pid=roam.sort((a,b)=>worth(raidState(b).garrison)-worth(raidState(a).garrison))[0],R=RAIDS[pid];let B=null;
   await locked('events/'+pid,async(ev,eref)=>{const t=Date.now(),gar=raidGarrison(pid,ev&&ev.done?null:ev,t),party=scaleShips(gar,.5),rest={};for(const k in gar)rest[k]=(gar[k]||0)-(party[k]||0);B=battle(party,f.ships,null,modsOf(f.owner));
     const left={};for(const k in gar)left[k]=(rest[k]||0)+(B.a[k]||0);const e2={...(ev||{}),kind:'event',id:pid,remaining:left,at:t};if(R.lair){const L=lairInfoAt(SYSTEMS[si],t);if(L)e2.founded=L.founded}if(isEmpty(left)){e2.done=true;e2.doneAt=t}await eref.set(e2)});
   const surv=zeroShips();addShips(surv,B.d);const dead=isEmpty(surv),tn=plName(f.to);
@@ -565,12 +626,12 @@ function holdRow(f){const nx=ambushNext(f),m=PLANETS[f.to],fog=m&&inFog(m.sys);
     <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:'Zone calme : aucun Écumeur actif dans ce système.'}</div>
     <div class="foot"><span class="eff">Retour en ${fmtDur(etaOf(f.to,f.home||f.from,f.ships))}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost sm" data-act="fhome" data-f="${f.fid}">Rentrer (gratuit)</button><button class="btn sm" data-act="fretask" data-f="${f.fid}">Nouvelle mission</button></div></div></div>`}
 async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
-  await act(async()=>{if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');if(M.mission==='spy'&&count(ships)!==(ships.probe||0))throw err('Une mission d’espionnage n’emporte que des sondes.');
+  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');if(M.mission==='spy'&&count(ships)!==(ships.probe||0))throw err('Une mission d’espionnage n’emporte que des sondes.');
     const LJ=M.join?S.fleets[M.join]:null,fuel=fuelOf(M.from,M.to,ships),eta=etaOf(M.from,M.to,ships);if(M.join&&(!LJ||LJ.phase!=='out'||LJ.arrive<Date.now()+eta*1000))throw err('Trop tard pour rejoindre cette attaque.');
     const cur=S.fleets[M.fleet];if(!cur||cur.phase!=='hold')throw err('Cette flotte n’est plus en position.');
     const cap=capitalOf(ME);await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,Date.now());if(q.res.f<fuel)throw err('Hélium-3 insuffisant dans ta capitale.');q.res.f-=fuel;await cref.set(q)});
     let arr=0;await locked('fleets/'+M.fleet,async(f,ref)=>{if(!f||f.owner!==ME||f.phase!=='hold')throw err('Cette flotte n’est plus en position.');const t=Date.now();arr=LJ?LJ.arrive:t+eta*1000;
-      await ref.set({...f,from:f.to,to:M.to,mission:M.mission,depart:t,arrive:arr,phase:'out',home:f.home||f.from,group:LJ?LJ.fid:null,holdAt:null,lastAmb:null,amb:0})});
+      await ref.set({...f,from:f.to,to:M.to,mission:M.mission,depart:t,arrive:arr,phase:'out',home:f.home||f.from,group:LJ?LJ.fid:null,holdAt:null,lastAmb:null,amb:0,beltDone:false})});
     S.modal=null;S.retask=null;renderModal();sfx.launch();toast(`Flotte en route. Arrivée à ${clock(arr)}.`);render()})}
 
 // verrou coopératif sur un document
@@ -618,7 +679,7 @@ async function savePaint(part,c){await act(async()=>{await withPlayer(ME,d=>{d.p
 async function recall(fid){await act(async()=>{await locked('fleets/'+fid,async(f,ref)=>{const now=Date.now();if(!f||f.owner!==ME||f.phase!=='out'||f.arrive<=now)throw err('Cette flotte ne peut plus être rappelée.');
   const el=now-f.depart;await ref.set({...f,phase:'back',recalled:true,arrive:now,back:now+el})});toast('Flotte rappelée.')})}
 async function launch(){const M=S.modal;if(M.fleet)return launchHeld(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
-  await act(async()=>{if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
+  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
     if(M.mission==='spy'&&(!(ships.probe>0)||count(ships)!==ships.probe))throw err('Une mission d’espionnage n’emporte que des sondes.');
     const fuel=fuelOf(M.from,M.to,ships),eta=etaOf(M.from,M.to,ships),body=isBody(M.from);const LJ=M.join?S.fleets[M.join]:null;if(M.join&&(!LJ||LJ.phase!=='out'||LJ.arrive<Date.now()+eta*1000))throw err('Trop tard pour rejoindre cette attaque.');
     await locked('planets/'+M.from,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Point de départ perdu.');const p=settle(d,Date.now());
@@ -679,6 +740,7 @@ const shares=forces=>{const ws=forces.map(x=>worth(x.ships)),W=ws.reduce((a,b)=>
 
 async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){await goBack(f,fref,f.ships,f.cargo);return}
   const tn=meta.name,body=isBody(f.to);
+  if(PLANETS[f.from]&&galOf(f.from)!==galOf(f.to)&&!f.beltDone){const lost={};for(const k of['fighter','probe']){const n=Math.floor((f.ships[k]||0)*.05);if(n>0){lost[k]=n;f.ships={...f.ships,[k]:f.ships[k]-n}}}f.beltDone=true;if(count(lost))await report({to:[f.owner],tone:'info',title:'Traversée des ceintures d’astéroïdes',lines:[`Entre les galaxies, ta flotte a perdu ${unitLine(lost)} dans les champs d’astéroïdes.`]})}
   await exploreMark([f.owner,...Object.values(S.fleets).filter(j=>j.group===f.fid).map(j=>j.owner)],meta.sys);
   // récolte de comète
   if(f.mission==='harvest'){const cm=cometAt(f.arrive);let got=null;
@@ -686,6 +748,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     if(got){await holdAt(f,fref,f.ships,got,{rareCargo:COMET_RARE});reps.push({to:allPlayers(),tone:'info',title:`${pname(f.owner)} a récolté la comète de ${tn}`,lines:[`Cargaison : ${lootTxt(got)}, plus ${COMET_RARE.ir} iridium, ${COMET_RARE.xe} xénite et ${COMET_RARE.am} antimatière.`]})}
     else{await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Comète déjà récoltée ou disparue`,lines:['La flotte rentre à vide.']})}
     for(const r of reps)await report(r);return}
+  if(meta.type==='wreck'&&(f.mission==='salvage'||f.mission==='colonize')){const sen=(SYSTEMS[meta.sys].packs||[])[0];if(sen&&!raidState(sen).done){await holdAt(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Les Sentinelles défendent ${tn}`,lines:['Anéantis d’abord les Sentinelles de l’épave (même endroit), puis reviens.']});return}}
+  if(f.mission==='salvage'){await salvageArrival(f,fref,meta,tn);return}
   const joiners=f.mission==='attack'?await gatherJoiners(f):[];
   const forces=[{f,ref:fref,owner:f.owner,ships:f.ships},...joiners.map(j=>({f:j.f,ref:j.ref,owner:j.f.owner,ships:j.f.ships}))];
   const atkUids=[...new Set(forces.map(x=>x.owner))],grp=forces.length>1;
@@ -719,7 +783,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     if(spy){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[`Flotte : ${unitLine(spy)}.`,`Butin estimé si anéantis : ${lootTxt(R.treasure)} et ${R.frag} Éclats du Vide.`],intel:{pid:f.to,at:f.arrive,owner:null,ships:spy,turrets:0}});for(const r of reps)await report(r);return}
     const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv),frag=Math.round(R.frag*frac),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
-    const won=isEmpty(G.B.d);reps.push({to:atkUids,tone:won?'win':'loss',loser:won?null:f.owner,title:won?`${tn} anéantis`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat.`],battle:rec(G.B,'raid')});
+    if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
+    const won=isEmpty(G.B.d);reps.push({to:atkUids,tone:won?'win':'loss',loser:won?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat.`],battle:rec(G.B,'raid')});
     for(const r of reps)await report(r);return}
   await locked('planets/'+f.to,async(d,ref)=>{
     const p=d&&d.owner?settle(d,Math.max(d.at,f.arrive)):null;
@@ -771,7 +836,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   for(const r of reps)await report(r)}
 async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
   if(!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){const cap=capitalOf(f.owner);dest=cap&&cap.pid}
-  if(dest)await locked('planets/'+dest,async(d,ref)=>{if(!d||d.owner!==f.owner)return;const p=settle(d,Date.now());addShips(p.ships,f.ships);if(!isBody(dest))addRes(p.res,f.cargo);await ref.set(p)});
+  if(dest)await locked('planets/'+dest,async(d,ref)=>{if(!d||d.owner!==f.owner)return;const p=settle(d,Date.now());addShips(p.ships,f.ships);if(!isBody(dest))addRes(p.res,f.cargo);if(f.modCargo){p.mods=p.mods||{};for(const w in f.modCargo)p.mods[w]=(p.mods[w]||0)+f.modCargo[w]}await ref.set(p)});
   if(f.rareCargo&&S.players[f.owner])await withPlayer(f.owner,d=>{for(const k in f.rareCargo)d.rare[k]=(d.rare[k]||0)+f.rareCargo[k]}).catch(()=>{});
   await fref.delete()}
 async function resolveDue(){if(!db||S.spectator)return;const now=Date.now();
@@ -918,17 +983,18 @@ function renderGalaxy0(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];c
   const rivalsIn=g=>new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner));
   const hint=MP.ok?'<p class="meta" style="margin:0">Un doigt pour tourner, deux doigts pour zoomer et te déplacer. Touche un système pour y entrer, dézoome pour remonter.</p>':`<div class="chips"><button class="chip" data-act="mapuni">Univers</button>${lv==='system'?`<button class="chip" data-act="mapgal" data-g="${MP.gal}">${esc(G.name)}</button>`:''}</div>`;
   if(lv==='universe')return`<section style="display:grid;gap:10px"><h1>Univers</h1>${hint}</section>${eventsHtml()}<section style="display:grid;gap:10px"><h2>Galaxies</h2><div class="list">${GALS.map((G2,g)=>{const n=mineIn(g),rv=rivalsIn(g),first=SYSTEMS.find(s=>s.gal===g);
-    return`<div class="item"><div class="ihead"><b>${esc(G2.name)}</b><span class="lv">${G2.rich>1?`+${Math.round((G2.rich-1)*100)} % production`:'galaxie de départ'}</span></div>
-    <div class="eff">${SYSTEMS.filter(s=>s.gal===g).length} systèmes${(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?` · <b style="color:var(--bad)">${n} groupe${n>1?'s':''} d’Écumeurs</b>`:''})()}${n?` · <b style="color:${esc(pcolor(ME))}">${n} lieu${n>1?'x':''} à toi</b>`:''}${rv.size?` · ${[...rv].map(u=>esc(pname(u))).join(', ')}`:''}${joined&&galOf(S.sel)!==g?` · ${fmtDur(etaOf(S.sel,first.planets[0],{fighter:1}))} en chasseurs`:''}</div>
-    <div class="foot"><span class="eff">${G2.rich>1?'Pirates plus forts, mondes plus riches.':'Pirates faibles en bordure.'}</span><button class="btn sm" data-act="mapgal" data-g="${g}">Explorer</button></div></div>`}).join('')}</div></section>`;
-  if(lv==='galaxy'){const sys=SYSTEMS.filter(s=>s.gal===MP.gal),occ=sys.filter(s=>sysVisible(s.i)&&[...s.planets,...s.bodies].some(p=>S.planets[p]&&S.planets[p].owner));
-    return`<section style="display:grid;gap:10px"><h1>${esc(G.name)}</h1>${hint}<p class="meta" style="margin:0">${sys.length} systèmes · ${sys.filter(s=>!sysVisible(s.i)).length} dans le brouillard${G.rich>1?` · production +${Math.round((G.rich-1)*100)} %, pirates renforcés`:''}</p></section>${eventsHtml()}${raidsHtml(MP.gal,joined)}
+    return`<div class="item"><div class="ihead"><b>Niveau ${g+1} · ${esc(G2.name)}</b>${lockChip(g)}</div><div class="eff" style="font-style:italic">Chapitre ${g+1} · ${esc(G2.chap)} — ${esc(G2.story)}</div><div class="ihead"><b></b><span class="lv">${G2.rich>1?`+${Math.round((G2.rich-1)*100)} % production`:'galaxie de départ'}</span></div>
+    <div class="eff">${SYSTEMS.filter(s=>s.gal===g&&!s.deep).length} systèmes${(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?` · <b style="color:var(--bad)">${n} groupe${n>1?'s':''} d’Écumeurs</b>`:''})()}${n?` · <b style="color:${esc(pcolor(ME))}">${n} lieu${n>1?'x':''} à toi</b>`:''}${rv.size?` · ${[...rv].map(u=>esc(pname(u))).join(', ')}`:''}${joined&&galOf(S.sel)!==g?` · ${fmtDur(etaOf(S.sel,first.planets[0],{fighter:1}))} en chasseurs`:''}</div>
+    <div class="foot"><span class="eff">${G2.rich>1?'Pirates plus forts, mondes plus riches.':'Pirates faibles en bordure.'}</span><button class="btn sm" data-act="mapgal" data-g="${g}">Explorer</button></div></div>`}).join('')}</div></section>${deepListHtml()}`;
+  if(lv==='galaxy'){const sys=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),occ=sys.filter(s=>sysVisible(s.i)&&[...s.planets,...s.bodies].some(p=>S.planets[p]&&S.planets[p].owner));
+    return`<section style="display:grid;gap:10px"><h1>${esc(G.name)}</h1>${hint}${S.players[ME]&&MP.gal>unlockedOf(ME)?'<p class="eff" style="margin:0;color:var(--bad)">Galaxie verrouillée : vaincs le gardien du trou noir précédent pour y envoyer des flottes.</p>':''}<p class="meta" style="margin:0">${sys.length} systèmes · ${sys.filter(s=>!sysVisible(s.i)).length} dans le brouillard${G.rich>1?` · production +${Math.round((G.rich-1)*100)} %, pirates renforcés`:''}</p></section>${eventsHtml()}${raidsHtml(MP.gal,joined)}
     <section style="display:grid;gap:10px">${occ.length?`<h2>Systèmes occupés</h2><div class="list">${occ.map(s=>{const os=[...new Set([...s.planets,...s.bodies].map(p=>S.planets[p]&&S.planets[p].owner).filter(Boolean))];return`<div class="item"><div class="foot"><span><b>${esc(s.name)}</b> <span class="eff">· ${os.map(u=>`<span class="dot" style="background:${esc(pcolor(u))}"></span> ${esc(u===ME?'toi':pname(u))}`).join(', ')}</span></span><button class="btn ghost sm" data-act="mapsys" data-s="${s.i}">Voir</button></div></div>`}).join('')}</div>`:'<p class="empty">Aucun empire installé ici pour l’instant.</p>'}
     <details class="card"><summary>Systèmes explorés (${sys.filter(s=>sysVisible(s.i)).length}/${sys.length})</summary><div class="chips" style="margin-top:10px">${sys.filter(s=>sysVisible(s.i)).map(s=>`<button class="chip" data-act="mapsys" data-s="${s.i}">${esc(s.name)}${s.bodies.some(b=>PLANETS[b].type==='anom')?' ✦':''}</button>`).join('')}</div></details></section>`}
+  if(SYSTEMS[MP.sys].deep)return deepHtml(joined);
   if(!sysVisible(MP.sys))return fogSystemHtml(joined);
   const s=SYSTEMS[MP.sys],all=[...s.planets,...s.bodies],order=S.pickP&&all.includes(S.pickP)?[S.pickP,...all.filter(p=>p!==S.pickP)]:all;
   return`<section style="display:grid;gap:10px"><h1>Système ${esc(s.name)}</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length} planètes${s.bodies.length?` · ${s.bodies.length} corps exploitable${s.bodies.length>1?'s':''}`:''} · touche un astre dans la vue pour le mettre en avant</p><div class="list">${order.map(p=>planetRow(p,joined)).join('')}</div></section>${(s.packs||[]).length?`<section style="display:grid;gap:10px"><h2>Écumeurs du système</h2><p class="meta" style="margin:0">Ils rôdent aux confins du système et reviennent 3 heures après avoir été dispersés. Plus on les laisse tranquilles, plus ils se renforcent ; une Horde ignorée trop longtemps fonde un repaire sur une planète libre.</p><div class="list">${[s.lair,...s.packs].map(p=>packRow(p,joined)).join('')}</div></section>`:''}`}
-const MIS={attack:'Attaque',colonize:'Installation',transfer:'Transfert',spy:'Espionnage',harvest:'Récolte'};
+const MIS={attack:'Attaque',colonize:'Installation',transfer:'Transfert',spy:'Espionnage',harvest:'Récolte',salvage:'Récupération'};
 function fleetRow(f,hostile){if(f.phase==='hold')return holdRow(f);const now=Date.now();const out=f.phase==='out';const a=out?f.depart:f.arrive,b=out?f.arrive:f.back;const lbl=f.group?'Attaque groupée':MIS[f.mission];const mates=Object.values(S.fleets).filter(x=>x.group===f.fid&&x.phase==='out').length;
   return`<div class="item ${hostile?'hostile':''}"><div class="ihead"><b>${hostile?`${esc(pname(f.owner))} attaque ${esc(plName(f.to))}`:`${lbl} · ${esc(plName(f.from))} → ${esc(plName(f.to))}`}</b><span class="cd" data-cd="${b}"></span></div>
     <span class="prog"><b data-a="${a}" data-b="${b}"></b></span><div class="eff">${hostile?`Arrivée à ${clock(b)}. Composition inconnue.`:`${out?'Aller':f.recalled?'Rappelée':'Retour'} · ${unitLine(f.ships)}${!out&&count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}`}${out&&mates?` · ${mates} renfort${mates>1?'s':''} en route`:''}${b<=now?' · résolution en cours…':''}</div>
@@ -944,12 +1010,12 @@ function renderRank(){const now=Date.now();const rows=Object.values(S.players).m
   return`<section style="display:grid;gap:10px"><h1>Classement</h1>${rows.length?`<div class="list">${rows.map((r,i)=>`<div class="item rank"><span class="pos">${i+1}</span><span class="owner"><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff">· ${r.n} lieu${r.n>1?'x':''} · ${fmt(r.pl.cp||0)} PC</span></span><span class="sc">${fmt(r.s)}</span></div>`).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
 
 // ---------- fenêtre d’envoi de flotte ----------
-function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt(),RT=S.retask&&S.fleets[S.retask]&&S.fleets[S.retask].phase==='hold'?S.fleets[S.retask]:null;let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(2,src.ships.probe||0);if(RT){if(RT.to===to)return toast('Ta flotte est déjà à cet endroit.','bad');S.modal.from=RT.to;S.modal.fleet=RT.fid;S.modal.ships={...zeroShips(),...RT.ships};if(mission==='spy'&&count(RT.ships)!==(RT.ships.probe||0))S.modal.mission=v.owner===ME?'transfer':'attack'}
+function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt(),RT=S.retask&&S.fleets[S.retask]&&S.fleets[S.retask].phase==='hold'?S.fleets[S.retask]:null;let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&PLANETS[to].type==='wreck'&&!v.owner)mission='salvage';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(2,src.ships.probe||0);if(RT){if(RT.to===to)return toast('Ta flotte est déjà à cet endroit.','bad');S.modal.from=RT.to;S.modal.fleet=RT.fid;S.modal.ships={...zeroShips(),...RT.ships};if(mission==='spy'&&count(RT.ships)!==(RT.ships.probe||0))S.modal.mission=v.owner===ME?'transfer':'attack'}
   if(mission==='colonize')S.modal.ships.colony=Math.min(1,src.ships.colony||0);renderModal()}
 function renderModal(){const el=document.getElementById('modal');const M=S.modal;if(!M){el.innerHTML='';return}
   const src=view(M.from),tv=view(M.to),FLT=M.fleet&&S.fleets[M.fleet];const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   const eta=etaOf(M.from,M.to,ships),fuel=fuelOf(M.from,M.to,ships),own=tv.owner===ME,body=isBody(M.to),cm=cometAt(),fuelHave=(FLT||isBody(M.from))?view(capitalOf(ME).pid).res.f:src.res.f;
-  const missions=M.join?[]:[['attack','Attaque',!own],['colonize',body?'Avant-poste':'Coloniser',!tv.owner&&!tv.raid],['spy','Espionner',!own],['transfer','Transfert',own],...(cm&&cm.pid===M.to?[['harvest','Récolter',true]]:[])];
+  const missions=M.join?[]:[...(PLANETS[M.to]&&PLANETS[M.to].type==='wreck'&&!tv.owner?[['salvage','Récupérer',true]]:[]),['attack','Attaque',!own],['colonize',body?'Avant-poste':'Coloniser',!tv.owner&&!tv.raid],['spy','Espionner',!own],['transfer','Transfert',own],...(cm&&cm.pid===M.to?[['harvest','Récolter',true]]:[])];
   const st=stormAt();
   el.innerHTML=`<div class="scrim" data-act="mclose"><div class="sheet" role="dialog" aria-modal="true" aria-label="Envoyer une flotte" data-stop="1">
     <div><h2>${M.join?'Rejoindre une attaque':'Envoyer une flotte'}</h2><h1 style="font-size:24px">${esc(plName(M.from))} → ${esc(plName(M.to))}</h1></div>
@@ -960,6 +1026,7 @@ function renderModal(){const el=document.getElementById('modal');const M=S.modal
     ${M.mission==='attack'&&tv.owner&&!own?`<p class="eff" style="margin:0">${S.planets[M.to].capital?'Capitale : elle peut être pillée, jamais annexée.':'Si tu gagnes avec un vaisseau colon dans la flotte, la cible devient tienne.'}</p>`:''}
     ${M.mission==='spy'?'<p class="eff" style="margin:0">N’envoie que des sondes. Plus elles sont nombreuses, plus elles ont de chances de passer inaperçues.</p>':''}
     ${M.mission==='harvest'?'<p class="eff" style="margin:0">Prends de la soute : la cargaison dépend de la capacité de ta flotte. Les minerais rares sont gagnés quoi qu’il arrive si tu es le premier.</p>':''}
+    ${S.players[ME]&&galOf(M.to)>unlockedOf(ME)?'<p class="eff" style="margin:0;color:var(--bad)">Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.</p>':''}${M.mission==='salvage'?'<p class="eff" style="margin:0">Plus ta soute est grande, plus tu rapportes de ressources. Les minerais rares et les modules d’armes ne dépendent pas de la soute.</p>':''}
     ${M.join&&S.fleets[M.join]?`<p class="eff" style="margin:0">Attaque groupée avec <b>${esc(pname(S.fleets[M.join].owner))}</b> : arrivée synchronisée à ${clock(S.fleets[M.join].arrive)}.${eta*1000>S.fleets[M.join].arrive-Date.now()?' <b style="color:var(--bad)">Ta flotte est trop lente pour arriver à temps.</b>':''}</p>`:''}
     ${M.mission==='colonize'&&!isBody(M.to)&&!tv.raid?`<p class="eff" style="margin:0">Culture : ${fmt(cultureNow(ME))} / ${cultureCost(ME)} requis pour fonder une colonie. Les combats rapportent de la culture.</p>`:''}
     ${tv.raid&&RAIDS[M.to]?`<p class="eff" style="margin:0">Butin si anéantis : ${lootTxt(RAIDS[M.to].treasure)} et ${RAIDS[M.to].frag} Éclats du Vide, partagés selon les dégâts infligés et la soute.</p>`:''}
@@ -980,11 +1047,34 @@ function ptsMat(k){const m=new THREE.ShaderMaterial({uniforms:{pr:{value:MP.r.ge
   vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});MP.mats.push(m);return m}
 function ptsGeo(n){const g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3));g2.setAttribute('color',new THREE.BufferAttribute(new Float32Array(n*3),3));g2.setAttribute('sz',new THREE.BufferAttribute(new Float32Array(n),1));g2.setAttribute('rg',new THREE.BufferAttribute(new Float32Array(n),1));return g2}
 function glowTex(){return canvasTex(128,128,(x,W)=>{const g2=x.createRadialGradient(64,64,0,64,64,64);g2.addColorStop(0,'rgba(255,255,255,1)');g2.addColorStop(.2,'rgba(255,240,220,.55)');g2.addColorStop(.55,'rgba(255,220,200,.12)');g2.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g2;x.fillRect(0,0,W,W)})}
+// ---------- espace profond sur la carte : trous noirs, ceintures d'astéroïdes, épaves ----------
+function diskTex(){return canvasTex(256,256,(x,W)=>{const g2=x.createRadialGradient(128,128,40,128,128,128);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(.38,'rgba(255,236,200,.95)');g2.addColorStop(.5,'rgba(255,160,60,.75)');g2.addColorStop(.75,'rgba(190,60,30,.3)');g2.addColorStop(1,'rgba(80,20,40,0)');x.fillStyle=g2;x.fillRect(0,0,W,W)})}
+function mpDeepInit(scene){MP.deepFx=[];const dt=diskTex();
+  for(const D of DEEP){const H=new THREE.Group();H.position.set(...D.m);
+    H.add(new THREE.Mesh(new THREE.SphereGeometry(6,32,20),new THREE.MeshBasicMaterial({color:0x000000})));
+    const disk=new THREE.Mesh(new THREE.RingGeometry(7,24,96),new THREE.MeshBasicMaterial({map:dt,side:THREE.DoubleSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));disk.rotation.x=Math.PI/2-.35;H.add(disk);
+    const ph=new THREE.Mesh(new THREE.TorusGeometry(6.6,.35,8,80),new THREE.MeshBasicMaterial({color:0xffd9a0,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));H.add(ph);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0xff8a40,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.55}));gl.scale.set(60,60,1);H.add(gl);
+    // ceinture d'astéroïdes qui barre la route entre les deux galaxies
+    const N=1600,bg=ptsGeo(N),P=bg.attributes.position.array,C=bg.attributes.color.array,Z=bg.attributes.sz.array,r=rng(900+D.g);
+    for(let i=0;i<N;i++){const a=r()*Math.PI*2,R=38+r()*22,y=(r()-.5)*7;P.set([Math.cos(a)*R,y,Math.sin(a)*R],i*3);const b=.35+r()*.3;C.set([b*1.1,b*.9,b*.7],i*3);Z[i]=1.4+r()*2.4}
+    const belt=new THREE.Points(bg,ptsMat(90));belt.frustumCulled=false;belt.rotation.set(.9,0,.4);H.add(belt);
+    scene.add(H);MP.deepFx.push({disk,belt,H});
+    // cimetière de vaisseaux
+    const W=new THREE.Group();W.position.set(...D.wreck.w);const wm=new THREE.MeshStandardMaterial({color:0x8a7a66,metalness:.7,roughness:.6,flatShading:true}),wr=rng(77+D.g);
+    for(let i=0;i<14;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(1+wr()*4,.6+wr()*1.2,.6+wr()*1.5),wm);b.position.set((wr()-.5)*16,(wr()-.5)*5,(wr()-.5)*16);b.rotation.set(wr()*3,wr()*3,wr()*3);W.add(b)}
+    const wg=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0xe3ac55,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.6}));wg.scale.set(30,30,1);W.add(wg);W.add(new THREE.PointLight(0xffd9a0,1.2,60));
+    scene.add(W);MP.deepFx.push({W})}}
+function mpDeepSystem(g2,s){if(s.deep==='hole'){g2.add(new THREE.Mesh(new THREE.SphereGeometry(.15,32,20),new THREE.MeshBasicMaterial({color:0x000000})));
+    const disk=new THREE.Mesh(new THREE.RingGeometry(.17,.62,96),new THREE.MeshBasicMaterial({map:diskTex(),side:THREE.DoubleSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));disk.rotation.x=Math.PI/2-.3;g2.add(disk);MP.sysDisk=disk}
+  else{const wm=new THREE.MeshStandardMaterial({color:0x9a8a76,metalness:.7,roughness:.55,flatShading:true}),r=rng(55+s.i);for(let i=0;i<22;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.04+r()*.12,.02+r()*.04,.02+r()*.05),wm);const a=r()*Math.PI*2,R=.25+r()*1.1;b.position.set(Math.cos(a)*R,(r()-.5)*.15,Math.sin(a)*R);b.rotation.set(r()*3,r()*3,r()*3);g2.add(b)}}}
 function galaxyCloud(g){const G=GALS[g],r=rng(500+g),N=g===0?6500:5200,geo=ptsGeo(N),P=geo.attributes.position.array,C=geo.attributes.color.array,Z=geo.attributes.sz.array;
   const gs=()=>{let u=0;for(let i=0;i<4;i++)u+=r();return(u-2)/1.2};
   for(let i=0;i<N;i++){let ang,rad,z,col;const q=r();
     if(q<.2){ang=r()*Math.PI*2;rad=Math.abs(gs())*85;z=gs()*30*(1-rad/200);col=[1,.82,.58]}
     else if(G.shape==='spiral'){const arm=Math.floor(r()*G.arms),t=Math.pow(r(),.85);ang=arm*2*Math.PI/G.arms+t*G.twist+gs()*.22;rad=60+t*420+gs()*34;z=gs()*12*(1-rad/650);const b=.75+r()*.25;col=r()<.06?[1,.42,.7]:[b*.72,b*.82,b]}
+    else if(G.shape==='bar'){if(r()<.35){const u=gs()*.6;ang=(u<0?Math.PI:0)+gs()*.08;rad=40+Math.abs(u)*300;z=gs()*10}else{const arm=Math.floor(r()*2),t=Math.pow(r(),.85);ang=arm*Math.PI+t*2.5+gs()*.2;rad=250+t*240+gs()*30;z=gs()*10}const b=.75+r()*.25;col=r()<.07?[1,.55,.4]:[b*.85,b*.82,b]}
+    else if(G.shape==='irr'){const c=IRRC[g][Math.floor(r()*IRRC[g].length)],px=c[0]+gs()*c[2]*.45,py=c[1]+gs()*c[2]*.45;ang=Math.atan2(py,px);rad=Math.hypot(px,py);z=gs()*25;const b=.7+r()*.3;col=r()<.15?[.9,.5,1]:[b*.75,b*.9,b]}
     else if(G.shape==='ellipse'){ang=r()*Math.PI*2;rad=Math.abs(gs())*240;z=gs()*60*(1-rad/600);const b=.7+r()*.3;col=[b,b*.86,b*.7]}
     else{ang=r()*Math.PI*2;rad=330+gs()*55;z=gs()*14;const b=.75+r()*.25;col=r()<.08?[.5,1,.9]:[b*.7,b*.85,b]}
     const x=500+Math.cos(ang)*rad,y=500+Math.sin(ang)*rad*(G.shape==='ellipse'?.62:1),w=galToWorld(g,x,y,z);
@@ -998,7 +1088,7 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
     scene.add(new THREE.AmbientLight(0x8090c0,.35));
     const gt=glowTex();
     GALS.forEach((G,g)=>{const gc=galaxyCloud(g);MP.clouds.push(gc);scene.add(gc);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:G.shape==='ring'?0x9fffe8:0xffd9a8,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.75}));sp.position.set(...G.c);sp.scale.set(26,26,1);scene.add(sp)});
-    const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
+    mpDeepInit(scene);const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
     {const fg=new THREE.BufferGeometry();fg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(1500*3),3));fg.setAttribute('sz',new THREE.BufferAttribute(new Float32Array(1500),1));fg.setDrawRange(0,0);
      const fm=new THREE.ShaderMaterial({uniforms:{pr:{value:r.getPixelRatio()},ph:{value:800}},vertexShader:'attribute float sz;uniform float pr;uniform float ph;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=min(sz*pr*ph/-mv.z,900.0);gl_Position=projectionMatrix*mv;}',
        fragmentShader:'void main(){float l=length(gl_PointCoord-0.5);float a=smoothstep(0.5,0.05,l)*0.62;if(a<0.01)discard;gl_FragColor=vec4(0.035,0.04,0.085,a);}',transparent:true,depthWrite:false,depthTest:false});
@@ -1041,15 +1131,15 @@ function mpZoomTo(d){const[lo,hi]=RANGE[MP.level];
     if(MP.level==='universe'){const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),cx,cy,1e9);if(g){mpGoGalaxy(g.i);return}}
     if(MP.level==='galaxy'){const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),cx,cy,mpc.clientWidth*.3);if(s){mpGoSystem(s.i);return}}}
   MP.distT=Math.max(lo,Math.min(hi,d))}
-function mpPick(x,y){if(MP.level==='universe'){const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
-  if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
+function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D=>[{w:D.m,i:D.hole.i},{w:D.wreck.w,i:D.wreck.i}]),x,y,40);if(dd){sfx.click();mpGoSystem(dd.i);return}const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
+  if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
   if(MP.level==='system'){const o=mpNearest(MP.orbs.map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}}}
 function mpGoUniverse(){MP.level='universe';MP.sys=null;S.pickP=null;MP.tgtT=[...UNI];MP.distT=1350;mpClearSystem();render()}
 function mpGoGalaxy(g){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=[...GALS[g].c];MP.distT=115;mpClearSystem();render()}
 function mpGoSystem(i){const s=SYSTEMS[i];MP.level='system';MP.gal=s.gal;MP.sys=i;S.pickP=null;MP.tgtT=[...s.w];MP.distT=3.4;mpBuildSystem(i);render()}
 function mpClearSystem(){if(!MP.ok)return;if(MP.sysG){MP.scene.remove(MP.sysG);v3Clear(MP.sysG);MP.sysG=null}MP.orbs=[]}
 const STARC=['#ffd27a','#fff4e0','#a9c8ff','#ffb08a','#ffe9b8'];
-function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();const s=SYSTEMS[i],g2=new THREE.Group(),vis=sysVisible(i);g2.position.set(...s.w);g2.rotation.set(.25,(hash('r'+i)%628)/100,.1);
+function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();MP.sysDisk=null;const s=SYSTEMS[i],g2=new THREE.Group(),vis=sysVisible(i);g2.position.set(...s.w);g2.rotation.set(.25,(hash('r'+i)%628)/100,.1);
   const sc=new THREE.Color(STARC[hash('s'+i)%STARC.length]);g2.add(new THREE.Mesh(new THREE.SphereGeometry(.1,24,16),new THREE.MeshBasicMaterial({color:sc})));
   const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:sc,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));gl.scale.set(.9,.9,1);g2.add(gl);
   g2.add(new THREE.PointLight(sc,2.4,8));
@@ -1069,6 +1159,7 @@ function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();const s=SYSTEMS[i],g2
     const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0xff3b5c,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));gl.scale.set(.25,.25,1);mk2.add(gl);
     for(let i=0;i<5;i++){const a=i/5*Math.PI*2,c=new THREE.Mesh(new THREE.ConeGeometry(.01,.035,3),red);c.position.set(Math.cos(a)*.11,0,Math.sin(a)*.11);c.rotation.z=-Math.PI/2;mk2.add(c)}o.mesh.add(mk2);MP.orbs.push({piv:new THREE.Group(),mesh:mk2,pid:L.lid,sp:0})}}
   if(!vis)for(let k=0;k<7;k++){const a=k/7*Math.PI*2,rr=.5+(k%3)*.45,sp=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0x0a0c18,transparent:true,opacity:.9,depthWrite:false}));sp.position.set(Math.cos(a)*rr,(k%2-.5)*.2,Math.sin(a)*rr);sp.scale.set(1.6,1.6,1);g2.add(sp)}
+  if(s.deep)mpDeepSystem(g2,s);
   MP.scene.add(g2);MP.sysG=g2}
 function mpData(){if(!MP.ok)return;
   const owners={};for(const p of Object.values(S.planets))if(p.owner){const si=PLANETS[p.pid].sys;(owners[si]=owners[si]||new Set()).add(p.owner)}
@@ -1083,20 +1174,20 @@ function mpData(){if(!MP.ok)return;
     if(MP.level==='system'&&MP.sys!=null)mpBuildSystem(MP.sys)}
   mpRaids();mpLabels();mpNav()}
 function mpPlanetPts(){const pp=MP.pPts,a=pp.geometry.attributes;let n=0;MP.pList=[];if(MP.level!=='universe'){const cm=cometAt();
-  for(const s of SYSTEMS){if(s.gal!==MP.gal||!sysVisible(s.i))continue;[...s.planets,...s.bodies].forEach((pid,k)=>{if(n>=2000)return;const ang=(hash(pid)%628)/100,rr=.55+k*.2,w=galToWorld(s.gal,s.x+Math.cos(ang)*rr*10,s.y+Math.sin(ang)*rr*10,s.z);
+  for(const s of SYSTEMS){if(s.gal!==MP.gal||s.deep||!sysVisible(s.i))continue;[...s.planets,...s.bodies].forEach((pid,k)=>{if(n>=2000)return;const ang=(hash(pid)%628)/100,rr=.55+k*.2,w=galToWorld(s.gal,s.x+Math.cos(ang)*rr*10,s.y+Math.sin(ang)*rr*10,s.z);
     const d=S.planets[pid],own=d&&d.owner,body=isBody(pid);let col=hex2rgb(PTYPES[PLANETS[pid].type].col).map(c=>c*.85),sz=body?3.2:4.6,rg=0;
     if(own){col=hex2rgb(pcolor(own));sz=own===ME?10:8;rg=own===ME?2:1}if(cm&&cm.pid===pid){col=[1,.82,.4];sz=9;rg=1}
     a.position.array.set(w,n*3);a.color.array.set(col,n*3);a.sz.array[n]=sz;a.rg.array[n]=rg;MP.pList.push({w,pid,sys:s.i});n++})}}
   pp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
 function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   const evLab=(pid,txt,cls)=>{const s=SYSTEMS[PLANETS[pid].sys];if(s.gal!==MP.gal)return;L.push({w:s.w,cls,h:txt})};
-  if(MP.level==='universe')GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
-    L.push({w:G.c,cls:'big',h:`${esc(G.name)}${mine?`<i style="color:${esc(pcolor(ME))}"> ● toi ×${mine}</i>`:''}${riv?`<i> · ${riv} rival${riv>1?'s':''}</i>`:''}${ev.length?`<i style="color:#ffcf6b"> · ${ev.join(', ')}</i>`:''}`})});
+  if(MP.level==='universe'){for(const D of DEEP){L.push({w:D.m,cls:'ev bad',h:`Trou noir · ${esc(D.hole.name)}`});L.push({w:D.wreck.w,cls:'ev',h:`Épaves · ${esc(D.wreck.name)}`})}GALS.forEach((G,g)=>{const mine=Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length,riv=new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner)).size,ev=[cm&&galOf(cm.pid)===g?'comète':'',hv&&galOf(hv.pid)===g?'Ruche':'',(()=>{const n=activeRaids().filter(r=>r.gal===g).length;return n?`${n} groupe${n>1?'s':''} d’Écumeurs`:''})()].filter(Boolean);
+    L.push({w:G.c,cls:'big',h:`${esc(G.name)}${S.players[ME]&&g>unlockedOf(ME)?'<i style="color:#ff7070"> · verrouillée</i>':''}${mine?`<i style="color:${esc(pcolor(ME))}"> ● toi ×${mine}</i>`:''}${riv?`<i> · ${riv} rival${riv>1?'s':''}</i>`:''}${ev.length?`<i style="color:#ffcf6b"> · ${ev.join(', ')}</i>`:''}`})})}
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'ev bad',h:`Écumeurs · ${RTIERS[r.tier].n}`});
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase==='hold'){if(f.owner===ME)L.push({fl:f,cls:'me',h:'Flotte en position'});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
-    if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
+    if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
   else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
@@ -1126,6 +1217,7 @@ function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t
   if(!MP.drag&&!MP.pinch&&!MP.pan&&t>(MP.idle||0))MP.yaw+=dt*.03*k;
   const d=MP.dist,cp=Math.cos(MP.pitch);MP.cam.position.set(MP.tgt[0]+d*cp*Math.sin(MP.yaw),MP.tgt[1]+d*Math.sin(MP.pitch),MP.tgt[2]+d*cp*Math.cos(MP.yaw));MP.cam.lookAt(MP.tgt[0],MP.tgt[1],MP.tgt[2]);
   for(const o of MP.orbs)o.piv.rotation.y+=dt*o.sp*k;
+  if(MP.sysDisk)MP.sysDisk.rotation.z-=dt*.6*k;for(const x of MP.deepFx||[]){if(x.disk)x.disk.rotation.z-=dt*.25*k;if(x.belt)x.belt.rotation.y+=dt*.02*k}
   const op=MP.level==='universe'?1:MP.level==='galaxy'?.32:.22;MP.clouds.forEach((c,g)=>{c.material.uniforms.op.value=(MP.level==='universe'||g===MP.gal)?op:Math.min(1,op*1.8)});MP.pPts.material.uniforms.op.value=MP.level==='universe'?0:Math.max(0,Math.min(1,(110-MP.dist)/60));
   if(MP.level==='galaxy'&&(MP.lf=(MP.lf||0)+1)%20===0)mpLabels();
   mpFleets(Date.now());
@@ -1374,10 +1466,10 @@ function buildPlanet(pid){if(isBody(pid))return buildBody(pid);const t=PLANETS[p
   return G}
 
 // ---- corps exploitables (astéroïdes, lunes, anomalies) ----
-const BODYR={ast:1.3,moon:1.6,anom:1.05},BAMP={ast:.24,moon:.07,anom:.14};
+const BODYR={ast:1.3,moon:1.6,anom:1.05,wreck:1.2},BAMP={ast:.24,moon:.07,anom:.14,wreck:.22};
 function bodyH(pid,x,y,z){const o=offOf(pid),t=PLANETS[pid].type;if(t==='moon'){const c=Math.abs(fbm(x*3.2+o[1],y*3.2+o[2],z*3.2+o[0],2));return fbm(x*1.8+o[0],y*1.8+o[1],z*1.8+o[2],4)-(c<.08?.6*(.08-c)/.08:0)}return fbm(x*1.2+o[0],y*1.2+o[1],z*1.2+o[2],4)+(t==='ast'?.35*fbm(x*.6,y*.6+o[0],z*.6,2):0)}
 function bodySurf(pid,n){const t=PLANETS[pid].type;return BODYR[t]*(1+BAMP[t]*bodyH(pid,n.x,n.y,n.z))}
-const BSTOPS={ast:[[-.5,'#3a312a'],[-.1,'#5c4e42'],[.15,'#857463'],[.4,'#a99a88']],moon:[[-.6,'#4a4e57'],[-.1,'#7b818c'],[.15,'#a6acb6'],[.4,'#d3d7de']],anom:[[-.5,'#120a26'],[0,'#2a1b4a'],[.2,'#3d6b78'],[.4,'#7af0d0']]};
+const BSTOPS={wreck:[[-.5,'#2e2a26'],[-.1,'#5a5048'],[.15,'#8a7a66'],[.4,'#c9a36b']],ast:[[-.5,'#3a312a'],[-.1,'#5c4e42'],[.15,'#857463'],[.4,'#a99a88']],moon:[[-.6,'#4a4e57'],[-.1,'#7b818c'],[.15,'#a6acb6'],[.4,'#d3d7de']],anom:[[-.5,'#120a26'],[0,'#2a1b4a'],[.2,'#3d6b78'],[.4,'#7af0d0']]};
 function buildBody(pid){const t=PLANETS[pid].type,G=new THREE.Group(),geo=new THREE.IcosahedronGeometry(1,5),pos=geo.attributes.position,cols=new Float32Array(pos.count*3),v=new THREE.Vector3(),c=new THREE.Color(),memo=new Map();
   for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).normalize();const key=((v.x*1e4)|0)+','+((v.y*1e4)|0)+','+((v.z*1e4)|0);let rec=memo.get(key);
     if(!rec){const h=bodyH(pid,v.x,v.y,v.z);ramp(BSTOPS[t],h,c);rec=[BODYR[t]*(1+BAMP[t]*h),c.r,c.g,c.b];memo.set(key,rec)}

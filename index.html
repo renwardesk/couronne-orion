@@ -1264,12 +1264,16 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
 function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;for(const r of list){if(n>=60)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
   rp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
+// trous noirs et épaves de la carte : transparents quand la caméra est tout près, opaques de loin
+function deepFade(x){const G=x.H||x.W;if(!G)return;if(!x.mats){x.mats=[];G.traverse(o=>{const m=o.material;if(!m)return;if(m.uniforms&&m.uniforms.op)x.mats.push([m,'u',m.uniforms.op.value]);else{m.transparent=true;x.mats.push([m,'o',m.opacity])}})}
+  const d=MP.cam.position.distanceTo(G.position),r=x.H?28:14,f=Math.max(0,Math.min(1,(d-r)/(r*1.5)));if(f===x.f)return;x.f=f;G.visible=f>.02;
+  for(const[m,t,o0]of x.mats){if(t==='u')m.uniforms.op.value=o0*f;else{m.opacity=o0*f;m.depthWrite=f>.98&&m.blending!==THREE.AdditiveBlending}}}
 function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t-MP.last)/1000||0);MP.last=t;const k=RM?.3:1;
   const f=Math.min(1,dt*(RM?8:2.2));for(let i=0;i<3;i++)MP.tgt[i]+=(MP.tgtT[i]-MP.tgt[i])*f;MP.dist=Math.exp(Math.log(MP.dist)+(Math.log(MP.distT)-Math.log(MP.dist))*f);
   if(!MP.drag&&!MP.pinch&&!MP.pan&&t>(MP.idle||0))MP.yaw+=dt*.03*k;
   const d=MP.dist,cp=Math.cos(MP.pitch);MP.cam.position.set(MP.tgt[0]+d*cp*Math.sin(MP.yaw),MP.tgt[1]+d*Math.sin(MP.pitch),MP.tgt[2]+d*cp*Math.cos(MP.yaw));MP.cam.lookAt(MP.tgt[0],MP.tgt[1],MP.tgt[2]);
   for(const o of MP.orbs)o.piv.rotation.y+=dt*o.sp*k;
-  if(MP.sysDisk)MP.sysDisk.rotation.z-=dt*.6*k;for(const x of MP.deepFx||[]){if(x.disk)x.disk.rotation.z-=dt*.25*k;if(x.belt)x.belt.rotation.y+=dt*.02*k}
+  if(MP.sysDisk)MP.sysDisk.rotation.z-=dt*.6*k;for(const x of MP.deepFx||[]){if(x.disk)x.disk.rotation.z-=dt*.25*k;if(x.belt)x.belt.rotation.y+=dt*.02*k;deepFade(x)}
   const op=MP.level==='universe'?1:MP.level==='galaxy'?.32:.22;MP.clouds.forEach((c,g)=>{c.material.uniforms.op.value=(MP.level==='universe'||g===MP.gal)?op:Math.min(1,op*1.8)});MP.pPts.material.uniforms.op.value=MP.level==='universe'?0:Math.max(0,Math.min(1,(110-MP.dist)/60));
   if(MP.level==='galaxy'&&(MP.lf=(MP.lf||0)+1)%20===0)mpLabels();
   mpFleets(Date.now());
@@ -1889,7 +1893,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='16';
+const APP_VERSION='17';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -414,8 +414,8 @@ function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR
 function hiveAt(t=Date.now()){const w=Math.floor((t+HR)/(6*HR)),s=w*6*HR-HR;if(t<s||t>s+4*HR)return null;return{id:'h'+w,pid:HIVES[hash('hive'+w)%HIVES.length],start:s,end:s+4*HR}}
 function stormAt(t=Date.now()){const w=Math.floor((t+2*HR)/(6*HR)),s=w*6*HR-2*HR;if(t<s||t>s+2*HR)return null;return{id:'s'+w,gal:hash('storm'+w)%GALS.length,start:s,end:s+2*HR}}
 const TRAVEL=2.5; // multiplicateur global des temps de trajet
-function etaOf(a,b,ships){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return 0;const d=dist(a,b);let t=TRAVEL*(40+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);if(galOf(a)!==galOf(b))t*=1.25;const st=stormAt();if(st&&(galOf(a)===st.gal||galOf(b)===st.gal))t*=1.5;return Math.round(t)}
-function fuelOf(a,b,ships){let s=0;for(const k of SK)s+=(ships[k]||0)*SHIPS[k].fuel;const d=dist(a,b);return Math.ceil(s*(1+Math.min(d,1000)/250+Math.max(0,d-1000)/900))}
+function etaOf(a,b,ships){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return 0;if(a===b)return 15;const d=dist(a,b);let t=TRAVEL*(40+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);if(galOf(a)!==galOf(b))t*=1.25;const st=stormAt();if(st&&(galOf(a)===st.gal||galOf(b)===st.gal))t*=1.5;return Math.round(t)}
+function fuelOf(a,b,ships){if(a===b)return 0;let s=0;for(const k of SK)s+=(ships[k]||0)*SHIPS[k].fuel;const d=dist(a,b);return Math.ceil(s*(1+Math.min(d,1000)/250+Math.max(0,d-1000)/900))}
 const cargoCap=s=>SK.reduce((t,k)=>t+(s[k]||0)*SHIPS[k].cap,0);
 
 // ---------- état d'une planète au temps t ----------
@@ -448,7 +448,7 @@ function battle(a0,d0,ma,md,RN,KD){const cl=s=>{const o={};for(const k in s)if(s
   const kills=(atk,mA,def,mD)=>{const out={},acc={},H=k=>UNIT[k].hp*mD[k].hp;let hp=0;for(const k in def)hp+=def[k]*H(k);if(hp<=0)return out;
     for(const t in atk){const dmg=atk[t]*UNIT[t].att*mA[t].att*(KD||1);if(!dmg)continue;for(const u in def){if(!def[u])continue;const mult=((CTR[t]&&CTR[t][u])||1)*(1+(mA[t].vs[u]||0))*(1-mD[u].red);acc[u]=(acc[u]||0)+dmg*(def[u]*H(u)/hp)*mult/H(u)}}
     for(const u in acc){let n=Math.floor(acc[u]);if(Math.random()<acc[u]-n)n++;out[u]=Math.min(def[u],n)}return out};
-  const snaps=[];for(let r=0;r<(RN||4);r++){if(isEmpty(a)||isEmpty(d))break;rounds++;const ka=kills(d,md,a,ma),kd=kills(a,ma,d,md);for(const k in ka)a[k]-=ka[k];for(const k in kd)d[k]-=kd[k];snaps.push({a:{...a},d:{...d}})}
+  const snaps=[];for(let r=0;r<(RN||8);r++){if(isEmpty(a)||isEmpty(d))break;rounds++;const ka=kills(d,md,a,ma),kd=kills(a,ma,d,md);for(const k in ka)a[k]-=ka[k];for(const k in kd)d[k]-=kd[k];snaps.push({a:{...a},d:{...d}})}
   return{a,d,ia,id,rounds,snaps}}
 const plur=(n,w)=>n>1?w.split(' ').map((x,i)=>i?x:(x.endsWith('au')?x+'x':x+'s')).join(' '):w;
 const unitLine=s=>{const parts=Object.keys(s||{}).filter(k=>s[k]>0).map(k=>`${s[k]} ${plur(s[k],UNIT[k].n.toLowerCase())}`);return parts.length?parts.join(', '):'aucune unité'};
@@ -998,7 +998,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   const atkName=grp?`L’attaque groupée de ${atkUids.map(pname).join(', ')}`:pname(f.owner);
   const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,surv[i],loots?loots[i]:{m:0,c:0,f:0})};
   const rec=(B,def,extra={})=>({ia:B.ia,id:B.id,rounds:B.snaps,att:forces.map(x=>({uid:x.owner,ships:x.ships})),def,pid:f.to,...extra});
-  const fightLines=B=>[`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,...(isEmpty(B.a)?[]:['Les survivants restent en position : depuis l’onglet Flottes, rentre gratuitement ou lance une nouvelle mission.'])];
+  const fightLines=B=>[`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,...(isEmpty(B.a)?[]:[isEmpty(B.d)?'Les survivants restent en position : depuis l’onglet Flottes, rentre gratuitement ou lance une nouvelle mission.':'Ta flotte reste sur place : depuis l’onglet Flottes, « Nouvelle mission » sur la même cible pour relancer l’assaut aussitôt.'])];
   // la Ruche
   const hv=hiveAt(f.arrive);
   if(f.mission==='attack'&&hv&&hv.pid===f.to&&!(S.planets[f.to]&&S.planets[f.to].owner)){let G=null,done=null,val=0;
@@ -1026,7 +1026,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv),frag=Math.round(R.frag*frac),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
     if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
-    const won=isEmpty(G.B.d);reps.push({to:atkUids,tone:won?'win':'loss',loser:won?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat.`],battle:rec(G.B,'raid')});
+    const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat.`],battle:rec(G.B,'raid')});
     for(const r of reps)await report(r);return}
   await locked('planets/'+f.to,async(d,ref)=>{
     const p=d&&d.owner?settle(d,Math.max(d.at,f.arrive)):null;
@@ -1074,7 +1074,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
         for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
         reps.push({to:[...atkUids,victim],tone:'win',loser:victim,title:`${tn} annexé${body?'':'e'} par ${pname(f.owner)}`,lines,battle:rec(B,victim,{planet:true})});return}
       await ref.set(p);await finish(G.surv,loots);
-      reps.push({to:[...atkUids,victim],tone:won?'win':'loss',loser:won?victim:f.owner,title:won?`${atkName} remporte la bataille de ${tn}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
+      reps.push({to:[...atkUids,victim],tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won?victim:isEmpty(B.a)?f.owner:null,title:won?`${atkName} remporte la bataille de ${tn}`:!isEmpty(B.a)?`Combat indécis à ${tn} : il reste ${unitLine(B.d)}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
     // cible neutre (pirates)
     const frac=killedDef/(worth(B.id)||1),loots=splitLoot(Object.fromEntries(Object.entries(treasureOf(B.id)).map(([k,v])=>[k,v*frac])),G.surv);
     await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})));lines.push(`Butin : ${lootTxt(sumLoot(loots))} · ${Math.round(killedDef)} points de combat.`);
@@ -1082,7 +1082,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
       reps.push({to:atkUids,tone:'win',title:`${tn} libéré${body?'':'e'} et ${body?'équipé d’un avant-poste':'colonisée'}`,lines,battle:rec(B,'pirates',{planet:!body})});return}
     await ref.set({kind:'planet',pid:f.to,owner:null,garrison:won?{}:B.d});await finish(G.surv,loots);
-    reps.push({to:atkUids,tone:won?'win':'loss',loser:won?null:f.owner,title:won?`Pirates chassés de ${tn}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
+    reps.push({to:atkUids,tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won||!isEmpty(B.a)?null:f.owner,title:won?`Pirates chassés de ${tn}`:!isEmpty(B.a)?`Combat indécis contre les pirates de ${tn} : il en reste ${unitLine(B.d)}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
   });
   for(const r of reps)await report(r)}
 async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
@@ -1285,7 +1285,7 @@ function renderRank(){const now=Date.now();const rows=Object.values(S.players).m
   return`<section style="display:grid;gap:10px"><h1>Classement</h1>${rows.length?`<div class="list">${rows.map((r,i)=>`<div class="item rank"><span class="pos">${i+1}</span><span class="owner"><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff">· ${r.n} lieu${r.n>1?'x':''} · ${fmt(r.pl.cp||0)} PC</span></span><span class="sc">${fmt(r.s)}</span></div>`).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
 
 // ---------- fenêtre d’envoi de flotte ----------
-function openSend(to,forceMis){const v=view(to),src=view(S.sel),cm=cometAt(),RT=S.retask&&S.fleets[S.retask]&&S.fleets[S.retask].phase==='hold'?S.fleets[S.retask]:null;let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&PLANETS[to].type==='wreck'&&!v.owner)mission='salvage';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';if(forceMis)mission=forceMis;S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(10,(src.ships||{}).probe||0);if(RT){if(RT.to===to)return toast('Ta flotte est déjà à cet endroit.','bad');S.modal.from=RT.to;S.modal.fleet=RT.fid;S.modal.ships={...zeroShips(),...RT.ships};if(mission==='spy'&&count(RT.ships)!==(RT.ships.probe||0))S.modal.mission=v.owner===ME?'transfer':'attack'}
+function openSend(to,forceMis){const v=view(to),src=view(S.sel),cm=cometAt(),RT=S.retask&&S.fleets[S.retask]&&S.fleets[S.retask].phase==='hold'?S.fleets[S.retask]:null;let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&PLANETS[to].type==='wreck'&&!v.owner)mission='salvage';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';if(forceMis)mission=forceMis;S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(10,(src.ships||{}).probe||0);if(RT){if(RT.to===to&&v.owner===ME)return toast('Ta flotte est déjà à cet endroit.','bad');S.modal.from=RT.to;S.modal.fleet=RT.fid;S.modal.ships={...zeroShips(),...RT.ships};if(mission==='spy'&&count(RT.ships)!==(RT.ships.probe||0))S.modal.mission=v.owner===ME?'transfer':'attack'}
   if(mission==='colonize')S.modal.ships.colony=Math.min(1,src.ships.colony||0);renderModal()}
 function renderModal(){const el=document.getElementById('modal');const M=S.modal;if(!M){el.innerHTML='';return}
   const src=view(M.from),tv=view(M.to),FLT=M.fleet&&S.fleets[M.fleet];const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
@@ -2135,7 +2135,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='25';
+const APP_VERSION='26';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

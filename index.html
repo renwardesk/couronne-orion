@@ -186,10 +186,8 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <div id="modal"></div>
 <div id="toast"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -635,7 +633,7 @@ const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'à l’instan
 const threat=n=>n<=0?'aucune':n<15?'faible':n<40?'moyenne':n<90?'forte':'extrême';
 
 function render(){
-  if(S.nodb){v3Sync(false);hgSync(false);top_.hidden=true;tabsEl.hidden=true;main.innerHTML=`<div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">${esc(S.nodbMsg||(window.firebase?'Configuration Firebase manquante : colle ton bloc firebaseConfig dans le fichier firebase-config.js du dépôt.':'Impossible de charger Firebase. Vérifie ta connexion internet.'))}</p></div>`;mpSync();return}
+  if(S.nodb){v3Sync(false);hgSync(false);top_.hidden=true;tabsEl.hidden=true;main.innerHTML=`<div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">${esc(S.nodbMsg||(window.supabase?'Configuration Supabase manquante dans le fichier supabase-config.js du dépôt.':'Impossible de charger la base de données. Vérifie ta connexion internet.'))}</p></div>`;mpSync();return}
   if(S.ready<3){return}
   const joined=!!S.players[ME]&&myPlanets().length>0;
   if(!joined&&!S.spectator){v3Sync(false);hgSync(false);top_.hidden=true;tabsEl.hidden=true;renderJoin();mpSync();return}
@@ -1481,42 +1479,63 @@ function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const dt=Math.min(.05,(t
 function btStart(){if(BT.running)return;BT.running=true;btSize();BT.last=performance.now();BT.raf=requestAnimationFrame(btLoop)}
 function btStop(){if(!BT.running)return;BT.running=false;cancelAnimationFrame(BT.raf)}
 
-// ---------- couche Firebase (même interface que la base d'origine) ----------
-let fs=null,auth=null;
-function fbInit(){const c=window.FIREBASE_CONFIG;if(!window.firebase||!c||!c.apiKey||!c.projectId)return false;
-  try{firebase.initializeApp(c);fs=firebase.firestore();auth=firebase.auth();return true}catch(e){console.error(e);return false}}
-const wrapSnap=d=>({id:d.id,exists:d.exists,data:()=>{if(!d.exists)return undefined;const x={...d.data()};delete x._lease;return x},metadata:{fromCache:false,hasPendingWrites:false}});
-function docRef(path){const r=fs.doc(path);return{id:r.id,path,
-  get:async()=>wrapSnap(await r.get()),
-  set:d=>r.set(d),update:d=>r.update(d),delete:()=>r.delete(),
-  // verrou coopératif court : un bail stocké dans le document, posé par transaction
-  acquire:({holder,ttlMs=30000})=>fs.runTransaction(async tx=>{const s=await tx.get(r),now=Date.now(),l=s.exists?s.data()._lease:null;
-    if(l&&l.exp>now&&l.holder!==holder)return{acquired:false};tx.set(r,{_lease:{holder,exp:now+Math.max(1000,ttlMs)}},{merge:true});return{acquired:true}}),
-  onSnapshot:(n,e)=>r.onSnapshot(s=>n(wrapSnap(s)),e),
+// ---------- couche Supabase (même interface que la base d'origine) ----------
+// Une seule table « docs » : path (clé), col (collection), data (jsonb), lease_holder / lease_exp (verrous courts).
+let sb=null;
+function sbInit(){const c=window.SUPABASE_CONFIG;if(!window.supabase||!c||!c.url||!c.key)return false;
+  try{sb=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true}});return true}catch(e){console.error(e);return false}}
+const pcolOf=path=>path.split('/').slice(0,-1).join('/');
+const dsnap=(path,row)=>({id:path.split('/').pop(),exists:!!(row&&row.data),data:()=>row&&row.data?row.data:undefined,metadata:{fromCache:false,hasPendingWrites:false}});
+const sbErr=e=>{if(!e)return;const x=new Error(e.message||'Erreur base de données');x.code=(e.code==='42501'||/row-level security|permission/i.test(e.message||''))?'invalid_argument':'unavailable';throw x};
+// diffusion temps réel : un seul canal pour toute la table, réparti par collection
+const RT={listeners:new Map(),ch:null};
+function rtStart(){if(RT.ch)return;RT.ch=sb.channel('docs-all').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
+    const path=(p.new&&p.new.path)||(p.old&&p.old.path);if(!path)return;const col=pcolOf(path);const ls=RT.listeners.get(col);if(!ls)return;
+    for(const l of ls)l.apply(p.eventType==='DELETE'?{path,row:null}:{path,row:p.new})}).subscribe(st=>{if(st==='SUBSCRIBED')for(const ls of RT.listeners.values())for(const l of ls)l.resync()})}
+function docRef(path){return{id:path.split('/').pop(),path,
+  async get(){const{data,error}=await sb.from('docs').select('path,data').eq('path',path).maybeSingle();sbErr(error);return dsnap(path,data)},
+  async set(d){const{error}=await sb.from('docs').upsert({path,col:pcolOf(path),data:d,updated_at:new Date().toISOString()},{onConflict:'path'});sbErr(error)},
+  async update(d){const cur=await this.get();if(!cur.exists){const x=new Error('Document introuvable');x.code='invalid_argument';throw x}await this.set({...cur.data(),...d})},
+  async delete(){const{error}=await sb.from('docs').delete().eq('path',path);sbErr(error)},
+  async acquire({holder,ttlMs=30000}){const{data,error}=await sb.rpc('acquire_lease',{p_path:path,p_holder:holder,p_ttl_ms:Math.max(1000,ttlMs)});sbErr(error);return{acquired:!!data}},
+  onSnapshot(n,e){let row=null;const l={apply:({row:r})=>{row=r;n(dsnap(path,row))},resync:async()=>{try{const s=await docRef(path).get();n(s)}catch(x){e&&e(x)}}};
+    const col=pcolOf(path);if(!RT.listeners.has(col))RT.listeners.set(col,new Set());const filt={apply:x=>{if(x.path===path)l.apply(x)},resync:l.resync};RT.listeners.get(col).add(filt);rtStart();l.resync();return()=>RT.listeners.get(col).delete(filt)},
   collection:p=>colRef(path+'/'+p)}}
-function colRef(path,q={}){const base=fs.collection(path);return{path,
-  doc:id=>docRef(path+'/'+(id||base.doc().id)),
-  add:async d=>{const ref=docRef(path+'/'+base.doc().id);await ref.set(d);return ref},
+function colRef(path,q={}){return{path,
+  doc:id=>docRef(path+'/'+(id||newId())),
+  add:async d=>{const r=docRef(path+'/'+newId());await r.set(d);return r},
   where:(f,op,v)=>colRef(path,{...q,where:[...(q.where||[]),[f,op,v]]}),
   orderBy:(f,dir='asc')=>colRef(path,{...q,order:[f,dir]}),
   limit:n=>colRef(path,{...q,limit:n}),
-  _apply(snap){let docs=snap.docs.map(wrapSnap);if(q.order){const[f,d]=q.order,s=d==='desc'?-1:1;docs.sort((a,b)=>{const x=a.data()[f],y=b.data()[f];return(x>y?1:x<y?-1:0)*s})}if(q.limit)docs=docs.slice(0,q.limit);return{docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false}}},
-  _q(){let fq=base;for(const w of q.where||[])fq=fq.where(...w);return fq},
-  async get(){return this._apply(await this._q().get())},
-  onSnapshot(n,e){return this._q().onSnapshot(s=>n(this._apply(s)),e)}}}
+  _match(d){return(q.where||[]).every(([f,op,v])=>{const x=d[f];return op==='array-contains'?Array.isArray(x)&&x.includes(v):op==='=='?x===v:op==='!='?x!==v:op==='<'?x<v:op==='<='?x<=v:op==='>'?x>v:op==='>='?x>=v:op==='in'?v.includes(x):op==='not-in'?!v.includes(x):true})},
+  _out(map){let docs=[...map.entries()].filter(([,d])=>d&&this._match(d)).map(([p,d])=>dsnap(p,{data:d}));
+    if(q.order){const[f,dir]=q.order,s=dir==='desc'?-1:1;docs.sort((a,b)=>{const x=a.data()[f],y=b.data()[f];return(x>y?1:x<y?-1:0)*s})}if(q.limit)docs=docs.slice(0,q.limit);
+    return{docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{fromCache:false,hasPendingWrites:false}}},
+  async _fetch(){let qq=sb.from('docs').select('path,data').eq('col',path).not('data','is',null);for(const[f,op,v]of q.where||[])if(op==='array-contains')qq=qq.contains('data->'+f,JSON.stringify([v]));
+    const all=new Map();for(let from=0;;from+=1000){const{data,error}=await qq.range(from,from+999);sbErr(error);for(const r of data)all.set(r.path,r.data);if(data.length<1000)break}return all},
+  async get(){return this._out(await this._fetch())},
+  onSnapshot(n,e){let map=new Map(),t=null;const emit=()=>{clearTimeout(t);t=setTimeout(()=>n(this._out(map)),40)};
+    const l={apply:({path:p,row})=>{if(row&&row.data)map.set(p,row.data);else map.delete(p);emit()},resync:async()=>{try{map=await this._fetch();n(this._out(map))}catch(x){console.error(x);e&&e(x)}}};
+    if(!RT.listeners.has(path))RT.listeners.set(path,new Set());RT.listeners.get(path).add(l);rtStart();l.resync();const iv=setInterval(l.resync,45000);
+    return()=>{clearInterval(iv);RT.listeners.get(path).delete(l)}}}}
 const DBA={doc:docRef,collection:colRef};
 
 // ---------- connexion : pseudo + mot de passe ----------
 const slugPseudo=p=>p.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9._-]/g,'');
 const pseudoMail=p=>`${slugPseudo(p)}@joueurs.couronne-orion.app`;
-const AUTHERR={'auth/invalid-credential':'Pseudo ou mot de passe incorrect.','auth/wrong-password':'Pseudo ou mot de passe incorrect.','auth/user-not-found':'Aucun compte avec ce pseudo.','auth/invalid-login-credentials':'Pseudo ou mot de passe incorrect.',
-  'auth/email-already-in-use':'Ce pseudo est déjà pris.','auth/weak-password':'Le mot de passe doit faire au moins 6 caractères.','auth/too-many-requests':'Trop d’essais. Patiente quelques minutes.','auth/network-request-failed':'Pas de connexion internet.','auth/operation-not-allowed':'La connexion par mot de passe n’est pas activée dans Firebase.'};
+function authMsg(e){const m=(e&&(e.message||e.code))||'';
+  if(/invalid login|invalid_credentials/i.test(m))return'Pseudo ou mot de passe incorrect.';
+  if(/already registered|already exists|user_already_exists/i.test(m))return'Ce pseudo est déjà pris.';
+  if(/password should be at least|weak_password/i.test(m))return'Le mot de passe doit faire au moins 6 caractères.';
+  if(/email not confirmed/i.test(m))return'Compte non confirmé : désactive « Confirm email » dans Supabase (Authentication → Sign In / Providers → Email).';
+  if(/rate limit|too many/i.test(m))return'Trop d’essais. Patiente quelques minutes.';
+  if(/fetch|network/i.test(m))return'Pas de connexion internet.';return'Erreur : '+m}
 let loginMode='in';
 function showLogin(msg){top_.hidden=true;tabsEl.hidden=true;v3Sync(false);hgSync(false);mpel.hidden=true;
   main.innerHTML=`<div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">Un univers de ${GALS.length} galaxies à conquérir entre amis.</p>
     <div class="card" style="display:grid;gap:12px"><div class="chips"><button class="chip" data-act="lmode" data-m="in" aria-pressed="${loginMode==='in'}">Se connecter</button><button class="chip" data-act="lmode" data-m="up" aria-pressed="${loginMode==='up'}">Créer un compte</button></div>
       <form id="loginf" style="display:grid;gap:10px" autocomplete="on">
-        <label for="lpseudo"><h2>Pseudo</h2></label><input id="lpseudo" name="username" autocomplete="username" maxlength="20" placeholder="Ex. vega42" value="${esc((()=>{try{return localStorage.getItem('orion-pseudo')||''}catch(e){return''}})())}">
+        <label for="lpseudo"><h2>Pseudo</h2></label><input id="lpseudo" name="username" autocomplete="username" maxlength="20" autocapitalize="none" placeholder="Ex. vega42" value="${esc((()=>{try{return localStorage.getItem('orion-pseudo')||''}catch(e){return''}})())}">
         <label for="lpass"><h2>Mot de passe</h2></label><input id="lpass" type="password" name="password" autocomplete="${loginMode==='up'?'new-password':'current-password'}" minlength="6" placeholder="6 caractères minimum">
         ${loginMode==='up'?'<label for="lpass2"><h2>Confirme le mot de passe</h2></label><input id="lpass2" type="password" autocomplete="new-password" minlength="6">':''}
         <p id="lerr" class="eff" style="margin:0;color:var(--bad)">${msg?esc(msg):''}</p>
@@ -1527,21 +1546,23 @@ function showLogin(msg){top_.hidden=true;tabsEl.hidden=true;v3Sync(false);hgSync
     const s=slugPseudo(p);if(s.length<3)return er.textContent='Le pseudo doit contenir au moins 3 lettres ou chiffres.';if(pw.length<6)return er.textContent='Le mot de passe doit faire au moins 6 caractères.';
     if(loginMode==='up'&&pw!==document.getElementById('lpass2').value)return er.textContent='Les deux mots de passe ne correspondent pas.';
     er.textContent='Connexion…';try{localStorage.setItem('orion-pseudo',p.trim())}catch(x){}
-    try{if(loginMode==='up')await auth.createUserWithEmailAndPassword(pseudoMail(p),pw);else await auth.signInWithEmailAndPassword(pseudoMail(p),pw)}
-    catch(x){er.textContent=AUTHERR[x.code]||('Erreur : '+(x.message||x.code))}})}
+    const r=loginMode==='up'?await sb.auth.signUp({email:pseudoMail(p),password:pw}):await sb.auth.signInWithPassword({email:pseudoMail(p),password:pw});
+    if(r.error)return er.textContent=authMsg(r.error);
+    if(loginMode==='up'&&!r.data.session)er.textContent=authMsg({message:'email not confirmed'})})}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;
   if(b.dataset.act==='lmode'){loginMode=b.dataset.m;showLogin()}
-  if(b.dataset.act==='logout'){auth&&auth.signOut().then(()=>location.reload())}});
+  if(b.dataset.act==='logout'){sb&&sb.auth.signOut().then(()=>location.reload())}});
 
 // ---------- démarrage ----------
 let started=false;
 function boot(){
-  if(!fbInit()){S.nodb=true;render();return}
-  auth.onAuthStateChanged(u=>{if(!u){if(started)location.reload();else showLogin();return}
-    ME=u.uid;try{const ps=localStorage.getItem('orion-pseudo');if(ps)S.pseudo=ps}catch(e){}if(!S.pseudo)S.pseudo=(u.email||'').split('@')[0];startGame()})}
+  if(!sbInit()){S.nodb=true;render();return}
+  sb.auth.onAuthStateChange((ev,session)=>{const u=session&&session.user;
+    if(!u){if(started&&ev==='SIGNED_OUT')location.reload();else if(!started)showLogin();return}
+    if(started)return;ME=u.id;try{const ps=localStorage.getItem('orion-pseudo');if(ps)S.pseudo=ps}catch(e){}if(!S.pseudo)S.pseudo=(u.email||'').split('@')[0];setTimeout(startGame,0)})}
 function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div class="join"><div class="hero">Couronne <span>d\'Orion</span></div><p class="lead">Connexion à la galaxie…</p></div>';
   const seen={p:0,pl:0,f:0,r:0};const ready=k=>{if(!seen[k]){seen[k]=1;S.ready++}render()};
-  const fail=e=>{console.error(e);if(e&&e.code==='permission-denied'){S.nodb=true;S.nodbMsg='Accès refusé par la base de données. Vérifie les règles de sécurité Firestore.';render()}};
+  const fail=e=>{console.error(e);if(e&&e.code==='invalid_argument'){S.nodb=true;S.nodbMsg='Accès refusé par la base de données. Vérifie que le script SQL a bien été exécuté dans Supabase.';render()}};
   db.collection('planets').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='planet'&&x.pid)o[x.pid]=x}S.planets=o;ready('p')},fail);
   db.collection('players').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='player')o[x.uid]=x}S.players=o;ready('pl')},fail);
   db.collection('fleets').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='fleet')o[x.fid]=x}S.fleets=o;ready('f')},fail);
@@ -1552,6 +1573,8 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 boot();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
+
+
 
 
 </body>

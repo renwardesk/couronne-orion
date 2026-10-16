@@ -1225,7 +1225,7 @@ function renderJoin(){
 }
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
-  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&(!notifOk()||!pushOn())&&('PushManager' in window)?'<button class="tgl" data-act="notif">Alertes</button>':''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b></div>`:`<div class="who">Mode spectateur</div>`}`;
+  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b></div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
@@ -1780,7 +1780,8 @@ async function pushSubscribe(quiet){try{if(!('serviceWorker'in navigator)||!('Pu
   let sub=await reg.pushManager.getSubscription();if(!sub){const r=await fetch(PUSH_FN()+'?key');const{pub}=await r.json();sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(pub)})}
   const{error}=await sb.from('push_subs').upsert({endpoint:sub.endpoint,uid:ME,sub:sub.toJSON()});if(error)throw error;try{localStorage.setItem('orion-push-'+ME,'1')}catch(e){}return true}
   catch(e){console.error(e);if(!quiet)toast('Impossible d’activer les notifications sur cet appareil.','bad');return false}}
-async function askNotif(){try{if(typeof Notification==='undefined')return toast('Ton navigateur ne gère pas les alertes. Installe l’appli sur l’écran d’accueil.','bad');const r=await Notification.requestPermission();if(r==='granted')await pushSubscribe(false);toast(r==='granted'?(pushOn()?'Alertes activées : tu seras prévenu même appli fermée quand une attaque part vers toi.':'Pastille activée, mais les notifications n’ont pas pu être enregistrées.'):'Alertes refusées. Tu peux les activer dans Réglages › Notifications.',r==='granted'?'':'bad');BADGE_N=-1;render()}catch(e){}}
+async function pushOff(){try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub){await sb.from('push_subs').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}}catch(e){console.error(e)}try{localStorage.setItem('orion-push-'+ME,'0')}catch(e){}if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});toast('Alertes désactivées sur cet appareil.');render()}
+async function askNotif(){if(notifOk()&&pushOn())return pushOff();try{if(typeof Notification==='undefined')return toast('Ton navigateur ne gère pas les alertes. Installe l’appli sur l’écran d’accueil.','bad');const r=await Notification.requestPermission();if(r==='granted')await pushSubscribe(false);toast(r==='granted'?(pushOn()?'Alertes activées : tu seras prévenu même appli fermée quand une attaque part vers toi.':'Pastille activée, mais les notifications n’ont pas pu être enregistrées.'):'Alertes refusées. Tu peux les activer dans Réglages › Notifications.',r==='granted'?'':'bad');BADGE_N=-1;render()}catch(e){}}
 const EV={init:false,seen:new Set(),repInit:false,reps:new Set(),badge:{planet:[],yard:[],lab:[]}};
 // pastilles rouges sur les onglets : travaux terminés que tu n'as pas encore consultés
 let BSEEN=null;const bseen=()=>{if(!BSEEN){BSEEN=new Set();try{for(const k of JSON.parse(localStorage.getItem('orion-bseen-'+ME)||'[]'))BSEEN.add(k)}catch(e){}}return BSEEN};
@@ -2278,11 +2279,11 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
   db.collection('events').onSnapshot(s=>{const o={};for(const d of s.docs){const x=d.data();if(x&&x.kind==='event')o[x.id]=x}S.events=o;if(S.ready>=3)render()},fail);
   db.collection('reports').where('to','array-contains',ME).orderBy('at','desc').limit(60).onSnapshot(s=>{S.reports=s.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.kind==='report');reportSounds();if(S.ready>=3)render()},fail);
   setInterval(tick,1000);
-  if(notifOk())setTimeout(()=>pushSubscribe(true),4000);
+  if(notifOk()&&pushOn())setTimeout(()=>pushSubscribe(true),4000);
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='43';
+const APP_VERSION='44';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

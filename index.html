@@ -1225,7 +1225,7 @@ function renderJoin(){
 }
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
-  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button><button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b></div>`:`<div class="who">Mode spectateur</div>`}`;
+  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&!notifOk()&&navigator.setAppBadge?'<button class="tgl" data-act="notif">Alertes</button>':''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b></div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
@@ -1678,6 +1678,7 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='cmdrec')recruitCmd();
   else if(a==='srsend')sendRes();
+  else if(a==='notif')askNotif();
   else if(a==='spyin')spyIncoming(b.dataset.f);
   else if(a==='newst'){S.newsTab=b.dataset.t;render()}
   else if(a==='logt'){S.logTab=b.dataset.t;render()}
@@ -1769,6 +1770,10 @@ function ambient(on){const c=audio();if(!c)return;
 function musicTension(on){if(MUS.tension!==on){MUS.tension=on;MUS.step=0}}
 
 // ---------- événements sonores (constructions finies, attaques, rapports) ----------
+// pastille sur l'icône de l'appli (écran d'accueil) quand une attaque arrive
+let BADGE_N=-1;function appBadge(n){if(n===BADGE_N)return;BADGE_N=n;try{if(n>0&&navigator.setAppBadge)navigator.setAppBadge(n).catch(()=>{});else if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{})}catch(e){}}
+const notifOk=()=>typeof Notification!=='undefined'&&Notification.permission==='granted';
+async function askNotif(){try{if(typeof Notification==='undefined')return toast('Ton navigateur ne gère pas les alertes. Installe l’appli sur l’écran d’accueil.','bad');const r=await Notification.requestPermission();toast(r==='granted'?'Alertes activées : une pastille rouge apparaîtra sur l’icône en cas d’attaque.':'Alertes refusées. Tu peux les activer dans Réglages › Notifications.',r==='granted'?'':'bad');BADGE_N=-1;render()}catch(e){}}
 const EV={init:false,seen:new Set(),repInit:false,reps:new Set(),badge:{planet:[],yard:[],lab:[]}};
 // pastilles rouges sur les onglets : travaux terminés que tu n'as pas encore consultés
 let BSEEN=null;const bseen=()=>{if(!BSEEN){BSEEN=new Set();try{for(const k of JSON.parse(localStorage.getItem('orion-bseen-'+ME)||'[]'))BSEEN.add(k)}catch(e){}}return BSEEN};
@@ -1780,7 +1785,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
     for(const it of p.shipQ||[]){const end=it.start+it.n*it.per*1000;if(end<=now)keys.push(['d','s'+p.pid+end+it.t,`${SHIPS[it.t].n} : production terminée sur ${nm}.`])}}
   for(const it of Object.values(S.planets).filter(p=>p.owner===ME).flatMap(p=>(p.armQ||[]).map(x=>[p,x]))){const[p,x]=it,end=x.start+x.n*x.per*1000;if(end<=now)keys.push(['d','m'+p.pid+end+x.t,`Modules « ${WEAP[x.t].n} » prêts sur ${PLANETS[p.pid].name}.`])}
   {const rs=S.players[ME].research;if(rs&&rs.until<=now)keys.push(['d','r'+rs.until,`Recherche terminée : ${WEAP[rs.k].n}.`]);const cm=cometAt(),hv=hiveAt();if(cm)keys.push(['d','cm'+cm.id,`Une comète traverse ${PLANETS[cm.pid].name} (${GALS[galOf(cm.pid)].name}). Le premier qui la récolte gagne gros.`]);if(hv)keys.push(['a','hv'+hv.id,`La Ruche a surgi à ${PLANETS[hv.pid].name}. Unissez vos flottes pour l’abattre.`])}
-  musicTension(incoming().length>0);for(const f of incoming())keys.push(['a','a'+f.fid,`Alerte : ${pname(f.owner)} attaque ${PLANETS[f.to].name}, arrivée à ${clock(f.arrive)}.`]);
+  musicTension(incoming().length>0);appBadge(incoming().length);for(const f of incoming())keys.push(['a','a'+f.fid,`Alerte : ${pname(f.owner)} attaque ${PLANETS[f.to].name}, arrivée à ${clock(f.arrive)}.`]);
   {const B={planet:[],yard:[],lab:[]};for(const[t,k]of keys){if(t!=='d')continue;const c=k[0];if(c==='b')B.planet.push(k);else if(c==='s')B.yard.push(k);else if(c==='m'||(c==='r'&&/^r\d/.test(k)))B.lab.push(k)}EV.badge=B}
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
   for(const[t,k,msg]of keys){if(EV.seen.has(k))continue;EV.seen.add(k);if(t==='a'){sfx.alert();toast(msg,'alert')}else{sfx.done();toast(msg)}}}
@@ -2269,7 +2274,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='41';
+const APP_VERSION='42';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

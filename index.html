@@ -247,7 +247,7 @@ const RES={m:'Métal',c:'Cristal',f:'Hélium-3'};
 const RARE={ir:'Iridium',xe:'Xénite',am:'Antimatière'};
 const PT4=['tel','vol','gla','gaz'];
 const PTYPES={tel:{n:'Tellurique',m:1,c:1,f:1,col:'#6f9d77'},vol:{n:'Volcanique',m:1.3,c:.9,f:1,col:'#d0714a'},gla:{n:'Glaciaire',m:.9,c:1.3,f:1,col:'#8fd0ea'},gaz:{n:'Gazeuse',m:.85,c:1,f:1.4,col:'#c9a0e8'},
-  ast:{n:'Ceinture d’astéroïdes',m:0,c:0,f:0,col:'#a39684',rare:'ir'},moon:{n:'Lune morte',m:0,c:0,f:0,col:'#b9c2cf',rare:'xe'},anom:{n:'Anomalie',m:0,c:0,f:0,col:'#6ff0d0',rare:'am'},raid:{n:'Écumeurs du Vide',m:0,c:0,f:0,col:'#ff4d6d'},wreck:{n:'Épave ancienne',m:0,c:0,f:0,col:'#c9a36b',rare:'am'}};
+  ast:{n:'Ceinture d’astéroïdes',m:0,c:0,f:0,col:'#a39684',rare:'ir'},moon:{n:'Lune morte',m:0,c:0,f:0,col:'#b9c2cf',rare:'xe'},anom:{n:'Anomalie',m:0,c:0,f:0,col:'#6ff0d0',rare:'am'},raid:{n:'Écumeurs du Vide',m:0,c:0,f:0,col:'#ff4d6d'},station:{n:'Station du Vide',m:0,c:0,f:0,col:'#7fd6ff',rare:'am'},wreck:{n:'Épave ancienne',m:0,c:0,f:0,col:'#c9a36b',rare:'am'}};
 const SHIPS={
   fighter:{n:'Chasseur',cost:{m:40,c:15,f:0},t:12,att:6,hp:22,spd:1.6,cap:15,fuel:1,yard:1},
   cruiser:{n:'Croiseur',cost:{m:140,c:70,f:15},t:40,att:24,hp:75,spd:1.1,cap:50,fuel:3,yard:2},
@@ -388,6 +388,7 @@ const WRECKN=['Cimetière de l’Aube','Épaves de la Flotte perdue','Nécropole
 const DEEP=[];
 for(let g=0;g<GALS.length-1;g++){const A=GALS[g].c,B=GALS[g+1].c,m=[0,1,2].map(i=>(A[i]+B[i])/2),d=[0,1,2].map(i=>B[i]-A[i]),L=Math.hypot(...d),u=d.map(x=>x/L),pl=Math.hypot(u[0],u[2])||1,perp=[-u[2]/pl,0,u[0]/pl];
   const hs={i:SYSTEMS.length,li:-1,gal:g,x:0,y:0,z:0,rad:0,ang:0,name:HOLES[g].n,planets:[],bodies:[],packs:[],w:m,deep:'hole',gate:g};SYSTEMS.push(hs);
+  for(let k=0;k<5;k++){const pid=`st${g}-${k}`;PLANETS[pid]={pid,sys:hs.i,slot:k,name:`${HOLES[g].n} · Station ${GREEK[k]}`,type:'station',body:true,deep:true};hs.bodies.push(pid)}
   const wp=[0,1,2].map(i=>m[i]-u[i]*L*.2+perp[i]*L*.13);
   const ws={i:SYSTEMS.length,li:-1,gal:g,x:0,y:0,z:0,rad:0,ang:0,name:WRECKN[g],planets:[],bodies:[],packs:[],w:wp,deep:'wreck',gate:g};SYSTEMS.push(ws);
   for(let k=0;k<4;k++){const pid=`wk${g}-${k}`;PLANETS[pid]={pid,sys:ws.i,slot:k,name:`${WRECKN[g]} · Épave ${GREEK[k]}`,type:'wreck',body:true,deep:true};ws.bodies.push(pid)}
@@ -493,7 +494,8 @@ function deepHtml(joined){const s=SYSTEMS[MP.sys],g=s.gate,un=S.players[ME]?unlo
   if(s.deep==='hole'){const bid=s.packs[0],nxt=GALS[g+1];
     return`<section style="display:grid;gap:10px"><h1>${esc(s.name)}</h1><p class="meta" style="margin:0">Trou noir entre ${esc(GALS[g].name)} et ${esc(nxt.name)} · passage vers le niveau ${g+2}</p>
     <div class="card" style="display:grid;gap:8px"><p class="eff" style="margin:0">${esc(HOLES[g].lore)}</p><p class="eff" style="margin:0">${un>g?`<b style="color:var(--good)">Passage ouvert</b> : tes flottes peuvent voyager vers ${esc(nxt.name)}.`:`<b style="color:var(--bad)">Passage fermé</b> : vaincs ${esc(HOLES[g].boss)} pour accéder à ${esc(nxt.name)}. Tous les empires qui participent à la victoire ouvrent la route. Le gardien renaît 3 heures après sa chute.`}</p></div>
-    <h2>Gardien</h2><div class="list">${packRow(bid,joined&&un>=g)}</div></section>`}
+    <h2>Gardien</h2><div class="list">${packRow(bid,joined&&un>=g)}</div>
+    <h2>Stations du Vide</h2><p class="meta" style="margin:0">Zone de construction galactique : plusieurs empires peuvent y bâtir chacun leur station (mission « Avant-poste » avec un vaisseau colon). Avec une Base de flotte, tes flottes y stationnent et partent de là vers la galaxie suivante. La Foreuse y capte de l’antimatière.</p><div class="list">${s.bodies.map(p=>planetRow(p,joined)).join('')}</div></section>`}
   const sen=s.packs[0],ev=S.events['salv-'+s.i],fr=Math.min(1,(Date.now()-(ev&&ev.at||0))/(6*HR));
   return`<section style="display:grid;gap:10px"><h1>${esc(s.name)}</h1><p class="meta" style="margin:0">Cimetière de vaisseaux près du ${esc(HOLES[g].n)} · espace de ${esc(GALS[g].name)}</p>
     <div class="card" style="display:grid;gap:8px"><p class="eff" style="margin:0">Les carcasses d’une flotte oubliée dérivent ici. Mission « Récupérer » : ressources, minerais rares et modules d’armes, selon ta soute. Ou installe un avant-poste sur une épave : 4 places, plusieurs empires peuvent s’y côtoyer, chacun extrait de l’antimatière.</p><p class="eff" style="margin:0">Butin récupérable : <b>${Math.round(fr*100)} %</b> · se reconstitue en 6 heures.</p></div>
@@ -1149,14 +1151,14 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
       else{MP.drag={x:e.clientX,y:e.clientY,yaw:MP.yaw,pitch:MP.pitch};MP.down={x:e.clientX,y:e.clientY,t:performance.now()}}});
     mpc.addEventListener('contextmenu',e=>e.preventDefault());
     mpc.addEventListener('pointermove',e=>{if(!MP.ptr.has(e.pointerId))return;MP.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
-      if(MP.ptr.size>=2&&MP.pinch){const[a,b]=pts(),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;mpPan(mx-MP.pinch.mx,my-MP.pinch.my);MP.pinch.mx=mx;MP.pinch.my=my;mpZoomTo(MP.pinch.dist*MP.pinch.d/(Math.hypot(a.x-b.x,a.y-b.y)||1))}
+      if(MP.ptr.size>=2&&MP.pinch){const[a,b]=pts(),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;mpPan(mx-MP.pinch.mx,my-MP.pinch.my);MP.pinch.mx=mx;MP.pinch.my=my;const cur=Math.hypot(a.x-b.x,a.y-b.y)||1;mpZoomTo(MP.pinch.dist*MP.pinch.d/cur);if(MP.rebase){MP.rebase=false;MP.pinch.dist=MP.distT;MP.pinch.d=cur}}
       else if(MP.pan){mpPan(e.clientX-MP.pan.x,e.clientY-MP.pan.y);MP.pan={x:e.clientX,y:e.clientY}}
       else if(MP.drag){MP.yaw=MP.drag.yaw-(e.clientX-MP.drag.x)*.006;MP.pitch=Math.max(-1.45,Math.min(1.45,MP.drag.pitch+(e.clientY-MP.drag.y)*.005))}});
     const up=e=>{const dn=MP.down;MP.ptr.delete(e.pointerId);if(MP.ptr.size<2)MP.pinch=null;
       if(dn&&!MP.ptr.size&&Math.hypot(e.clientX-dn.x,e.clientY-dn.y)<9&&performance.now()-dn.t<450){const rc=mpc.getBoundingClientRect();mpPick(e.clientX-rc.left,e.clientY-rc.top)}
       MP.down=null;if(MP.ptr.size===1)MP.drag=null;else if(!MP.ptr.size){MP.drag=null;MP.pan=null}};
     mpc.addEventListener('pointerup',up);mpc.addEventListener('pointercancel',e=>{MP.down=null;up(e)});
-    mpc.addEventListener('wheel',e=>{e.preventDefault();mpZoomTo(MP.distT*Math.exp(e.deltaY*.0012))},{passive:false});
+    mpc.addEventListener('wheel',e=>{e.preventDefault();mpZoomTo(MP.distT*Math.exp(e.deltaY*.0012),true)},{passive:false});
     document.getElementById('mpfull').addEventListener('click',()=>{MP.full=!MP.full;mpel.classList.toggle('v3full',MP.full);document.body.style.overflow=MP.full?'hidden':'';document.getElementById('mpfull').textContent=MP.full?'Réduire':'Plein écran';sfx.click();setTimeout(mpSize,30)});
     window.addEventListener('resize',mpSize);document.addEventListener('visibilitychange',()=>{if(document.hidden)mpStop();else if(!mpel.hidden)mpStart()});
   }catch(e){MP.ok=false}return MP.ok}
@@ -1169,11 +1171,14 @@ function mpPan(dpx,dpy){if(!dpx&&!dpy)return;const h=mpc.clientHeight||400,wpp=2
   const c=MP.level==='universe'?UNI:MP.level==='galaxy'?GALS[MP.gal].c:SYSTEMS[MP.sys].w,lim=MP.level==='universe'?900:MP.level==='galaxy'?70:3;
   for(let i=0;i<3;i++){const d=(-R.getComponent(i)*dpx+U.getComponent(i)*dpy)*wpp;MP.tgt[i]+=d;MP.tgtT[i]+=d}
   const off=MP.tgtT.map((v,i)=>v-c[i]),len=Math.hypot(...off);if(len>lim){for(let i=0;i<3;i++){const nv=c[i]+off[i]*lim/len;MP.tgt[i]+=nv-MP.tgtT[i];MP.tgtT[i]=nv}}}
-function mpZoomTo(d){const[lo,hi]=RANGE[MP.level];
-  if(d>hi*1.02){if(MP.level==='system'){mpGoGalaxy(MP.gal);return}if(MP.level==='galaxy'){mpGoUniverse();return}}
-  if(d<lo*.98){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;
-    if(MP.level==='universe'){const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),cx,cy,1e9);if(g){mpGoGalaxy(g.i);return}}
-    if(MP.level==='galaxy'){const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),cx,cy,mpc.clientWidth*.3);if(s){mpGoSystem(s.i);return}}}
+function mpZoomTo(d,wheel){const[lo,hi]=RANGE[MP.level],now=performance.now();
+  if(now<(MP.lockT||0)){MP.distT=Math.max(lo,Math.min(hi,d));return}
+  const over=d>hi?(wheel?(MP.ow=(MP.ow||0)+Math.log(d/hi)):Math.log(d/hi)):(MP.ow=0);
+  const lv0=MP.level,after=()=>{if(MP.level!==lv0){MP.lockT=now+900;MP.ow=0;MP.rebase=true}};
+  if(over>Math.log(1.7)){if(MP.level==='system'){mpGoGalaxy(MP.gal);after();return}if(MP.level==='galaxy'){mpGoUniverse();after();return}}
+  if(d<lo*(wheel?.95:.8)){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;
+    if(MP.level==='universe'){const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),cx,cy,1e9);if(g){mpGoGalaxy(g.i);after();return}}
+    if(MP.level==='galaxy'){const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),cx,cy,mpc.clientWidth*.3);if(s){mpGoSystem(s.i);after();return}}}
   MP.distT=Math.max(lo,Math.min(hi,d))}
 function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D=>[{w:D.m,i:D.hole.i},{w:D.wreck.w,i:D.wreck.i}]),x,y,40);if(dd){sfx.click();mpGoSystem(dd.i);return}const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
   if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
@@ -1187,16 +1192,17 @@ function mpBuildSystem(i){if(!MP.ok)return;mpClearSystem();MP.sysDisk=null;const
   const sc=new THREE.Color(STARC[hash('s'+i)%STARC.length]);g2.add(new THREE.Mesh(new THREE.SphereGeometry(.1,24,16),new THREE.MeshBasicMaterial({color:sc})));
   const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:sc,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));gl.scale.set(.9,.9,1);g2.add(gl);
   g2.add(new THREE.PointLight(sc,2.4,8));
-  [...s.planets,...s.bodies].forEach((pid,k)=>{const rad=.34+k*.21,v=vis?view(pid):{owner:null,garrison:{}},T=PTYPES[PLANETS[pid].type],bt=isBody(pid)?PLANETS[pid].type:null;
+  [...s.planets,...s.bodies].forEach((pid,k)=>{const rad=s.deep==='hole'?.8+k*.17:.34+k*.21,v=vis?view(pid):{owner:null,garrison:{}},T=PTYPES[PLANETS[pid].type],bt=isBody(pid)?PLANETS[pid].type:null;
     const oc=[];for(let a=0;a<=96;a++){const t=a/96*Math.PI*2;oc.push(Math.cos(t)*rad,0,Math.sin(t)*rad)}const og=new THREE.BufferGeometry();og.setAttribute('position',new THREE.Float32BufferAttribute(oc,3));
     g2.add(new THREE.Line(og,new THREE.LineBasicMaterial({color:v.owner?pcolor(v.owner):0x55608f,transparent:true,opacity:v.owner?.55:.25})));
-    const piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const size=bt?(bt==='ast'?.022:bt==='moon'?.028:.032):.04+(hash(pid+'z')%30)/1000;
+    const piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const size=bt?(bt==='ast'?.022:bt==='moon'?.028:bt==='station'?.026:.032):.04+(hash(pid+'z')%30)/1000;
     const m=new THREE.Mesh(new THREE.SphereGeometry(size,20,14),new THREE.MeshStandardMaterial({color:vis?T.col:0x3d4258,roughness:.85,emissive:vis?T.col:0,emissiveIntensity:bt==='anom'?1.6:.08}));m.position.x=rad;piv.add(m);if(bt==='ast'){const bp=[],br=rng(hash(pid));for(let q=0;q<220;q++){const a=br()*Math.PI*2,rr=rad+(br()-.5)*.09;bp.push(Math.cos(a)*rr,(br()-.5)*.02,Math.sin(a)*rr)}const bg=new THREE.BufferGeometry();bg.setAttribute('position',new THREE.Float32BufferAttribute(bp,3));g2.add(new THREE.Points(bg,new THREE.PointsMaterial({color:0xa39684,size:.012})))}
     if(v.owner){const ring=new THREE.Mesh(new THREE.TorusGeometry(size+.025,.005,6,40),new THREE.MeshBasicMaterial({color:pcolor(v.owner)}));ring.rotation.x=Math.PI/2;m.add(ring);if(v.owner===ME){const ring2=ring.clone();ring2.scale.setScalar(1.35);m.add(ring2)}}
     else if(count(v.garrison)){const pir=new THREE.Mesh(new THREE.TorusGeometry(size+.02,.003,4,24),new THREE.MeshBasicMaterial({color:0xff7070,transparent:true,opacity:.6}));pir.rotation.x=Math.PI/2;m.add(pir)}
+    if(bt==='station'){const sr=new THREE.Mesh(new THREE.TorusGeometry(size*1.9,size*.35,6,24),new THREE.MeshStandardMaterial({color:0xcfe9ff,metalness:.8,roughness:.3,emissive:0x2a6a9a,emissiveIntensity:.6}));sr.rotation.x=Math.PI/2;m.add(sr)}
     if(vis&&PLANETS[pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(size*1.4,size*2.1,32),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}
     g2.add(piv);MP.orbs.push({piv,mesh:m,pid,sp:.35/(1+k*.7)})});
-  const nAst=s.planets.length+s.bodies.length;(vis?s.packs||[]:[]).forEach((pid,k)=>{if(raidState(pid).done)return;const rad=.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
+  const nAst=s.planets.length+s.bodies.length;(vis?s.packs||[]:[]).forEach((pid,k)=>{if(raidState(pid).done)return;const rad=s.deep==='hole'?.8+(nAst+k)*.17+.1:.34+(nAst+k)*.21+.12,piv=new THREE.Group();piv.rotation.y=(hash(pid)%628)/100;const c=new THREE.Group();c.position.x=rad;const red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rr=rng(hash(pid));
     for(let i=0;i<(k===0?6:3);i++){const m=new THREE.Mesh(new THREE.ConeGeometry(.012,.042,3),red);m.rotation.z=-Math.PI/2;m.position.set((rr()-.5)*.08,(rr()-.5)*.03,(rr()-.5)*.08);c.add(m)}
     const ring=new THREE.Mesh(new THREE.TorusGeometry(k===0?.075:.055,.003,4,28),new THREE.MeshBasicMaterial({color:0xff3b5c,transparent:true,opacity:.6}));ring.rotation.x=Math.PI/2;c.add(ring);piv.add(c);g2.add(piv);MP.orbs.push({piv,mesh:c,pid,sp:.12})});
   {const L=vis&&lairInfoAt(s);const o=L&&MP.orbs.find(o=>o.pid===L.pid);if(o){const mk2=new THREE.Group(),red=new THREE.MeshBasicMaterial({color:0xff3b5c}),rg2=new THREE.Mesh(new THREE.TorusGeometry(.085,.005,6,32),red);rg2.rotation.x=Math.PI/2;mk2.add(rg2);
@@ -1513,10 +1519,10 @@ function buildPlanet(pid){if(isBody(pid))return buildBody(pid);const t=PLANETS[p
   return G}
 
 // ---- corps exploitables (astéroïdes, lunes, anomalies) ----
-const BODYR={ast:1.3,moon:1.6,anom:1.05,wreck:1.2},BAMP={ast:.24,moon:.07,anom:.14,wreck:.22};
+const BODYR={ast:1.3,moon:1.6,anom:1.05,wreck:1.2,station:1.15},BAMP={ast:.24,moon:.07,anom:.14,wreck:.22,station:.08};
 function bodyH(pid,x,y,z){const o=offOf(pid),t=PLANETS[pid].type;if(t==='moon'){const c=Math.abs(fbm(x*3.2+o[1],y*3.2+o[2],z*3.2+o[0],2));return fbm(x*1.8+o[0],y*1.8+o[1],z*1.8+o[2],4)-(c<.08?.6*(.08-c)/.08:0)}return fbm(x*1.2+o[0],y*1.2+o[1],z*1.2+o[2],4)+(t==='ast'?.35*fbm(x*.6,y*.6+o[0],z*.6,2):0)}
 function bodySurf(pid,n){const t=PLANETS[pid].type;return BODYR[t]*(1+BAMP[t]*bodyH(pid,n.x,n.y,n.z))}
-const BSTOPS={wreck:[[-.5,'#2e2a26'],[-.1,'#5a5048'],[.15,'#8a7a66'],[.4,'#c9a36b']],ast:[[-.5,'#3a312a'],[-.1,'#5c4e42'],[.15,'#857463'],[.4,'#a99a88']],moon:[[-.6,'#4a4e57'],[-.1,'#7b818c'],[.15,'#a6acb6'],[.4,'#d3d7de']],anom:[[-.5,'#120a26'],[0,'#2a1b4a'],[.2,'#3d6b78'],[.4,'#7af0d0']]};
+const BSTOPS={station:[[-.5,'#1d2a38'],[-.1,'#3b5670'],[.15,'#7d9bb5'],[.4,'#cfe9ff']],wreck:[[-.5,'#2e2a26'],[-.1,'#5a5048'],[.15,'#8a7a66'],[.4,'#c9a36b']],ast:[[-.5,'#3a312a'],[-.1,'#5c4e42'],[.15,'#857463'],[.4,'#a99a88']],moon:[[-.6,'#4a4e57'],[-.1,'#7b818c'],[.15,'#a6acb6'],[.4,'#d3d7de']],anom:[[-.5,'#120a26'],[0,'#2a1b4a'],[.2,'#3d6b78'],[.4,'#7af0d0']]};
 function buildBody(pid){const t=PLANETS[pid].type,G=new THREE.Group(),geo=new THREE.IcosahedronGeometry(1,5),pos=geo.attributes.position,cols=new Float32Array(pos.count*3),v=new THREE.Vector3(),c=new THREE.Color(),memo=new Map();
   for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).normalize();const key=((v.x*1e4)|0)+','+((v.y*1e4)|0)+','+((v.z*1e4)|0);let rec=memo.get(key);
     if(!rec){const h=bodyH(pid,v.x,v.y,v.z);ramp(BSTOPS[t],h,c);rec=[BODYR[t]*(1+BAMP[t]*h),c.r,c.g,c.b];memo.set(key,rec)}
@@ -1883,7 +1889,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='15';
+const APP_VERSION='16';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

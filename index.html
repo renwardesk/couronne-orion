@@ -1329,7 +1329,7 @@ function renderTop(joined){top_.hidden=false;
 }
 function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME);let left=cu,k=0;while(k<MAXP-np&&left>=cultCostN(np+k)){left-=cultCostN(np+k);k++}
   const cost=cultureCost(ME),pc=np>=MAXP?100:Math.min(100,cu/cost*100);
-  return`<span class="emp"><span title="Planètes">🪐 <b>${np}</b>/${MAXP}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Culture pour la prochaine planète"><span>${np>=MAXP?'Planètes au maximum':`${k?`<b style="color:var(--good)">+${k} planète${k>1?'s':''} possible${k>1?'s':''}</b> · `:''}culture <b>${fmt(cu)}</b>/${fmt(cost)}`}</span><span class="prog"><b style="width:${pc}%"></b></span></span></span>`}
+  return`<span class="emp"><span title="Planètes : possédées / possibles avec ta culture actuelle (maximum ${MAXP})">🪐 <b>${np}</b>/${Math.min(MAXP,np+k)}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Culture pour la prochaine planète"><span>${np>=MAXP?'Planètes au maximum':`${k?`<b style="color:var(--good)">+${k} planète${k>1?'s':''} possible${k>1?'s':''}</b> · `:''}culture <b>${fmt(cu)}</b>/${fmt(cost)}`}</span><span class="prog"><b style="width:${pc}%"></b></span></span></span>`}
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length,qr=joined?questReady():0;badgeSeen(S.tab);
   const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['players','Joueurs'],['news','Actus'],['quests','Quêtes'],['log','Journal']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
   document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:k==='quests'&&qr?`<span class="n">${qr}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
@@ -2489,7 +2489,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='62';
+const APP_VERSION='63';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

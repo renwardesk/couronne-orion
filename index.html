@@ -303,15 +303,15 @@ const DRN={ir:'Foreuse à iridium',xe:'Extracteur de xénite',am:'Collecteur d�
 const natRare=pid=>PTYPES[PLANETS[pid].type].rare;
 const rkOf=p=>(p.rk&&p.rk in RARE)?p.rk:natRare(p.pid);
 function rareRate(p){const o={ir:0,xe:0,am:0};if(!isBody(p.pid))return o;const L=p.lv.drill||0;if(!L)return o;const t=rkOf(p),nat=t===natRare(p.pid);o[t]=(1.5+2.5*g(L))*richOf(p.pid)*(PLANETS[p.pid].type==='wreck'?1:t==='am'?.5:1)*(nat?1:.5);return o}
-function drillRows(p,payer,full,nq){const cur=rkOf(p),nat=natRare(p.pid),busy=nq>0;
+function drillRows(p,payer,full,nq){const cur=rkOf(p),nat=natRare(p.pid),busy=nq>0,locked=!!p.rk||(p.lv.drill||0)>1;
   return Object.keys(RARE).map(k=>{if(k===cur){const L0=p.lv.drill||0,L=L0+nq,c=bCost('drill',L),rc=bRare('drill',L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);
-      return`<div class="item"><div class="ihead"><b>${DRN[k]}</b><span class="lv">niv. ${L0}${nq?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,'drill')}${k===nat?' · <b style="color:var(--good)">minerai naturel du lieu</b>':' · rendement réduit de moitié (pas le minerai naturel)'}</div>
+      return`<div class="item"><div class="ihead"><b>${DRN[k]}</b><span class="lv">niv. ${L0}${nq?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,'drill')}${k===nat?' · <b style="color:var(--good)">minerai naturel du lieu</b>':' · rendement réduit de moitié (pas le minerai naturel)'}${locked?' · choix définitif':' · tu peux encore choisir un autre minerai ci-dessous (choix définitif ensuite)'}</div>
       <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime('drill',L))}</span></div><button class="btn sm" data-act="up" data-k="drill" ${full||!ok?'disabled':''}>${full?'File pleine':nq?'Ajouter à la file':'Améliorer'}</button></div></div>`}
-    const c=bCost('drill',0),ok=afford(payer,c)&&!busy;
-    return`<div class="item locked"><div class="ihead"><b>${DRN[k]}</b><span class="lv">non construit</span></div><div class="eff">${k===nat?'<b style="color:var(--good)">Minerai naturel du lieu : rendement maximal</b>':'Rendement réduit de moitié ici'} · un seul site d’extraction par avant-poste : construire celui-ci remplace ${DRN[cur].toLowerCase()} (retour au niveau 1).</div>
+    if(locked)return'';const c=bCost('drill',0),ok=afford(payer,c)&&!busy;
+    return`<div class="item locked"><div class="ihead"><b>${DRN[k]}</b><span class="lv">non construit</span></div><div class="eff">${k===nat?'<b style="color:var(--good)">Minerai naturel du lieu : rendement maximal</b>':'Rendement réduit de moitié ici'} · un seul site d’extraction par avant-poste : construire celui-ci remplace ${DRN[cur].toLowerCase()}. <b>Choix définitif.</b></div>
       <div class="foot"><div class="costs">${costHtml(payer,c)}<span class="t">${fmtDur(bTime('drill',0))}</span></div><button class="btn ghost sm" data-act="drillsw" data-r="${k}" ${ok?'':'disabled'}>${busy?'Travaux en cours':'Construire à la place'}</button></div></div>`}).join('')}
 async function drillSwitch(pid,rk){await act(async()=>{if(!(rk in RARE))return;const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');
-  await settleRare(ME);await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME||!isBody(pid))throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now);if((p.bq||[]).some(x=>x.k==='drill'))throw err('Une amélioration est en cours sur ce site.');if(rkOf(p)===rk)return;
+  await settleRare(ME);await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME||!isBody(pid))throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now);if((p.bq||[]).some(x=>x.k==='drill'))throw err('Une amélioration est en cours sur ce site.');if(p.rk||(p.lv.drill||0)>1)throw err('Le site d’extraction est déjà choisi : c’est définitif.');if(rkOf(p)===rk)return;
     const c=bCost('drill',0);await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
     p.rk=rk;p.lv.drill=1;await ref.set(p)});sfx.build();toast(`${DRN[rk]} construit.`)})}
 const capOf=p=>Math.round(2500*1.6**(p.lv.store||0));
@@ -909,7 +909,7 @@ async function act(fn){try{await fn()}catch(e){if(e&&e.code==='invalid_argument'
 async function upgrade(pid,k){await act(async()=>{
   if(isBody(pid)){const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');if(k==='drill')await withPlayer(ME,()=>{});
     await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now),bq=p.bq;if(bq.length>=3)throw err('File de construction pleine (3 max).');
-      const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L);if(Object.keys(rc).length)await withPlayer(ME,d=>{if(!affordR(d.rare,rc))throw err('Minerais rares insuffisants pour ce niveau.');payR(d.rare,rc)});await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
+      const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L);if(k==='drill'&&!p.rk)p.rk=rkOf(p);if(Object.keys(rc).length)await withPlayer(ME,d=>{if(!affordR(d.rare,rc))throw err('Minerais rares insuffisants pour ce niveau.');payR(d.rare,rc)});await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
       const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000});await ref.set(p)})}
   else await locked('planets/'+pid,async(d,ref)=>{
     if(!d||d.owner!==ME)throw err('Cette planète ne t’appartient plus.');const now=Date.now();const p=settle(d,now);
@@ -1380,11 +1380,22 @@ function galaxyCloud(g){const G=GALS[g],r=rng(500+g),N=g===0?6500:5200,geo=ptsGe
     P[i*3]=w[0];P[i*3+1]=w[1];P[i*3+2]=w[2];C[i*3]=col[0]*.55;C[i*3+1]=col[1]*.55;C[i*3+2]=col[2]*.55;Z[i]=1.2+r()*2.2}
   const pts=new THREE.Points(geo,ptsMat(90));pts.frustumCulled=false;return pts}
 
+function mpDecor(scene){const G=new THREE.Group(),r=rng(4242),gt=glowTex(),C=UNI;
+  const at=(R)=>{const u=r()*2-1,a=r()*Math.PI*2,q=Math.sqrt(1-u*u);return[C[0]+Math.cos(a)*q*R,C[1]+u*R*.55,C[2]+Math.sin(a)*q*R]};
+  const tints=[0xb9a8ff,0x9fd0ff,0xffc8a0,0xff9fd2,0xa0ffe4];
+  for(let i=0;i<46;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:tints[i%tints.length],blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.18+r()*.3,rotation:r()*Math.PI}));const s=40+r()*140;sp.scale.set(s,s*(.25+r()*.5),1);sp.position.set(...at(2300+r()*1300));G.add(sp)}
+  const stT=canvasTex(256,16,(x,W,H)=>{const g2=x.createLinearGradient(0,0,W,0);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(.75,'rgba(220,235,255,.9)');g2.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g2;x.fillRect(0,H*.3,W,H*.4)});
+  for(let i=0;i<14;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(260+r()*520,5+r()*9),new THREE.MeshBasicMaterial({map:stT,color:tints[i%tints.length],transparent:true,opacity:.25+r()*.35,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));m.position.set(...at(1700+r()*1500));m.lookAt(C[0],C[1],C[2]);m.rotateZ(r()*Math.PI);G.add(m)}
+  const N=2600,ag=ptsGeo(N),P=ag.attributes.position.array,Cc=ag.attributes.color.array,Z=ag.attributes.sz.array;let n=0;
+  for(let c=0;c<9;c++){const o=at(1400+r()*1600),k=200+Math.floor(r()*120),rad=50+r()*120,tilt=r()*Math.PI;for(let i=0;i<k&&n<N;i++,n++){const a=r()*Math.PI*2,R=rad*(.7+r()*.6);P.set([o[0]+Math.cos(a)*R,o[1]+Math.sin(a)*R*Math.sin(tilt)+(r()-.5)*8,o[2]+Math.sin(a)*R*Math.cos(tilt)],n*3);const b=.3+r()*.25;Cc.set([b*1.1,b,b*.85],n*3);Z[n]=2+r()*3}}
+  for(let c=0;c<18;c++){const o=at(1600+r()*1800),st=tints[c%tints.length];const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:st,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));sp.scale.set(18,18,1);sp.position.set(...o);G.add(sp);
+    for(let i=0;i<5&&n<N;i++,n++){const a=r()*Math.PI*2,R=6+i*5;P.set([o[0]+Math.cos(a)*R,o[1]+(r()-.5)*2,o[2]+Math.sin(a)*R],n*3);Cc.set([.6,.65,.75],n*3);Z[n]=3}}
+  ag.setDrawRange(0,n);const pts=new THREE.Points(ag,ptsMat(90));pts.frustumCulled=false;G.add(pts);scene.add(G);MP.decor=G}
 function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return false;
   try{const r=new THREE.WebGLRenderer({canvas:mpc,antialias:true,powerPreference:'high-performance'});r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));MP.r=r;
     const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(50,1,.01,8000);MP.scene=scene;MP.cam=cam;
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(4000,48,24),new THREE.MeshBasicMaterial({map:skyTex(),side:THREE.BackSide,depthWrite:false})));
-    scene.add(new THREE.AmbientLight(0x8090c0,.35));
+    scene.add(new THREE.AmbientLight(0x8090c0,.35));mpDecor(scene);
     const gt=glowTex();
     GALS.forEach((G,g)=>{const gc=galaxyCloud(g);MP.clouds.push(gc);scene.add(gc);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:G.shape==='ring'?0x9fffe8:0xffd9a8,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.75}));sp.position.set(...G.c);sp.scale.set(26,26,1);scene.add(sp)});
     mpDeepInit(scene);const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
@@ -1706,7 +1717,7 @@ function atmMat(color,power,str){return new THREE.ShaderMaterial({uniforms:{c:{v
   transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})}
 function canvasTex(w,h,draw){const cv=document.createElement('canvas');cv.width=w;cv.height=h;draw(cv.getContext('2d'),w,h);const t=new THREE.CanvasTexture(cv);t.anisotropy=4;return t}
 function skyTex(){return canvasTex(2048,1024,(x,W,H)=>{x.fillStyle='#04060f';x.fillRect(0,0,W,H);const r=rng(5),cols=['110,80,210','60,110,230','230,140,80','200,70,150','70,170,200'];
-  for(let i=0;i<34;i++){const cx=r()*W,cy=H*.5+(r()-.5)*H*.45,rad=100+r()*360,c=cols[Math.floor(r()*cols.length)],g2=x.createRadialGradient(cx,cy,0,cx,cy,rad);g2.addColorStop(0,`rgba(${c},${.07+r()*.11})`);g2.addColorStop(1,`rgba(${c},0)`);x.fillStyle=g2;x.fillRect(cx-rad,cy-rad,rad*2,rad*2)}
+  for(let i=0;i<34;i++){const cx=r()*W,cy=H*.5+(r()-.5)*H*.45,rad=100+r()*360,c=cols[Math.floor(r()*cols.length)],a0=.07+r()*.11;for(const ox of[-W,0,W]){const g2=x.createRadialGradient(cx+ox,cy,0,cx+ox,cy,rad);g2.addColorStop(0,`rgba(${c},${a0})`);g2.addColorStop(1,`rgba(${c},0)`);x.fillStyle=g2;x.fillRect(cx+ox-rad,cy-rad,rad*2,rad*2)}}
   for(let i=0;i<4200;i++){const big=r()<.025,yy=r()<.5?H*.5+(r()-.5)*H*.3:r()*H;x.fillStyle=`rgba(${215+r()*40|0},${215+r()*40|0},255,${r()*.7+.25})`;x.fillRect(r()*W,yy,big?2:1,big?2:1)}})}
 function cloudTex(pid,rgb,cov){const o=offOf(pid+'c');return canvasTex(512,256,(x,W,H)=>{const img=x.createImageData(W,H),d=img.data;
   for(let j=0;j<H;j++){const lat=(j/H-.5)*Math.PI,cy=Math.sin(lat),cr=Math.cos(lat);for(let i=0;i<W;i++){const lon=i/W*Math.PI*2,nx=Math.cos(lon)*cr,nz=Math.sin(lon)*cr;
@@ -2158,7 +2169,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='29';
+const APP_VERSION='30';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

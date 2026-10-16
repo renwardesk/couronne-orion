@@ -673,7 +673,11 @@ const CMD_NAMES=['Vega','Orsk','Talia','Kade','Mirelle','Doran','Sylas','Ysolde'
 const CMD_MAX=3,CMD_LMAX=10;
 const cmdLvl=xp=>Math.min(CMD_LMAX,Math.floor(Math.sqrt((xp||0)/40)));
 const cmdNext=L=>40*(L+1)**2;
-const cmdCost=n=>({m:Math.round(600*1.8**n),c:Math.round(450*1.8**n),f:Math.round(150*1.8**n)});
+const cmdCost=n=>({m:Math.round(600*2.5**n),c:Math.round(450*2.5**n),f:Math.round(150*2.5**n)});
+const cmdIns=n=>n+1;
+// insignes de commandement : uniquement sur les repaires, Armadas, hordes, sentinelles et gardiens
+const insDrop=R=>!R?0:R.boss?2:(R.lair||R.guard||!R.local||R.tier>=1)?1:0;
+const insOf=uid=>(S.players[uid]||{}).ins||0;
 const cmdsOf=uid=>((S.players[uid]||{}).cmds)||[];
 const cmdById=(uid,id)=>id?cmdsOf(uid).find(c=>c.id===id):null;
 const cmdBusy=(uid,id)=>Object.values(S.fleets).some(f=>f.owner===uid&&f.cmd===id);
@@ -682,15 +686,17 @@ function applyCmd(m,L){if(!L)return m;const o={};for(const k in m)o[k]={...m[k],
 function forceMods(owner,cmd){const c=cmdById(owner,cmd);return applyCmd(modsOf(owner),c?cmdLvl(c.xp):0)}
 async function killCmd(uid,id){if(!uid||!id||!S.players[uid])return;let nm=null;try{await withPlayer(uid,d=>{const c=(d.cmds||[]).find(x=>x.id===id);if(c){nm=c.n;d.cmds=d.cmds.filter(x=>x.id!==id)}})}catch(e){}
   if(nm)await report({to:[uid],tone:'loss',loser:uid,title:`Le commandant ${nm} est tombé`,lines:['Sa flotte a été anéantie. Recrute un nouveau commandant depuis l’onglet Flottes.']})}
-async function recruitCmd(){await act(async()=>{const n=cmdsOf(ME).length;if(n>=CMD_MAX)throw err(`${CMD_MAX} commandants au maximum.`);const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');const c=cmdCost(n);
-  await locked('planets/'+cap.pid,async(d,ref)=>{const q=settle(d,Date.now());if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await ref.set(q)});
+async function recruitCmd(){await act(async()=>{const n=cmdsOf(ME).length;if(n>=CMD_MAX)throw err(`${CMD_MAX} commandants au maximum.`);const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');const c=cmdCost(n),ni=cmdIns(n);
+  if(insOf(ME)<ni)throw err(`Il faut ${ni} insigne${ni>1?'s':''} de commandement.`);if(!afford(view(cap.pid).res,c))throw err('Ta capitale n’a pas assez de ressources.');
+  await withPlayer(ME,d=>{if((d.ins||0)<ni)throw err(`Il faut ${ni} insigne${ni>1?'s':''} de commandement.`);if((d.cmds||[]).length>=CMD_MAX)throw err(`${CMD_MAX} commandants au maximum.`);d.ins-=ni});
+  try{await locked('planets/'+cap.pid,async(d,ref)=>{const q=settle(d,Date.now());if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await ref.set(q)})}catch(x){await withPlayer(ME,d=>{d.ins=(d.ins||0)+ni}).catch(()=>{});throw x}
   let nm='';await withPlayer(ME,d=>{d.cmds=d.cmds||[];const used=new Set(d.cmds.map(x=>x.n));const pool=CMD_NAMES.filter(x=>!used.has(x));nm=pool[Math.floor(Math.random()*pool.length)]||'Anonyme';d.cmds.push({id:newId(),n:nm,xp:0})});
   sfx.build();toast(`Le commandant ${nm} rejoint ta flotte.`)})}
-function cmdsHtml(){const L=cmdsOf(ME),n=L.length,c=cmdCost(n),cap=capitalOf(ME),res=cap?view(cap.pid).res:{m:0,c:0,f:0};
+function cmdsHtml(){const L=cmdsOf(ME),n=L.length,c=cmdCost(n),ni=cmdIns(n),hi=insOf(ME),cap=capitalOf(ME),res=cap?view(cap.pid).res:{m:0,c:0,f:0};
   return`<section style="display:grid;gap:10px"><h2>Commandants</h2><p class="meta" style="margin:0">Confie une flotte à un commandant au moment de l’envoyer. Il gagne de l’expérience à chaque combat et renforce toute sa flotte. Si sa flotte est anéantie, il meurt.</p>
   ${n?`<div class="list">${L.map(x=>{const lv=cmdLvl(x.xp),nx=cmdNext(lv),busy=cmdBusy(ME,x.id),pc=lv>=CMD_LMAX?100:Math.min(100,(x.xp||0)/nx*100);
     return`<div class="item"><div class="ihead"><b>${esc(x.n)}</b><span class="lv">niv. ${lv}${lv>=CMD_LMAX?' (max)':''}</span></div><span class="prog"><b style="width:${pc}%"></b></span><div class="eff">${lv?cmdBonusTxt(lv):'Aucun bonus pour l’instant'} · ${fmt(x.xp||0)}${lv<CMD_LMAX?` / ${fmt(nx)}`:''} XP · ${busy?'<b style="color:var(--warn)">en mission</b>':'<b style="color:var(--good)">disponible</b>'}</div></div>`}).join('')}</div>`:''}
-  ${n<CMD_MAX?`<div class="card"><div class="foot"><div class="costs">${costHtml(res,c)}</div><button class="btn sm" data-act="cmdrec" ${afford(res,c)?'':'disabled'}>Recruter un commandant</button></div><p class="eff" style="margin:6px 0 0">Payé par ta capitale · ${n}/${CMD_MAX} commandants.</p></div>`:''}</section>`}
+  ${n<CMD_MAX?`<div class="card"><div class="foot"><div class="costs">${costHtml(res,c)}<span class="${hi<ni?'no':''}" style="color:#ffd27a">${ni} insigne${ni>1?'s':''}</span></div><button class="btn sm" data-act="cmdrec" ${afford(res,c)&&hi>=ni?'':'disabled'}>Recruter un commandant</button></div><p class="eff" style="margin:6px 0 0">Tu as <b>${hi}</b> insigne${hi>1?'s':''} de commandement · ${n}/${CMD_MAX} commandants. Les insignes ne s’obtiennent qu’en anéantissant un repaire, une Armada, une horde, des sentinelles d’épave (1 chacun) ou un gardien de trou noir (2). Ressources payées par ta capitale.</p></div>`:''}</section>`}
 // ---------- commandants des Écumeurs : ils s’aguerrissent tant qu’on les laisse vivre ----------
 const CMD_EPOCH=Date.UTC(2026,9,16,13,0);
 const ECU_N=['Kraag le Rouge','Vessa Crocs-Noirs','Mordo l’Ancien','Sythra la Pâle','Gharn Brise-Coque','Lysk la Veuve','Torg Trois-Doigts','Zhaal l’Affamé','Ruun l’Écorcheur','Iskra Feu-Pâle','Drevan Sans-Nom','Ossia la Hyène'];
@@ -1026,7 +1032,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv),frag=Math.round(R.frag*frac),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
     if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
-    const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat.`],battle:rec(G.B,'raid')});
+    const insK=isEmpty(G.B.d)?insDrop(R):0;if(insK)for(const u of atkUids)await withPlayer(u,d=>{d.ins=(d.ins||0)+insK}).catch(()=>{});
+    const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat${insK?` · ${insK} insigne${insK>1?'s':''} de commandement pour chaque participant`:''}.`],battle:rec(G.B,'raid')});
     for(const r of reps)await report(r);return}
   await locked('planets/'+f.to,async(d,ref)=>{
     const p=d&&d.owner?settle(d,Math.max(d.at,f.arrive)):null;
@@ -1195,7 +1202,7 @@ function renderYard(){const p=view(S.sel);
     <div class="foot"><div class="costs">${lock?`<span class="no">Chantier niv. ${s.yard} requis</span>`:`${costHtml(p.res,s.cost,n)}<span class="t">${fmtDur(shipTime(k,p.lv.yard)*n)}</span>`}</div>
     ${lock?'':`<div style="display:flex;gap:8px;align-items:center"><span class="step"><button data-act="qty" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${n}</span><button data-act="qty" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="qty" data-t="${k}" data-d="10">+10</button></span><button class="btn sm" data-act="ship" data-t="${k}" ${ok?'':'disabled'}>${room?'Construire':'Hangars pleins'}</button></div>`}</div></div>`}).join('')}
   </div></section>`}
-function rareCard(){const r=rareNow(ME),rt=rareRates(ME),pl=S.players[ME]||{},rc=rareCap(ME);return`<div class="card stats" style="font-size:13px">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}" style="${r[k]>=rc?'color:var(--bad)':''}">${fmt(r[k])}</b> <small>/ ${fmt(rc)}</small> <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small></span>`).join('')}<span>Éclats du Vide <b>${fmt(pl.frag||0)}</b></span><span>Points de combat <b>${fmt(pl.cp||0)}</b></span><span>Culture <b>${fmt(cultureNow(ME))}</b> <small style="color:var(--good)">+${cultureRate(ME).toFixed(2)}/min</small> · prochaine colonie : ${cultureCost(ME)}</span></div>`}
+function rareCard(){const r=rareNow(ME),rt=rareRates(ME),pl=S.players[ME]||{},rc=rareCap(ME);return`<div class="card stats" style="font-size:13px">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}" style="${r[k]>=rc?'color:var(--bad)':''}">${fmt(r[k])}</b> <small>/ ${fmt(rc)}</small> <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small></span>`).join('')}<span>Éclats du Vide <b>${fmt(pl.frag||0)}</b></span><span>Insignes de commandement <b>${fmt(pl.ins||0)}</b></span><span>Points de combat <b>${fmt(pl.cp||0)}</b></span><span>Culture <b>${fmt(cultureNow(ME))}</b> <small style="color:var(--good)">+${cultureRate(ME).toFixed(2)}/min</small> · prochaine colonie : ${cultureCost(ME)}</span></div>`}
 function renderLab(){const p=view(S.sel),pl=S.players[ME]||{},tech=techOf(pl),rs=pl.research&&pl.research.until>Date.now()?pl.research:null,r=rareNow(ME);
   if(isBody(p.pid))return`<h1>Labo</h1>${rareCard()}<p class="empty">L’Académie et l’Arsenal se construisent sur tes planètes. Choisis une planète dans le sélecteur « Lieu ».</p>`;
   const acad=p.lv.acad||0,ars=p.lv.arsenal||0,armQ=p.armQ||[];
@@ -2135,7 +2142,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='26';
+const APP_VERSION='27';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

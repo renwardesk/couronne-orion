@@ -2133,7 +2133,7 @@ function modelShip(n,col,len,pt){const g=SHIPLIB.geo[n];if(!g){loadModel(n);retu
   
   grp.userData.spins=[];grp.userData.model=n;return grp}
 // chaque commandant reçoit une combinaison unique de modèle et de couleurs
-const FLAGM=(()=>{const pools={c:['dispatcher','bob','striker','spitfire','zenith'],r:['challenger','insurgent','zenith','spitfire','dispatcher'],e:['executioner','omen','pancake','insurgent'],l:['imperial','omen','executioner','challenger']},cols=Object.keys(TEXCOLS),used=new Set(),o={};
+const FLAGM=(()=>{const pools={c:['dispatcher','bob','spitfire','zenith','striker'],r:['insurgent','zenith','spitfire','dispatcher','challenger'],e:['executioner','omen','insurgent','pancake'],l:['imperial','omen','executioner','challenger']},cols=Object.keys(TEXCOLS),used=new Set(),o={};
   const idx={};for(const[k,,r]of CMDDB){const P=pools[r],i=idx[r]=(idx[r]??-1)+1;for(let t=0;t<P.length*5;t++){const m=P[(i+Math.floor(t/5))%P.length],c=cols[(i+Math.floor(i/P.length)*2+t)%5],key=m+'_'+c;if(!used.has(key)){used.add(key);o[k]={m,c};break}}}return o})();
 function modelFlag(key,pt){const F=FLAGM[key],C=CMDK[key];if(!F||!C)return null;const L=protoLen('battleship')*({c:.8,r:.88,e:.96,l:1.05}[C.r]),s=modelShip(F.m,F.c,L,pt);if(!s)return null;
   const col=new THREE.Color(RAR[C.r].col);if(C.r==='e'||C.r==='l'){const ring=new THREE.Mesh(new THREE.TorusGeometry(L*.24,L*.01,8,56),new THREE.MeshStandardMaterial({color:col,metalness:.9,roughness:.25,emissive:col,emissiveIntensity:.5}));ring.rotation.y=Math.PI/2;ring.position.x=-L*.08;s.add(ring);s.userData.spins.push({o:ring,ax:'x',sp:.8})}
@@ -2415,7 +2415,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='52';
+const APP_VERSION='53';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

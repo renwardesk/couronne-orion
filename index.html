@@ -103,6 +103,10 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .rep p{margin:0;font-size:13px;color:var(--dim)}
 .rep time{font-family:var(--f-data);font-size:12px;color:var(--dim)}
 .rank{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center}
+.tabs .wrap.many .tab{font-size:11px;letter-spacing:0}
+.pcard .owner{display:flex;align-items:center;gap:7px}.pcard .pos{font-family:var(--f-display);font-size:18px;color:var(--brass);min-width:18px}.pcard .sc{font-family:var(--f-data);font-variant-numeric:tabular-nums;color:var(--brass)}
+.pcard.me{outline:1px solid var(--brass)}
+.pstats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:6px 0 0}.pstats div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #ffffff10;padding-bottom:3px}.pstats dt{color:var(--dim);font-size:12px}.pstats dd{margin:0;font-family:var(--f-data);font-size:12.5px;text-align:right}
 .rank .pos{font-family:var(--f-display);font-size:20px;color:var(--brass);text-align:center}
 .rank .sc{font-family:var(--f-data);font-variant-numeric:tabular-nums;text-align:right}
 .scrim{position:fixed;inset:0;background:#05081499;z-index:20;display:flex;align-items:flex-end;justify-content:center}
@@ -866,7 +870,7 @@ function render(){
   if(!joined&&S.spectator&&!['galaxy','log'].includes(S.tab))S.tab='galaxy';
   if(joined&&(!S.sel||!S.planets[S.sel]||S.planets[S.sel].owner!==ME))S.sel=myPlanets()[0].pid;
   renderTop(joined);renderTabs(joined);chatBtnSync(joined);v3Sync(joined);hgSync(joined);
-  main.innerHTML=({planet:renderPlanet,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,log:renderLog})[S.tab]();
+  main.innerHTML=({planet:renderPlanet,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,players:renderPlayers,log:renderLog})[S.tab]();
   mpSync();
   tickUi();
 }
@@ -895,8 +899,8 @@ function renderTop(joined){top_.hidden=false;
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length;
-  const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['log','Journal']]:[['galaxy','Carte'],['log','Journal']];
-  tabsEl.innerHTML=`<div class="wrap" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
+  const T=joined?[['planet','Base'],['yard','Chantier'],['lab','Labo'],['hangar','Hangar'],['galaxy','Carte'],['fleets','Flottes'],['players','Joueurs'],['log','Journal']]:[['galaxy','Carte'],['players','Joueurs'],['log','Journal']];
+  tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='drill'){const t=PTYPES[PLANETS[p.pid].type].rare,r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
@@ -1008,7 +1012,18 @@ function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter
   return`<h1>Flottes</h1>${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   <section style="display:grid;gap:10px"><h2>Tes flottes</h2>${mine.length?`<div class="list">${mine.map(f=>fleetRow(f,false)).join('')}</div>`:`<p class="empty">Aucune flotte en vol. Ouvre la Carte, choisis une cible et envoie tes vaisseaux.</p>`}</section>`}
-function renderLog(){return`${questsHtml()}${renderRank()}<section style="display:grid;gap:10px"><h2>Journal de bord</h2>${S.reports.length?`<div class="list">${S.reports.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${esc(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">Les rapports de bataille, d’espionnage et les nouvelles de l’univers apparaîtront ici.</p>`}</section>`}
+function renderLog(){return`${questsHtml()}<section style="display:grid;gap:10px"><h2>Journal de bord</h2>${S.reports.length?`<div class="list">${S.reports.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${esc(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">Les rapports de bataille, d’espionnage et les nouvelles de l’univers apparaîtront ici.</p>`}</section>`}
+function renderPlayers(){const now=Date.now();
+  const rows=Object.values(S.players).map(pl=>{let bld=0,shp=0,n=0,cols=0,outs=0,gmax=0;
+    for(const p of Object.values(S.planets)){if(p.owner!==pl.uid)continue;n++;isBody(p.pid)?outs++:cols++;gmax=Math.max(gmax,galOf(p.pid));const q=settle(p,now);for(const k in q.lv)bld+=q.lv[k]*10;bld+=isBody(p.pid)?25:50;shp+=worth(q.ships)}
+    let inFl=0;for(const f of Object.values(S.fleets))if(f.owner===pl.uid){shp+=worth(f.ships);inFl++}
+    const tch=Object.values(techOf(pl)).reduce((a,b)=>a+b,0),cp=pl.cp||0;
+    return{pl,n,cols,outs,inFl,bld,shp,tch,cp,lvl:Math.max(gmax,unlockedOf(pl.uid))+1,s:Math.round(bld+shp+tch*20+cp*.5)}}).sort((a,b)=>b.s-a.s);
+  const stat=(l,v)=>`<div><dt>${l}</dt><dd>${v}</dd></div>`;
+  return`<section style="display:grid;gap:10px"><h1>Joueurs</h1><p class="meta" style="margin:0">${rows.length} empire${rows.length>1?'s':''} dans l’univers · classement par score (bâtiments, flottes, recherches et culture).</p>${rows.length?`<div class="list">${rows.map((r,i)=>{const cap=capitalOf(r.pl.uid),cs=cap&&PLANETS[cap.pid]?PLANETS[cap.pid].sys:null;
+    return`<div class="item pcard${r.pl.uid===ME?' me':''}"><div class="ihead"><span class="owner"><span class="pos">${i+1}</span><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}</span><span class="sc">${fmt(r.s)} pts</span></div>
+    <dl class="pstats">${stat('Colonies',r.cols)}${stat('Avant-postes',r.outs)}${stat('Niveau atteint',`${r.lvl} · ${esc(GALS[Math.min(r.lvl-1,GALS.length-1)].name)}`)}${stat('Puissance de flotte',fmt(Math.round(r.shp)))}${stat('Flottes en vol',r.inFl)}${stat('Recherches',`${r.tch} niv.`)}${stat('Culture',`${fmt(r.cp)} PC`)}${stat('Bâtiments',fmt(r.bld))}</dl>
+    ${r.pl.uid!==ME&&cs!=null&&sysVisible(cs)?`<div class="foot"><span class="eff">Capitale : ${esc(PLANETS[cap.pid].name)}</span><button class="btn ghost sm" data-act="pmap" data-s="${cs}">Voir sur la carte</button></div>`:''}</div>`}).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
 function renderRank(){const now=Date.now();const rows=Object.values(S.players).map(pl=>{let s=0,n=0;for(const p of Object.values(S.planets)){if(p.owner!==pl.uid)continue;n++;const q=settle(p,now);for(const k in q.lv)s+=q.lv[k]*10;s+=(isBody(p.pid)?25:50)+worth(q.ships)}
     for(const f of Object.values(S.fleets))if(f.owner===pl.uid)s+=worth(f.ships);s+=Object.values(techOf(pl)).reduce((a,b)=>a+b*20,0)+(pl.cp||0)*.5;return{pl,s:Math.round(s),n}}).sort((a,b)=>b.s-a.s);
   return`<section style="display:grid;gap:10px"><h1>Classement</h1>${rows.length?`<div class="list">${rows.map((r,i)=>`<div class="item rank"><span class="pos">${i+1}</span><span class="owner"><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff">· ${r.n} lieu${r.n>1?'x':''} · ${fmt(r.pl.cp||0)} PC</span></span><span class="sc">${fmt(r.s)}</span></div>`).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
@@ -1253,6 +1268,7 @@ document.addEventListener('click',e=>{
   else if(a==='mapuni')mpGoUniverse();
   else if(a==='mapgal')mpGoGalaxy(+b.dataset.g);
   else if(a==='mapsys')mpGoSystem(+b.dataset.s);
+  else if(a==='pmap'){const si=+b.dataset.s;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok)mpGoSystem(si)},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
   else if(a==='selp'){S.sel=b.dataset.p;S.tab='planet';render();window.scrollTo(0,0)}
   else if(a==='send')openSend(b.dataset.p);
@@ -1842,7 +1858,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='12';
+const APP_VERSION='13';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

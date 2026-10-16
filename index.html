@@ -423,7 +423,7 @@ function registerRaids(t=Date.now()){const w=Math.floor(t/RAIDW);for(let ww=w-2;
     if(!PLANETS[pid])PLANETS[pid]={pid,sys:sys.i,slot:9,name:`Armada des Écumeurs · ${sys.name}`,type:'raid',raid:true}})}}
 // depuis quand une meute grossit sans être dérangée
 function packBorn(ev){let t=EPOCH;if(ev){if(ev.done)t=Math.max(t,(ev.doneAt||0)+RESPAWN);else t=Math.max(t,(ev.at||0)+RESPAWN)}return t}
-const lairDelay=s=>LAIR_DELAY+(hash('lair'+s.i)%6)*HR;
+const lairDelay=s=>(LAIR_DELAY+(hash('lair'+s.i)%6)*HR)*(inFog(s.i)?.5:1);
 // repaire actif d'un système : {lid, pid de la planète occupée, founded} ou null
 function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
   if(le&&le.founded&&!le.done)founded=le.founded;
@@ -431,8 +431,8 @@ function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
   const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:R.ships;
   if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;
-  const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-L.founded)/HR):0;return scaleShips(R.ships,Math.min(4,1+.15*h))}
-  const h=Math.max(0,(now-packBorn(ev))/HR);return scaleShips(R.ships,Math.min(3,1+.08*h)*(lairInfoAt(s,now)?1.5:1))}
+  const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-L.founded)/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?6:4,1+(fz?.3:.15)*h))}
+  const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?5:3,1+(fz?.2:.08)*h)*(lairInfoAt(s,now)?1.5:1))}
 function raidState(pid){const R=RAIDS[pid],ev=S.events[pid],now=Date.now();if(!R)return{garrison:{},done:true};
   if(R.lair){if(!lairInfoAt(SYSTEMS[R.sys],now))return{garrison:{},done:true,absent:true};return{garrison:raidGarrison(pid,ev&&ev.done?null:ev,now),done:false}}
   if(ev&&ev.done){if(!R.local)return{garrison:{},done:true,back:null};if(now-(ev.doneAt||0)<=RESPAWN)return{garrison:{},done:true,back:(ev.doneAt||0)+RESPAWN}}
@@ -461,7 +461,7 @@ const sysVisible=i=>{const v=visibleSet();return!v||v.has(i)};
 async function exploreMark(uids,si){if(si==null)return;for(const u of new Set(uids)){const pl=S.players[u];if(!pl||(pl.explored||[]).includes(si))continue;try{await withPlayer(u,d=>{d.explored=[...new Set([...(d.explored||[]),si])]})}catch(e){}}}
 function fogSystemHtml(joined){const s=SYSTEMS[MP.sys],G=GALS[s.gal],tgt=s.planets[0];
   return`<section style="display:grid;gap:10px"><h1>Système inexploré</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length+s.bodies.length} astres détectés · le brouillard cache ce qui s’y trouve</p>
-  <div class="card" style="display:grid;gap:10px"><p class="eff" style="margin:0">Envoie une sonde ou une flotte : dès son arrivée, le système est révélé pour toujours. Tes planètes révèlent aussi les systèmes voisins, et tes avant-postes un peu moins loin.</p>
+  <div class="card" style="display:grid;gap:10px"><p class="eff" style="margin:0">Les Écumeurs prolifèrent deux fois plus vite dans le brouillard, et y attaquent plus souvent les flottes en position. Envoie une sonde ou une flotte : dès son arrivée, le système est révélé pour toujours. Tes planètes révèlent aussi les systèmes voisins, et tes avant-postes un peu moins loin.</p>
   ${joined?`<div class="foot"><span class="eff">${fmtDur(etaOf(S.sel,tgt,{probe:1}))} en sonde</span><button class="btn sm" data-act="scout" data-p="${tgt}">Envoyer une sonde</button></div>`:''}</div></section>`}
 function mpFog(){if(!MP.fog)return;const g=MP.fog.geometry,P=g.attributes.position.array,Z=g.attributes.sz.array;let n=0;
   if(MP.level!=='universe'&&visibleSet())for(const s of SYS_BY_GAL[MP.gal]){if(sysVisible(s.i)||n>=1500)continue;const r=rng(hash('fog'+s.i));
@@ -522,6 +522,51 @@ async function chatSend(){const inp=document.getElementById('chatin'),text=(inp.
 let chatPruning=false;async function chatPrune(){if(chatPruning)return;chatPruning=true;try{const old=(S.chat||[]).filter(m=>Date.now()-m.at>3*864e5).slice(0,10);for(const m of old)await db.doc('chat/'+m.id).delete()}catch(e){}chatPruning=false}
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='chatform'){e.preventDefault();chatSend()}});
 
+// ---------- brouillard commun : systèmes vus par au moins un joueur ----------
+let AVIS={sig:'',set:null};
+function allVisible(){const sig=Object.values(S.planets).filter(p=>p.owner).map(p=>p.pid).join()+'|'+Object.values(S.players).map(p=>(p.explored||[]).length).join();
+  if(sig===AVIS.sig&&AVIS.set)return AVIS.set;const set=new Set();for(const pl of Object.values(S.players))for(const i of pl.explored||[])set.add(i);
+  for(const p of Object.values(S.planets))if(p.owner&&PLANETS[p.pid]){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
+  AVIS={sig,set};return set}
+const inFog=i=>!allVisible().has(i);
+
+// ---------- flottes en position et embuscades ----------
+const AMB_INT=20*60e3,AMB_INT_FOG=10*60e3;
+async function holdAt(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();return}
+  await fref.set({...f,...extra,ships,cargo,phase:'hold',holdAt:f.arrive,lastAmb:f.arrive,amb:0,home:f.home||f.from,group:null})}
+function sysPacksAlive(si){const s=SYSTEMS[si];if(!s)return[];return[s.lair,...(s.packs||[])].filter(pid=>{const st=raidState(pid);return!st.done&&!st.absent&&worth(st.garrison)>0})}
+function ambushNext(f){const m=PLANETS[f.to];if(!m||!sysPacksAlive(m.sys).length)return null;return(f.lastAmb||f.holdAt||Date.now())+(inFog(m.sys)?AMB_INT_FOG:AMB_INT)}
+async function ambush(f,fref){const si=PLANETS[f.to].sys,alive=sysPacksAlive(si),now=Date.now();if(!alive.length){await fref.set({...f,lastAmb:now});return}
+  const n=(f.amb||0)+1,chance=Math.min(.9,.35+.15*Math.floor((now-(f.holdAt||now))/AMB_INT)),roll=(hash(f.fid+':'+n)%1000)/1000;
+  if(roll>chance){await fref.set({...f,lastAmb:now,amb:n});return}
+  const roam=alive.filter(x=>!RAIDS[x].lair);if(!roam.length){await fref.set({...f,lastAmb:now,amb:n});return}const pid=roam.sort((a,b)=>worth(raidState(b).garrison)-worth(raidState(a).garrison))[0],R=RAIDS[pid];let B=null;
+  await locked('events/'+pid,async(ev,eref)=>{const t=Date.now(),gar=raidGarrison(pid,ev&&ev.done?null:ev,t),party=scaleShips(gar,.5),rest={};for(const k in gar)rest[k]=(gar[k]||0)-(party[k]||0);B=battle(party,f.ships,null,modsOf(f.owner));
+    const left={};for(const k in gar)left[k]=(rest[k]||0)+(B.a[k]||0);const e2={...(ev||{}),kind:'event',id:pid,remaining:left,at:t};if(R.lair){const L=lairInfoAt(SYSTEMS[si],t);if(L)e2.founded=L.founded}if(isEmpty(left)){e2.done=true;e2.doneAt=t}await eref.set(e2)});
+  const surv=zeroShips();addShips(surv,B.d);const dead=isEmpty(surv),tn=plName(f.to);
+  await award([{uid:f.owner,v:worth(B.ia)-worth(B.a)}]);
+  if(dead)await fref.delete();else await fref.set({...f,ships:surv,lastAmb:Date.now(),amb:n});
+  await report({to:[f.owner],tone:dead?'loss':'win',loser:dead?f.owner:null,title:dead?`Flotte anéantie dans une embuscade près de ${tn}`:`Embuscade des Écumeurs près de ${tn}`,
+    lines:[`Une escouade de la ${PLANETS[pid].name} attaque ta flotte en position.`,`Écumeurs : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Ta flotte : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,dead?'La cargaison est perdue.':'Plus ta flotte reste dans une zone infestée, plus le risque grandit.'],
+    battle:{ia:B.id,id:B.ia,rounds:B.snaps.map(x=>({a:x.d,d:x.a})),att:[{uid:f.owner,ships:B.id}],def:'raid',pid:f.to}})}
+async function fleetHome(fid){await act(async()=>{await locked('fleets/'+fid,async(f,ref)=>{if(!f||f.owner!==ME||f.phase!=='hold')throw err('Cette flotte n’est plus en position.');
+    const home=f.home||f.from,now=Date.now(),eta=etaOf(f.to,home,f.ships);await ref.set({...f,from:home,phase:'back',arrive:now,depart:now-eta*1000,back:now+eta*1000})});sfx.launch();toast('Retour gratuit lancé.')})}
+function retask(fid){const f=S.fleets[fid];if(!f||f.phase!=='hold')return;S.retask=fid;S.tab='galaxy';window.scrollTo(0,0);mpGoSystem(PLANETS[f.to].sys);toast('Choisis la nouvelle cible de ta flotte : touche « Envoyer » sur un astre.')}
+function retaskBanner(){const f=S.retask&&S.fleets[S.retask];if(!f||f.phase!=='hold'){S.retask=null;return''}
+  return`<div class="card" style="display:grid;gap:8px;border-color:var(--brass)"><div class="ihead"><b>Nouvelle mission pour ta flotte</b><button class="tgl" data-act="fretaskx">Annuler</button></div><div class="eff">En position à ${esc(plName(f.to))} · ${unitLine(f.ships)}. Touche « Envoyer » sur la cible de ton choix : l’hélium-3 est prélevé sur ta capitale.</div></div>`}
+function holdRow(f){const nx=ambushNext(f),m=PLANETS[f.to],fog=m&&inFog(m.sys);
+  return`<div class="item ${nx?'hostile':''}"><div class="ihead"><b>En position · ${esc(plName(f.to))}</b><span class="lv">depuis ${fmtDur((Date.now()-(f.holdAt||Date.now()))/1000)}</span></div>
+    <div class="eff">${unitLine(f.ships)}${count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}</div>
+    <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:'Zone calme : aucun Écumeur actif dans ce système.'}</div>
+    <div class="foot"><span class="eff">Retour en ${fmtDur(etaOf(f.to,f.home||f.from,f.ships))}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost sm" data-act="fhome" data-f="${f.fid}">Rentrer (gratuit)</button><button class="btn sm" data-act="fretask" data-f="${f.fid}">Nouvelle mission</button></div></div></div>`}
+async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
+  await act(async()=>{if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');if(M.mission==='spy'&&count(ships)!==(ships.probe||0))throw err('Une mission d’espionnage n’emporte que des sondes.');
+    const LJ=M.join?S.fleets[M.join]:null,fuel=fuelOf(M.from,M.to,ships),eta=etaOf(M.from,M.to,ships);if(M.join&&(!LJ||LJ.phase!=='out'||LJ.arrive<Date.now()+eta*1000))throw err('Trop tard pour rejoindre cette attaque.');
+    const cur=S.fleets[M.fleet];if(!cur||cur.phase!=='hold')throw err('Cette flotte n’est plus en position.');
+    const cap=capitalOf(ME);await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,Date.now());if(q.res.f<fuel)throw err('Hélium-3 insuffisant dans ta capitale.');q.res.f-=fuel;await cref.set(q)});
+    let arr=0;await locked('fleets/'+M.fleet,async(f,ref)=>{if(!f||f.owner!==ME||f.phase!=='hold')throw err('Cette flotte n’est plus en position.');const t=Date.now();arr=LJ?LJ.arrive:t+eta*1000;
+      await ref.set({...f,from:f.to,to:M.to,mission:M.mission,depart:t,arrive:arr,phase:'out',home:f.home||f.from,group:LJ?LJ.fid:null,holdAt:null,lastAmb:null,amb:0})});
+    S.modal=null;S.retask=null;renderModal();sfx.launch();toast(`Flotte en route. Arrivée à ${clock(arr)}.`);render()})}
+
 // verrou coopératif sur un document
 async function locked(path,fn){const ref=db.doc(path);
   for(let i=0;i<10;i++){let r;try{r=await ref.acquire({holder:TAB_ID,ttlMs:2500})}catch(e){if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){await sleep(600);continue}throw e}
@@ -566,7 +611,7 @@ async function mount(cls,slot,w){await act(async()=>{const pid=S.sel;await withP
 async function savePaint(part,c){await act(async()=>{await withPlayer(ME,d=>{d.paint={...(d.paint||{}),[part]:c}})})}
 async function recall(fid){await act(async()=>{await locked('fleets/'+fid,async(f,ref)=>{const now=Date.now();if(!f||f.owner!==ME||f.phase!=='out'||f.arrive<=now)throw err('Cette flotte ne peut plus être rappelée.');
   const el=now-f.depart;await ref.set({...f,phase:'back',recalled:true,arrive:now,back:now+el})});toast('Flotte rappelée.')})}
-async function launch(){const M=S.modal;const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
+async function launch(){const M=S.modal;if(M.fleet)return launchHeld(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   await act(async()=>{if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
     if(M.mission==='spy'&&(!(ships.probe>0)||count(ships)!==ships.probe))throw err('Une mission d’espionnage n’emporte que des sondes.');
     const fuel=fuelOf(M.from,M.to,ships),eta=etaOf(M.from,M.to,ships),body=isBody(M.from);const LJ=M.join?S.fleets[M.join]:null;if(M.join&&(!LJ||LJ.phase!=='out'||LJ.arrive<Date.now()+eta*1000))throw err('Trop tard pour rejoindre cette attaque.');
@@ -596,7 +641,9 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
 const busy=new Set();
 async function report(r){try{await db.collection('reports').doc(newId()).set({kind:'report',at:Date.now(),...r})}catch(e){}}
 const allPlayers=()=>Object.keys(S.players);
-async function goBack(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();return}await fref.set({...f,...extra,ships,cargo,phase:'back',back:f.arrive+(f.arrive-f.depart)})}
+async function goBack(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();return}
+  if(f.home&&f.home!==f.from){const eta=etaOf(f.to,f.home,ships);await fref.set({...f,...extra,ships,cargo,from:f.home,phase:'back',depart:f.arrive-eta*1000,back:f.arrive+eta*1000});return}
+  await fref.set({...f,...extra,ships,cargo,phase:'back',back:f.arrive+(f.arrive-f.depart)})}
 async function settleRare(uid){if(uid&&S.players[uid])try{await withPlayer(uid,()=>{})}catch(e){}}
 // ---------- combats groupés, butin, points de combat ----------
 const plName=pid=>(PLANETS[pid]&&PLANETS[pid].name)||'Cible disparue';
@@ -630,16 +677,16 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   // récolte de comète
   if(f.mission==='harvest'){const cm=cometAt(f.arrive);let got=null;
     if(cm&&cm.pid===f.to)await locked('events/'+cm.id,async(ev,eref)=>{if(ev&&ev.claimedBy)return;const capT=cargoCap(f.ships),tot=COMET_BOUNTY.m+COMET_BOUNTY.c+COMET_BOUNTY.f,ratio=Math.min(1,capT/tot);got={m:Math.floor(COMET_BOUNTY.m*ratio),c:Math.floor(COMET_BOUNTY.c*ratio),f:Math.floor(COMET_BOUNTY.f*ratio)};await eref.set({kind:'event',id:cm.id,claimedBy:f.owner,at:Date.now()})});
-    if(got){await goBack(f,fref,f.ships,got,{rareCargo:COMET_RARE});reps.push({to:allPlayers(),tone:'info',title:`${pname(f.owner)} a récolté la comète de ${tn}`,lines:[`Cargaison : ${lootTxt(got)}, plus ${COMET_RARE.ir} iridium, ${COMET_RARE.xe} xénite et ${COMET_RARE.am} antimatière.`]})}
+    if(got){await holdAt(f,fref,f.ships,got,{rareCargo:COMET_RARE});reps.push({to:allPlayers(),tone:'info',title:`${pname(f.owner)} a récolté la comète de ${tn}`,lines:[`Cargaison : ${lootTxt(got)}, plus ${COMET_RARE.ir} iridium, ${COMET_RARE.xe} xénite et ${COMET_RARE.am} antimatière.`]})}
     else{await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Comète déjà récoltée ou disparue`,lines:['La flotte rentre à vide.']})}
     for(const r of reps)await report(r);return}
   const joiners=f.mission==='attack'?await gatherJoiners(f):[];
   const forces=[{f,ref:fref,owner:f.owner,ships:f.ships},...joiners.map(j=>({f:j.f,ref:j.ref,owner:j.f.owner,ships:j.f.ships}))];
   const atkUids=[...new Set(forces.map(x=>x.owner))],grp=forces.length>1;
   const atkName=grp?`L’attaque groupée de ${atkUids.map(pname).join(', ')}`:pname(f.owner);
-  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++)await goBack(forces[i].f,forces[i].ref,surv[i],loots?loots[i]:{m:0,c:0,f:0})};
+  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,surv[i],loots?loots[i]:{m:0,c:0,f:0})};
   const rec=(B,def,extra={})=>({ia:B.ia,id:B.id,rounds:B.snaps,att:forces.map(x=>({uid:x.owner,ships:x.ships})),def,pid:f.to,...extra});
-  const fightLines=B=>[`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`];
+  const fightLines=B=>[`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,...(isEmpty(B.a)?[]:['Les survivants restent en position : depuis l’onglet Flottes, rentre gratuitement ou lance une nouvelle mission.'])];
   // la Ruche
   const hv=hiveAt(f.arrive);
   if(f.mission==='attack'&&hv&&hv.pid===f.to&&!(S.planets[f.to]&&S.planets[f.to].owner)){let G=null,done=null,val=0;
@@ -702,7 +749,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       await award([...forces.map((x,i)=>({uid:x.owner,v:killedDef*sh[i]})),{uid:victim,v:killedAtk}]);
       lines.push(`Points de combat : ${Math.round(killedDef)} pour l’attaque, ${Math.round(killedAtk)} pour la défense.`);
       if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=A;addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await fref.delete();
-        for(let i=1;i<forces.length;i++)await goBack(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
+        for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
         reps.push({to:[...atkUids,victim],tone:'win',loser:victim,title:`${tn} annexé${body?'':'e'} par ${pname(f.owner)}`,lines,battle:rec(B,victim,{planet:true})});return}
       await ref.set(p);await finish(G.surv,loots);
       reps.push({to:[...atkUids,victim],tone:won?'win':'loss',loser:won?victim:f.owner,title:won?`${atkName} remporte la bataille de ${tn}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
@@ -710,7 +757,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const frac=killedDef/(worth(B.id)||1),loots=splitLoot(Object.fromEntries(Object.entries(treasureOf(B.id)).map(([k,v])=>[k,v*frac])),G.surv);
     await award(forces.map((x,i)=>({uid:x.owner,v:killedDef*sh[i]})));lines.push(`Butin : ${lootTxt(sumLoot(loots))} · ${Math.round(killedDef)} points de combat.`);
     if(won&&G.surv[0].colony>0&&limitOk&&await cultureOk()){if(body)await settleRare(f.owner);const A=G.surv[0];A.colony--;const n=colonyPlanet(f.to,f.owner);addShips(n.ships,A);if(!body)addRes(n.res,loots[0]);await ref.set(n);await fref.delete();
-      for(let i=1;i<forces.length;i++)await goBack(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
+      for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
       reps.push({to:atkUids,tone:'win',title:`${tn} libéré${body?'':'e'} et ${body?'équipé d’un avant-poste':'colonisée'}`,lines,battle:rec(B,'pirates',{planet:!body})});return}
     await ref.set({kind:'planet',pid:f.to,owner:null,garrison:won?{}:B.d});await finish(G.surv,loots);
     reps.push({to:atkUids,tone:won?'win':'loss',loser:won?null:f.owner,title:won?`Pirates chassés de ${tn}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
@@ -722,7 +769,8 @@ async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
   if(f.rareCargo&&S.players[f.owner])await withPlayer(f.owner,d=>{for(const k in f.rareCargo)d.rare[k]=(d.rare[k]||0)+f.rareCargo[k]}).catch(()=>{});
   await fref.delete()}
 async function resolveDue(){if(!db||S.spectator)return;const now=Date.now();
-  for(const f of Object.values(S.fleets)){if(busy.has(f.fid))continue;if(f.group){const L=S.fleets[f.group];if(L&&L.phase==='out')continue}const due=f.phase==='out'?f.arrive<=now:f.phase==='back'?f.back<=now:false;if(!due)continue;
+  for(const f of Object.values(S.fleets)){if(busy.has(f.fid))continue;if(f.group){const L=S.fleets[f.group];if(L&&L.phase==='out')continue}if(f.phase==='hold'){const nx=ambushNext(f);if(nx&&nx<=now){busy.add(f.fid);try{await locked('fleets/'+f.fid,async(fd,fref)=>{if(fd&&fd.phase==='hold')await ambush(fd,fref)})}catch(e){}finally{busy.delete(f.fid)}}continue}
+    const due=f.phase==='out'?f.arrive<=now:f.phase==='back'?f.back<=now:false;if(!due)continue;
     busy.add(f.fid);try{await locked('fleets/'+f.fid,async(fd,fref)=>{if(!fd||fd.phase!==f.phase)return;if(fd.phase==='out')await arrival(fd,fref);else await homecoming(fd,fref)})}catch(e){if(e&&e.code==='invalid_argument')S.spectator=true}finally{busy.delete(f.fid)}}}
 
 // ---------- rendu ----------
@@ -858,7 +906,8 @@ function eventsHtml(){const out=[],cm=cometAt(),hv=hiveAt(),st=stormAt();
   if(hv){const ev=S.events[hv.id],rem=ev?ev.remaining:HIVE0;out.push(`<div class="item hostile"><div class="ihead"><b>La Ruche : ${esc(PLANETS[hv.pid].name)}</b><span class="cd" data-cd="${hv.end}"></span></div><div class="eff">${ev&&ev.done?'Anéantie. Le butin a été partagé.':`Armada commune à abattre ensemble · reste ${unitLine(rem)} · le butin rare est partagé selon les dégâts infligés.`}</div>${ev&&ev.done?'':`<div class="foot"><span></span><button class="btn sm" data-act="mapsys" data-s="${PLANETS[hv.pid].sys}">Localiser</button></div>`}</div>`)}
   if(st)out.push(`<div class="item"><div class="ihead"><b>Tempête ionique : ${esc(GALS[st.gal].name)}</b><span class="cd" data-cd="${st.end}"></span></div><div class="eff">Les trajets qui partent de cette galaxie ou y arrivent durent 50 % plus longtemps.</div></div>`);
   return out.length?`<section style="display:grid;gap:10px"><h2>Événements en cours</h2><div class="list">${out.join('')}</div></section>`:''}
-function renderGalaxy(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];const lv=MP.level,G=GALS[MP.gal];
+function renderGalaxy(){return retaskBanner()+renderGalaxy0()}
+function renderGalaxy0(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];const lv=MP.level,G=GALS[MP.gal];
   const mineIn=g=>Object.values(S.planets).filter(p=>p.owner===ME&&galOf(p.pid)===g).length;
   const rivalsIn=g=>new Set(Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&galOf(p.pid)===g&&sysVisible(PLANETS[p.pid].sys)).map(p=>p.owner));
   const hint=MP.ok?'<p class="meta" style="margin:0">Un doigt pour tourner, deux doigts pour zoomer et te déplacer. Touche un système pour y entrer, dézoome pour remonter.</p>':`<div class="chips"><button class="chip" data-act="mapuni">Univers</button>${lv==='system'?`<button class="chip" data-act="mapgal" data-g="${MP.gal}">${esc(G.name)}</button>`:''}</div>`;
@@ -874,10 +923,10 @@ function renderGalaxy(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];co
   const s=SYSTEMS[MP.sys],all=[...s.planets,...s.bodies],order=S.pickP&&all.includes(S.pickP)?[S.pickP,...all.filter(p=>p!==S.pickP)]:all;
   return`<section style="display:grid;gap:10px"><h1>Système ${esc(s.name)}</h1><p class="meta" style="margin:0">${esc(G.name)} · ${s.planets.length} planètes${s.bodies.length?` · ${s.bodies.length} corps exploitable${s.bodies.length>1?'s':''}`:''} · touche un astre dans la vue pour le mettre en avant</p><div class="list">${order.map(p=>planetRow(p,joined)).join('')}</div></section>${(s.packs||[]).length?`<section style="display:grid;gap:10px"><h2>Écumeurs du système</h2><p class="meta" style="margin:0">Ils rôdent aux confins du système et reviennent 3 heures après avoir été dispersés. Plus on les laisse tranquilles, plus ils se renforcent ; une Horde ignorée trop longtemps fonde un repaire sur une planète libre.</p><div class="list">${[s.lair,...s.packs].map(p=>packRow(p,joined)).join('')}</div></section>`:''}`}
 const MIS={attack:'Attaque',colonize:'Installation',transfer:'Transfert',spy:'Espionnage',harvest:'Récolte'};
-function fleetRow(f,hostile){const now=Date.now();const out=f.phase==='out';const a=out?f.depart:f.arrive,b=out?f.arrive:f.back;const lbl=f.group?'Attaque groupée':MIS[f.mission];const mates=Object.values(S.fleets).filter(x=>x.group===f.fid&&x.phase==='out').length;
+function fleetRow(f,hostile){if(f.phase==='hold')return holdRow(f);const now=Date.now();const out=f.phase==='out';const a=out?f.depart:f.arrive,b=out?f.arrive:f.back;const lbl=f.group?'Attaque groupée':MIS[f.mission];const mates=Object.values(S.fleets).filter(x=>x.group===f.fid&&x.phase==='out').length;
   return`<div class="item ${hostile?'hostile':''}"><div class="ihead"><b>${hostile?`${esc(pname(f.owner))} attaque ${esc(plName(f.to))}`:`${lbl} · ${esc(plName(f.from))} → ${esc(plName(f.to))}`}</b><span class="cd" data-cd="${b}"></span></div>
     <span class="prog"><b data-a="${a}" data-b="${b}"></b></span><div class="eff">${hostile?`Arrivée à ${clock(b)}. Composition inconnue.`:`${out?'Aller':f.recalled?'Rappelée':'Retour'} · ${unitLine(f.ships)}${!out&&count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}`}${out&&mates?` · ${mates} renfort${mates>1?'s':''} en route`:''}${b<=now?' · résolution en cours…':''}</div>
-    ${!hostile&&out&&f.arrive>now&&!f.group?`<div class="foot"><span></span><button class="btn ghost sm" data-act="recall" data-f="${f.fid}">Rappeler</button></div>`:''}</div>`}
+    ${!hostile&&out&&f.arrive>now&&!f.group&&!f.home?`<div class="foot"><span></span><button class="btn ghost sm" data-act="recall" data-f="${f.fid}">Rappeler</button></div>`:''}</div>`}
 function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter(f=>f.owner===ME).sort((a,b)=>a.arrive-b.arrive),inc=incoming().sort((a,b)=>a.arrive-b.arrive);
   const joinable=Object.values(S.fleets).filter(f=>f.phase==='out'&&f.mission==='attack'&&!f.group&&PLANETS[f.to]&&f.arrive>now+15000&&!(S.planets[f.to]&&S.planets[f.to].owner===ME)).sort((a,b)=>a.arrive-b.arrive);
   return`<h1>Flottes</h1>${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}
@@ -889,17 +938,17 @@ function renderRank(){const now=Date.now();const rows=Object.values(S.players).m
   return`<section style="display:grid;gap:10px"><h1>Classement</h1>${rows.length?`<div class="list">${rows.map((r,i)=>`<div class="item rank"><span class="pos">${i+1}</span><span class="owner"><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff">· ${r.n} lieu${r.n>1?'x':''} · ${fmt(r.pl.cp||0)} PC</span></span><span class="sc">${fmt(r.s)}</span></div>`).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>`}
 
 // ---------- fenêtre d’envoi de flotte ----------
-function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt();let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(2,src.ships.probe||0);
+function openSend(to){const v=view(to),src=view(S.sel),cm=cometAt(),RT=S.retask&&S.fleets[S.retask]&&S.fleets[S.retask].phase==='hold'?S.fleets[S.retask]:null;let mission=v.owner===ME?'transfer':(cm&&cm.pid===to)?'harvest':(!v.owner&&isEmpty(v.garrison))?'colonize':'attack';if(PLANETS[to]&&!PLANETS[to].raid&&!sysVisible(PLANETS[to].sys))mission='spy';S.modal={from:S.sel,to,mission,ships:zeroShips()};if(mission==='spy')S.modal.ships.probe=Math.min(2,src.ships.probe||0);if(RT){if(RT.to===to)return toast('Ta flotte est déjà à cet endroit.','bad');S.modal.from=RT.to;S.modal.fleet=RT.fid;S.modal.ships={...zeroShips(),...RT.ships};if(mission==='spy'&&count(RT.ships)!==(RT.ships.probe||0))S.modal.mission=v.owner===ME?'transfer':'attack'}
   if(mission==='colonize')S.modal.ships.colony=Math.min(1,src.ships.colony||0);renderModal()}
 function renderModal(){const el=document.getElementById('modal');const M=S.modal;if(!M){el.innerHTML='';return}
-  const src=view(M.from),tv=view(M.to);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
-  const eta=etaOf(M.from,M.to,ships),fuel=fuelOf(M.from,M.to,ships),own=tv.owner===ME,body=isBody(M.to),cm=cometAt(),fuelHave=isBody(M.from)?view(capitalOf(ME).pid).res.f:src.res.f;
+  const src=view(M.from),tv=view(M.to),FLT=M.fleet&&S.fleets[M.fleet];const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
+  const eta=etaOf(M.from,M.to,ships),fuel=fuelOf(M.from,M.to,ships),own=tv.owner===ME,body=isBody(M.to),cm=cometAt(),fuelHave=(FLT||isBody(M.from))?view(capitalOf(ME).pid).res.f:src.res.f;
   const missions=M.join?[]:[['attack','Attaque',!own],['colonize',body?'Avant-poste':'Coloniser',!tv.owner&&!tv.raid],['spy','Espionner',!own],['transfer','Transfert',own],...(cm&&cm.pid===M.to?[['harvest','Récolter',true]]:[])];
   const st=stormAt();
   el.innerHTML=`<div class="scrim" data-act="mclose"><div class="sheet" role="dialog" aria-modal="true" aria-label="Envoyer une flotte" data-stop="1">
     <div><h2>${M.join?'Rejoindre une attaque':'Envoyer une flotte'}</h2><h1 style="font-size:24px">${esc(plName(M.from))} → ${esc(plName(M.to))}</h1></div>
     <div class="chips">${missions.map(([k,l,ok])=>`<button class="chip" data-act="mmis" data-m="${k}" aria-pressed="${M.mission===k}" ${ok?'':'disabled'}>${l}</button>`).join('')}</div>
-    <div class="list">${SK.map(k=>{const have=src.ships[k]||0;return`<div class="item"><div class="foot"><span><b>${SHIPS[k].n}</b> <span class="eff">· ${have} dispo</span></span><span class="step"><button data-act="mq" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${M.ships[k]}</span><button data-act="mq" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="mq" data-t="${k}" data-d="max">Tout</button></span></div></div>`}).join('')}</div>
+    ${FLT?'<p class="eff" style="margin:0">Flotte en position : elle part au complet, l’hélium-3 est prélevé sur ta capitale.</p>':''}<div class="list">${SK.filter(k=>!FLT||M.ships[k]>0).map(k=>{const have=(src.ships||{})[k]||0;if(FLT)return`<div class="item"><div class="foot"><span><b>${SHIPS[k].n}</b></span><span class="lv">${M.ships[k]}</span></div></div>`;return`<div class="item"><div class="foot"><span><b>${SHIPS[k].n}</b> <span class="eff">· ${have} dispo</span></span><span class="step"><button data-act="mq" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${M.ships[k]}</span><button data-act="mq" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="mq" data-t="${k}" data-d="max">Tout</button></span></div></div>`}).join('')}</div>
     <dl class="sum"><dt>Durée du trajet</dt><dd>${eta?fmtDur(eta):'–'}</dd><dt>Arrivée prévue</dt><dd>${eta?clock(Date.now()+eta*1000):'–'}</dd><dt>Hélium-3 consommé${isBody(M.from)?' (capitale)':''}</dt><dd style="color:${fuel>fuelHave?'var(--bad)':'inherit'}">${fmt(fuel)} / ${fmt(fuelHave)}</dd><dt>Capacité de soute</dt><dd>${fmt(cargoCap(ships))}</dd></dl>
     ${st&&(galOf(M.from)===st.gal||galOf(M.to)===st.gal)?'<p class="eff" style="margin:0;color:var(--warn)">Tempête ionique en cours : trajet ralenti de 50 %.</p>':''}
     ${M.mission==='attack'&&tv.owner&&!own?`<p class="eff" style="margin:0">${S.planets[M.to].capital?'Capitale : elle peut être pillée, jamais annexée.':'Si tu gagnes avec un vaisseau colon dans la flotte, la cible devient tienne.'}</p>`:''}
@@ -1040,7 +1089,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'ev bad',h:`Écumeurs · ${RTIERS[r.tier].n}`});
-    for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
+    for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase==='hold'){if(f.owner===ME)L.push({fl:f,cls:'me',h:'Flotte en position'});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
   else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}`:'?'})})}
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html}}
@@ -1052,13 +1101,13 @@ function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal]
 function nodePos(pid){const m=PLANETS[pid];if(!m)return null;
   if(MP.level==='system'&&MP.sys===m.sys){const o=MP.orbs.find(o=>o.pid===pid);if(o){const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return[v.x,v.y,v.z]}}
   if(m.raid&&RAIDS[pid]&&!RAIDS[pid].local)return raidPos(pid);return SYSTEMS[m.sys].w}
-function fleetPos(f,t){const A=nodePos(f.from),B=nodePos(f.to);if(!A||!B)return null;const out=f.phase==='out',t0=out?f.depart:f.arrive,t1=out?f.arrive:f.back,k=Math.min(1,Math.max(0,(t-t0)/(t1-t0||1))),P=out?[A,B]:[B,A];return{p:[0,1,2].map(i=>P[0][i]+(P[1][i]-P[0][i])*k),from:P[0],to:P[1]}}
+function fleetPos(f,t){const A=nodePos(f.from),B=nodePos(f.to);if(!A||!B)return null;if(f.phase==='hold')return{p:B,from:B,to:[B[0]+.01,B[1],B[2]+.01],hold:true};const out=f.phase==='out',t0=out?f.depart:f.arrive,t1=out?f.arrive:f.back,k=Math.min(1,Math.max(0,(t-t0)/(t1-t0||1))),P=out?[A,B]:[B,A];return{p:[0,1,2].map(i=>P[0][i]+(P[1][i]-P[0][i])*k),from:P[0],to:P[1]}}
 const isHostileF=f=>f.owner!==ME&&f.phase==='out'&&f.mission==='attack'&&S.planets[f.to]&&S.planets[f.to].owner===ME;
 function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&&PLANETS[f.to]&&(f.owner===ME||isHostileF(f)||sysVisible(PLANETS[f.from].sys)||sysVisible(PLANETS[f.to].sys))).slice(0,200),LP=MP.fleetLines.geometry.attributes.position.array,LC=MP.fleetLines.geometry.attributes.color.array,da=MP.fleetDots.geometry.attributes,seen=new Set();
   const sc=MP.dist*(MP.level==='universe'?.007:.012);let n=0,tn=0;const TA=MP.trail.geometry.attributes;
   for(const f of fl){const fp=fleetPos(f,t);if(!fp)continue;const hostile=isHostileF(f),col=hostile?[1,.35,.35]:hex2rgb(pcolor(f.owner));
     LP.set([...fp.from,...fp.to],n*6);LC.set([...col.map(c=>c*.55),...col.map(c=>c*.55)],n*6);
-    for(let q=1;q<=20&&tn<4000;q++){const u=q/21;TA.position.array.set([fp.p[0]+(fp.to[0]-fp.p[0])*u,fp.p[1]+(fp.to[1]-fp.p[1])*u,fp.p[2]+(fp.to[2]-fp.p[2])*u],tn*3);TA.color.array.set(col.map(c=>c*.8),tn*3);TA.sz.array[tn]=MP.level==='system'?2.6:3.4;TA.rg.array[tn]=0;tn++}da.position.array.set(fp.p,n*3);da.color.array.set(col,n*3);da.sz.array[n]=hostile?16:f.owner===ME?13:10;da.rg.array[n]=0;
+    for(let q=1;q<=20&&tn<4000&&!fp.hold;q++){const u=q/21;TA.position.array.set([fp.p[0]+(fp.to[0]-fp.p[0])*u,fp.p[1]+(fp.to[1]-fp.p[1])*u,fp.p[2]+(fp.to[2]-fp.p[2])*u],tn*3);TA.color.array.set(col.map(c=>c*.8),tn*3);TA.sz.array[tn]=MP.level==='system'?2.6:3.4;TA.rg.array[tn]=0;tn++}da.position.array.set(fp.p,n*3);da.color.array.set(col,n*3);da.sz.array[n]=hostile?16:f.owner===ME?13:10;da.rg.array[n]=0;
     let m=MP.fm.get(f.fid);if(!m){m=new THREE.Mesh(MP.chevGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.95,depthTest:false}));m.renderOrder=13;MP.scene.add(m);MP.fm.set(f.fid,m)}
     m.material.color.setRGB(col[0],col[1],col[2]);m.position.set(fp.p[0],fp.p[1],fp.p[2]);m.scale.setScalar(sc*(f.owner===ME||hostile?1.25:.9));m.lookAt(fp.to[0],fp.to[1],fp.to[2]);seen.add(f.fid);n++}
   for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();MP.fm.delete(id)}
@@ -1115,6 +1164,9 @@ document.addEventListener('click',e=>{
   else if(a==='recall')recall(b.dataset.f);
   else if(a==='joinf'){const L=S.fleets[b.dataset.f];if(L&&S.sel){S.modal={from:S.sel,to:L.to,mission:'attack',join:L.fid,ships:zeroShips()};renderModal()}}
   else if(a==='replay')btOpen(b.dataset.r);
+  else if(a==='fhome')fleetHome(b.dataset.f);
+  else if(a==='fretask')retask(b.dataset.f);
+  else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='quest')claimQuest(b.dataset.q);
   else if(a==='chat')chatOpen(true);
   else if(a==='chatx')chatOpen(false);

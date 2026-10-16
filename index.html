@@ -813,9 +813,22 @@ async function tradeAccept(id){await act(async()=>{const pid=S.sel;if(isBody(pid
   await report({to:[deal.seller,ME],tone:'info',title:`Accord commercial entre ${pname(deal.seller)} et ${pname(ME)}`,lines:[`${lootLine(deal.give)} contre ${lootLine(deal.want)}.`,'Deux convois sont en route. Attention : ils peuvent être interceptés avant d’arriver.']});sfx.launch();toast('Marché conclu : les convois partent.')})}
 const goodsOf=f=>Object.fromEntries(Object.entries({...(f.cargo||{}),...(f.rareCargo||{})}).filter(([k,v])=>v>0));
 const lootLine=g=>Object.entries(g||{}).filter(([k,n])=>n>0).map(([k,n])=>`${fmt(n)} ${TRK[k].toLowerCase()}`).join(', ');
+// ---------- comptoir universel : échange immédiat, mais à un taux moins bon qu'entre joueurs ----------
+const MKV={m:1,c:1.5,f:2.5,ir:40,xe:60,am:120},MK_RATE=.6;
+const mkOut=(g,w,n)=>g===w?0:Math.floor(n*MKV[g]/MKV[w]*MK_RATE);
+function mkPreview(){const g=(document.getElementById('mkg')||{}).value,w=(document.getElementById('mkw')||{}).value,n=Math.floor(+((document.getElementById('mkn')||{}).value)||0),el=document.getElementById('mkout');if(el&&g&&w)el.textContent=g===w?'Choisis deux ressources différentes.':`Tu recevras ${fmt(mkOut(g,w,n))} ${TRK[w].toLowerCase()}.`}
+async function mkTrade(){await act(async()=>{const g=document.getElementById('mkg').value,w=document.getElementById('mkw').value,n=Math.floor(+document.getElementById('mkn').value||0),pid=S.sel;
+  if(g===w)throw err('Choisis deux ressources différentes.');if(n<1)throw err('Indique une quantité.');if(isBody(pid)&&!(isRareK(g)&&isRareK(w)))throw err('Choisis une planète (pas un avant-poste) dans « Lieu ».');
+  const out=mkOut(g,w,n);if(out<1)throw err('Quantité trop faible pour cet échange.');await takeGoods(ME,pid,g,n);await giveGoods(ME,pid,{[w]:out});
+  sfx.build();toast(`Comptoir : ${fmt(n)} ${TRK[g].toLowerCase()} → ${fmt(out)} ${TRK[w].toLowerCase()}.`);document.getElementById('mkn').value='';render()})}
+function mkHtml(){const opt=s=>Object.keys(TRK).map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
+  return`<section style="display:grid;gap:10px"><h2>Comptoir universel</h2><p class="meta" style="margin:0">Échange immédiat avec les marchands neutres, sans convoi, mais tu perds ${Math.round((1-MK_RATE)*100)} % de la valeur au passage. Entre joueurs, le taux est libre et souvent bien meilleur.</p>
+  <div class="card" style="display:grid;gap:8px"><div class="trrow"><span>Je vends</span><input id="mkn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="mkg">${opt('m')}</select></div><div class="trrow"><span>Contre</span><span id="mkout" class="eff">Indique une quantité.</span><select id="mkw">${opt('c')}</select></div>
+  <div class="foot"><span class="eff">Valeurs : 1 cristal = 1,5 métal · 1 hélium-3 = 2,5 · 1 iridium = 40 · 1 xénite = 60 · 1 antimatière = 120</span><button class="btn sm" data-act="mktrade">Échanger</button></div></div></section>`}
+document.addEventListener('input',e=>{if(e.target&&/^mk[gwn]$/.test(e.target.id))mkPreview()});document.addEventListener('change',e=>{if(e.target&&/^mk[gw]$/.test(e.target.id))mkPreview()});
 function tradeHtml(){if(!S.players[ME])return'';const open=tradeOpen(),mine=open.filter(e=>e.seller===ME),others=open.filter(e=>e.seller!==ME),opt=s=>Object.keys(TRK).map(k=>`<option value="${k}" ${k===s?'selected':''}>${TRK[k]}</option>`).join('');
   const conv=Object.values(S.fleets).filter(f=>f.mission==='convoy'&&f.phase==='out'&&(f.owner===ME||f.sender===ME));
-  return`<section style="display:grid;gap:10px"><h2>Marché</h2><p class="meta" style="margin:0">Échange des ressources avec les autres empires. La marchandise est mise de côté dès la publication. Une fois l’offre acceptée, deux convois traversent l’espace : n’importe qui peut tenter de les intercepter.</p>
+  return`${mkHtml()}<section style="display:grid;gap:10px"><h2>Marché entre joueurs</h2><p class="meta" style="margin:0">Échange des ressources avec les autres empires. La marchandise est mise de côté dès la publication. Une fois l’offre acceptée, deux convois traversent l’espace : n’importe qui peut tenter de les intercepter.</p>
   <div class="card" style="display:grid;gap:8px"><b>Nouvelle offre depuis ${esc(plName(S.sel))}</b><div class="trrow"><span>Je donne</span><input id="trgn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trgk">${opt('m')}</select></div><div class="trrow"><span>Contre</span><input id="trwn" type="number" min="1" inputmode="numeric" placeholder="Quantité"><select id="trwk">${opt('ir')}</select></div><div><button class="btn sm" data-act="trnew">Publier l’offre</button></div></div>
   ${others.length?`<div class="list">${others.map(e=>`<div class="item"><div class="ihead"><b>${esc(pname(e.seller))} propose</b><span class="lv">${ago(e.at)}</span></div><div class="eff"><b>${lootLine(e.give)}</b> contre <b>${lootLine(e.want)}</b> · convoi ${fmtDur(Math.max(60,etaOf(e.pid,S.sel,{cruiser:1})))}</div><div class="foot"><span class="eff">Tu paies depuis ${esc(plName(S.sel))}</span><button class="btn sm" data-act="trok" data-id="${e.id}">Accepter</button></div></div>`).join('')}</div>`:'<p class="empty">Aucune offre d’autres empires pour l’instant.</p>'}
   ${mine.length?`<h2>Mes offres</h2><div class="list">${mine.map(e=>`<div class="item"><div class="ihead"><b>${lootLine(e.give)} contre ${lootLine(e.want)}</b><span class="lv">${ago(e.at)}</span></div><div class="foot"><span></span><button class="btn ghost sm" data-act="trx" data-id="${e.id}">Retirer</button></div></div>`).join('')}</div>`:''}
@@ -1099,7 +1112,9 @@ function render(){
   if(!joined&&S.spectator&&!['galaxy','log'].includes(S.tab))S.tab='galaxy';
   if(joined&&(!S.sel||!S.planets[S.sel]||S.planets[S.sel].owner!==ME))S.sel=myPlanets()[0].pid;
   renderTop(joined);renderTabs(joined);chatBtnSync(joined);v3Sync(joined);hgSync(joined);
+  const keep={};if(main.querySelectorAll)main.querySelectorAll('input[id],select[id]').forEach(el=>{if(el.value!=='')keep[el.id]=el.value});
   main.innerHTML=({planet:renderPlanet,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,players:renderPlayers,log:renderLog})[S.tab]();
+  for(const id in keep){const el=document.getElementById(id);if(el&&el.value==='')el.value=keep[id];else if(el&&el.tagName==='SELECT')el.value=keep[id]}if(keep.mkn)mkPreview();
   mpSync();
   tickUi();
 }
@@ -1537,6 +1552,7 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='cmdrec')recruitCmd();
   else if(a==='srsend')sendRes();
+  else if(a==='mktrade')mkTrade();
   else if(a==='bretreat')retreatBattle(b.dataset.f);
   else if(a==='sendm'){if(S.players[ME])openSend(b.dataset.p,b.dataset.m)}
   else if(a==='trnew')tradeCreate();
@@ -2115,7 +2131,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='21';
+const APP_VERSION='22';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

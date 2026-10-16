@@ -572,9 +572,10 @@ function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g);if(!l
 // Vision : systèmes proches de tes planètes (et un peu moins autour des avant-postes) + systèmes explorés par tes flottes.
 const VIS_R=9,VIS_R_OUT=6;let VISC={sig:'',set:null};
 function visibleSet(){if(!ME||!S.players[ME])return null;
-  const mine=Object.values(S.planets).filter(p=>p.owner===ME),ex=S.players[ME].explored||[],sig=mine.map(p=>p.pid).join()+'|'+ex.length;
+  const mine=Object.values(S.planets).filter(p=>p.owner===ME),others=Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&PLANETS[p.pid]),ex=S.players[ME].explored||[],sig=mine.map(p=>p.pid).join()+'|'+ex.length+'|'+others.map(p=>p.pid).join();
   if(sig===VISC.sig&&VISC.set)return VISC.set;const set=new Set(ex);
   for(const p of mine){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
+  for(const p of others)set.add(PLANETS[p.pid].sys); // les systèmes habités par d'autres joueurs sont toujours visibles
   VISC={sig,set};return set}
 const sysVisible=i=>{const v=visibleSet();return!v||v.has(i)||!!(SYSTEMS[i]&&SYSTEMS[i].deep)};
 async function exploreMark(uids,si){if(si==null)return;for(const u of new Set(uids)){const pl=S.players[u];if(!pl||(pl.explored||[]).includes(si))continue;try{await withPlayer(u,d=>{d.explored=[...new Set([...(d.explored||[]),si])]})}catch(e){}}}
@@ -2268,7 +2269,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='40';
+const APP_VERSION='41';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

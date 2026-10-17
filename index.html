@@ -552,7 +552,7 @@ const latestIntel=pid=>{const r=S.reports.find(x=>x.intel&&x.intel.pid===pid);re
 // meutes locales : 2 ou 3 par système (1 horde + 1 ou 2 meutes), qui grossissent si on les laisse et réapparaissent 3 h après dispersion.
 // une horde ignorée trop longtemps fonde un repaire sur une planète libre du système ; armadas : grosses flottes itinérantes visibles sur la carte.
 const RAIDS={};const RTIERS=[{n:'Meute'},{n:'Horde'},{n:'Armada'}];
-const respawnOf=R=>R&&R.emp?72*HR:R&&(R.guard||R.boss)?24*HR:RESPAWN;const RESPAWN=3*HR,RAIDW=3*HR,RAID_GALS=[0,0,0,0,1,1,2,3,4,5,6],EPOCH=Date.UTC(2026,9,15,20,0),LAIR_DELAY=6*HR;
+const respawnOf=R=>!R?RESPAWN:R.emp?72*HR:(R.guard||R.boss)?24*HR:R.mid?(R.esc?12*HR:24*HR):RESPAWN; // Léviathan 24 h, escortes 12 hconst RESPAWN=3*HR,RAIDW=3*HR,RAID_GALS=[0,0,0,0,1,1,2,3,4,5,6],EPOCH=Date.UTC(2026,9,15,20,0),LAIR_DELAY=6*HR;
 const SYS_BY_GAL=GALS.map((G,g)=>SYSTEMS.filter(s=>s.gal===g));
 const raidLoot=kk=>({treasure:{m:Math.round(1500*kk),c:Math.round(1100*kk),f:Math.round(600*kk)},frag:Math.round(5*kk)});
 const scaleShips=(s,f)=>{const o={};for(const k in s)o[k]=Math.round((s[k]||0)*f);return o};
@@ -2093,7 +2093,7 @@ function mpData(){if(!MP.ok)return;
       if(os){sz=cur?10:4;rg=0}
       if(MP.level==='system'&&i!==MP.sys){rg=0;sz=Math.min(sz,2.5)}if(i===MP.sys){sz=17;rg=2;if(!os)col=[1,.8,.5]}a.color.array.set(col,i*3);a.sz.array[i]=sz;a.rg.array[i]=rg});
     a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true;
-    if(MP.ownPts){const oa=MP.ownPts.geometry.attributes;let n=0;if(MP.level!=='universe')for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si)||MP.level==='system'&&+si===MP.sys)continue;const L=[...os].sort((x,y)=>(y===ME)-(x===ME));L.forEach((o,j)=>{if(n>=600)return;oa.position.array.set(s.w,n*3);oa.color.array.set(hex2rgb(pcolor(o)),n*3);oa.sz.array[n]=(MP.level==='system'?7:13)+j*(MP.level==='system'?3:5);oa.rg.array[n]=3;n++});if(sysLord(+si)&&n<600){oa.position.array.set(s.w,n*3);oa.color.array.set([1,.82,.3],n*3);oa.sz.array[n]=MP.level==='system'?16:28;oa.rg.array[n]=2;n++}}
+    if(MP.ownPts){const oa=MP.ownPts.geometry.attributes;let n=0;if(MP.level!=='universe')for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si)||MP.level==='system'&&+si===MP.sys)continue;const L=[...os].sort((x,y)=>(y===ME)-(x===ME));L.forEach((o,j)=>{if(n>=600)return;oa.position.array.set(s.w,n*3);oa.color.array.set(hex2rgb(pcolor(o)),n*3);oa.sz.array[n]=(MP.level==='system'?7:13)+j*(MP.level==='system'?3:5);oa.rg.array[n]=3;n++})}
       MP.ownPts.geometry.setDrawRange(0,n);oa.position.needsUpdate=true;oa.color.needsUpdate=true;oa.sz.needsUpdate=true;oa.rg.needsUpdate=true}
     mpPlanetPts();mpFog();
     if(MP.level==='system'&&MP.sys!=null)mpBuildSystem(MP.sys)}
@@ -3101,7 +3101,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='126';
+const APP_VERSION='127';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

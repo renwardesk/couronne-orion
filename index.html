@@ -2017,8 +2017,9 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
     LP.set([...fp.from,...fp.to],n*6);LC.set([...col.map(c=>c*.55),...col.map(c=>c*.55)],n*6);
     for(let q=1;q<=20&&tn<4000&&!fp.hold;q++){const u=q/21;TA.position.array.set([fp.p[0]+(fp.to[0]-fp.p[0])*u,fp.p[1]+(fp.to[1]-fp.p[1])*u,fp.p[2]+(fp.to[2]-fp.p[2])*u],tn*3);TA.color.array.set(col.map(c=>c*.8),tn*3);TA.sz.array[tn]=MP.level==='system'?2.6:3.4;TA.rg.array[tn]=0;tn++}da.position.array.set(fp.p,n*3);da.color.array.set(col,n*3);da.sz.array[n]=hostile?16:f.owner===ME?13:10;da.rg.array[n]=0;
     let m=MP.fm.get(f.fid);if(!m){m=new THREE.Mesh(MP.chevGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.95,depthTest:false}));m.renderOrder=13;MP.scene.add(m);MP.fm.set(f.fid,m)}
-    m.material.color.setRGB(col[0],col[1],col[2]);m.position.set(fp.p[0],fp.p[1],fp.p[2]);m.scale.setScalar(sc*(f.owner===ME||hostile?1.25:.9)*(isR?2:1));m.lookAt(fp.to[0],fp.to[1],fp.to[2]);if(isR&&!m.userData.ring){const r=new THREE.Mesh(new THREE.TorusGeometry(.95,.07,6,32),new THREE.MeshBasicMaterial({color:0xffcf6b,transparent:true,opacity:.9,depthTest:false}));r.renderOrder=14;m.add(r);m.userData.ring=r}if(m.userData.ring)m.userData.ring.visible=isR;seen.add(f.fid);n++}
-  for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();if(m.userData.ring){m.userData.ring.geometry.dispose();m.userData.ring.material.dispose()}MP.fm.delete(id)}
+    m.material.color.setRGB(col[0],col[1],col[2]);m.position.set(fp.p[0],fp.p[1],fp.p[2]);m.scale.setScalar(sc*(f.owner===ME||hostile?1.25:.9)*(isR?1.5:1));m.lookAt(fp.to[0],fp.to[1],fp.to[2]);if(isR&&!m.userData.ring){// deux bandes dorées sur les flancs du pointeur
+      const r=new THREE.Group(),gm=new THREE.MeshBasicMaterial({color:0xffcf6b,depthTest:false});for(const sx of[-1,1]){const b=new THREE.Mesh(new THREE.BoxGeometry(.07,.1,.95),gm);b.position.set(sx*.27,.05,-.15);b.rotation.y=-sx*.27;b.renderOrder=14;r.add(b)}m.add(r);m.userData.ring=r}if(m.userData.ring)m.userData.ring.visible=isR;seen.add(f.fid);n++}
+  for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();if(m.userData.ring)m.userData.ring.traverse(x=>{if(x.geometry)x.geometry.dispose();if(x.material)x.material.dispose()})MP.fm.delete(id)}
   MP.fleetLines.geometry.setDrawRange(0,n*2);MP.fleetDots.geometry.setDrawRange(0,n);MP.trail.geometry.setDrawRange(0,tn);TA.position.needsUpdate=true;TA.color.needsUpdate=true;TA.sz.needsUpdate=true;TA.rg.needsUpdate=true;
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
 function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;mpLevs();
@@ -2955,7 +2956,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='100';
+const APP_VERSION='101';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

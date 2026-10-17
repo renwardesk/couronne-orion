@@ -625,7 +625,8 @@ function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g),lv=le
 // Vision : systèmes proches de tes planètes (et un peu moins autour des avant-postes) + systèmes explorés par tes flottes.
 const VIS_R=9,VIS_R_OUT=6;let VISC={sig:'',set:null};
 function visibleSet(){if(!ME||!S.players[ME])return null;
-  const mine=Object.values(S.planets).filter(p=>p.owner===ME),others=Object.values(S.planets).filter(p=>p.owner&&p.owner!==ME&&PLANETS[p.pid]),ex=S.players[ME].explored||[],sig=mine.map(p=>p.pid).join()+'|'+ex.length+'|'+others.map(p=>p.pid).join();
+  // brouillard commun : ce qu'un empire voit ou a exploré, tout le monde le voit
+  const mine=Object.values(S.planets).filter(p=>p.owner&&PLANETS[p.pid]),others=[],ex=[...new Set(Object.values(S.players).flatMap(p=>(p&&p.explored)||[]))],sig=mine.map(p=>p.pid).join()+'|'+ex.length+'|'+others.map(p=>p.pid).join();
   if(sig===VISC.sig&&VISC.set)return VISC.set;const set=new Set(ex);
   for(const p of mine){const s0=SYSTEMS[PLANETS[p.pid].sys],R=isBody(p.pid)?VIS_R_OUT:VIS_R;set.add(s0.i);for(const s of SYS_BY_GAL[s0.gal])if(Math.hypot(s.w[0]-s0.w[0],s.w[1]-s0.w[1],s.w[2]-s0.w[2])<=R)set.add(s.i)}
   for(const p of others)set.add(PLANETS[p.pid].sys); // les systèmes habités par d'autres joueurs sont toujours visibles
@@ -1514,9 +1515,11 @@ const TABICO={planet:'<path d="M11.5 6.5l4-3.5 5.5 5.5-3.5 4z"/><path d="M14 9.5
   log:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6M9 11h6"/>',
   cmds:'<circle cx="12" cy="14.5" r="5"/><path d="M8.5 10.8L6 3h4l2 5 2-5h4l-2.5 7.8"/><path d="M12 12.3l.8 1.6 1.7.2-1.3 1.2.3 1.7-1.5-.8-1.5.8.3-1.7-1.3-1.2 1.7-.2z"/>',
   hangar:'<path d="M3 20V9.5L12 4l9 5.5V20"/><path d="M6.5 20v-7h11v7M6.5 16h11"/>'};
+// coffres prêts à ouvrir (gratuits ou en stock)
+const cmdN=()=>{const pl=S.players[ME];if(!pl)return 0;return freeChestState(ME).n+Object.values(pl.chests||{}).reduce((a,b)=>a+(b>0?b:0),0)};
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length,qr=joined?questReady():0;badgeSeen(S.tab);
   const T=joined?[['planet','Base'],['yard','Chantier'],...(NOTECH?[]:[['lab','Labo']]),['galaxy','Carte'],['fleets','Flottes'],['cmds','Commandants'],['players','Joueurs'],['news','Actus'],['quests','Quêtes'],['log','Journal'],['hangar','Hangar']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
-  document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${TABICO[k]?`<svg class="ti" viewBox="0 0 24 24" aria-hidden="true">${TABICO[k]}</svg>`:''}${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:k==='quests'&&qr?`<span class="n">${qr}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
+  document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${TABICO[k]?`<svg class="ti" viewBox="0 0 24 24" aria-hidden="true">${TABICO[k]}</svg>`:''}${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:k==='quests'&&qr?`<span class="n">${qr}</span>`:k==='cmds'&&cmdN()?`<span class="n">${cmdN()}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
   if(k==='drill'){const t=rkOf(p),r0=rareRate(p)[t],r1=rareRate(q)[t];return`<em>${r0.toFixed(1)} → ${r1.toFixed(1)}</em> ${RARE[t].toLowerCase()}/min`}
@@ -1922,7 +1925,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>${cmdsOf(capP.owner).length?`<i class="sub2">${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>cmdBadge(c,13)+esc(cmdInfo(c).n)).join(' ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
-    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:raidPos(r.pid),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
+    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:(w=>[w[0],w[1]+.45,w[2]])(raidPos(r.pid)),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase!=='out'&&f.phase!=='back'){if(f.owner===ME&&f.phase==='hold')L.push({fl:f,cls:'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}Flotte en position`});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
@@ -1952,12 +1955,27 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
 function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;mpLevs();for(const r of list){if(n>=60)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
   rp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
-// le Léviathan : un gros cuirassé pirate rouge, bien visible sur la carte de la galaxie
+// le Léviathan : destroyer stellaire en forme de coin, gris et noir, éclairage précalculé (la carte n'a pas de lumière directionnelle)
+function levShade(geo,hex,M){let g=geo.index?geo.toNonIndexed():geo;if(M)g.applyMatrix4(M);g.computeVertexNormals();const n=g.attributes.normal,c=new THREE.Color(hex),L=new THREE.Vector3(.45,1,.35).normalize(),cols=new Float32Array(n.count*3);
+  for(let i=0;i<n.count;i++){const d=Math.max(0,n.getX(i)*L.x+n.getY(i)*L.y+n.getZ(i)*L.z),k=.28+.72*d;cols[i*3]=c.r*k;cols[i*3+1]=c.g*k;cols[i*3+2]=c.b*k}g.setAttribute('color',new THREE.BufferAttribute(cols,3));return g}
+function buildLeviathan(len){const grp=new THREE.Group(),mat=new THREE.MeshBasicMaterial({vertexColors:true}),add=(geo,hex,x=0,y=0,z=0,sx=1,sy=1,sz=1)=>{const M=new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion(),new THREE.Vector3(sx,sy,sz));grp.add(new THREE.Mesh(levShade(geo,hex,M),mat))};
+  // coque : pointe à l'avant (+x), arête dorsale relevée vers l'arrière
+  const N=[.5,0,0],RL=[-.5,0,-.33],RR=[-.5,0,.33],T=[-.5,.11,0],B=[-.5,-.07,0],hull=new THREE.BufferGeometry(),tri=[N,T,RL, N,RR,T, N,RL,B, N,B,RR, RL,T,RR, RL,RR,B];
+  hull.setAttribute('position',new THREE.Float32BufferAttribute(tri.flat(),3));add(hull,'#747980');
+  const box=new THREE.BoxGeometry(1,1,1),r=rng(hash('lev-greeble')),topY=(x,z)=>{const t=(.5-x),w=.33*t;return .11*t*Math.max(0,1-Math.abs(z)/(w||1))};
+  // superstructure en gradins et tour de commandement
+  add(box,'#686d74',-.36,.13,0,.24,.06,.2);add(box,'#5c6067',-.4,.18,0,.15,.05,.12);add(box,'#5d6168',-.43,.225,0,.05,.06,.035);add(box,'#80858c',-.43,.265,0,.04,.022,.16);
+  const dome=new THREE.SphereGeometry(.018,10,8);add(dome,'#9ca1a8',-.43,.285,-.075);add(dome,'#9ca1a8',-.43,.285,.075);
+  // détails de coque
+  for(let i=0;i<34;i++){const x=-.42+r()*.78,w=.33*(.5-x),z=(r()*2-1)*w*.75,sx=.02+r()*.05,sz=.015+r()*.035,sy=.008+r()*.014;add(box,r()<.6?'#33363a':'#8d9298',x,topY(x,z)+sy/2,z,sx,sy,sz)}
+  add(box,'#2b2d31',-.05,.0,0,.9,.012,.02);
+  // tuyères
+  const cyl=new THREE.CylinderGeometry(.03,.034,.05,12);cyl.rotateZ(Math.PI/2);for(const z of[-.09,0,.09])add(cyl,'#45484e',-.52,.035,z);
+  for(const z of[-.09,0,.09]){const sp=new THREE.Sprite(libGlow('d6e6ff',.55));sp.position.set(-.555,.035,z);sp.scale.setScalar(.09);grp.add(sp)}
+  grp.scale.setScalar(len);return grp}
 function mpLevs(){if(!MP.lev)MP.lev=new Map();const want=MP.level==='universe'?[]:leviathans(MP.gal),keep=new Set();
   for(const r of want){keep.add(r.pid);let o=MP.lev.get(r.pid);if(o&&o.userData.ver===SHIPLIB.ver)continue;if(o){MP.scene.remove(o);v3Clear(o);MP.lev.delete(r.pid)}
-    const g=new THREE.Group(),sh=buildShip('battleship',{hull:'#3b2228',trim:'#ff3b5c',glow:'#ff6a3c'},null),L=protoLen('battleship');
-    sh.traverse(x=>{if(x.isMesh&&x.material){const m=x.material;x.material=new THREE.MeshBasicMaterial({map:m.map||null,color:m.map?0xd8c8c8:(m.color||new THREE.Color('#8a3040'))})}});
-    sh.scale.setScalar(2.2/L);g.add(sh);const halo=new THREE.Sprite(libGlow('ff3b5c',.32));halo.scale.set(5,5,1);g.add(halo);
+    const g=buildLeviathan(.62);
     const w=raidPos(r.pid);g.position.set(w[0],w[1],w[2]);g.rotation.y=(hash(r.pid)%628)/100;g.userData.ver=SHIPLIB.ver;g.renderOrder=9;MP.scene.add(g);MP.lev.set(r.pid,g)}
   for(const[id,o]of MP.lev)if(!keep.has(id)){MP.scene.remove(o);v3Clear(o);MP.lev.delete(id)}}
 // trous noirs et épaves de la carte : transparents quand la caméra est tout près, opaques de loin
@@ -2158,6 +2176,7 @@ async function pushSubscribe(quiet){try{if(!('serviceWorker'in navigator)||!('Pu
   catch(e){console.error(e);if(!quiet)toast('Impossible d’activer les notifications sur cet appareil.','bad');return false}}
 async function pushOff(){try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub){await sb.from('push_subs').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}}catch(e){console.error(e)}try{localStorage.setItem('orion-push-'+ME,'0')}catch(e){}if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});toast('Alertes désactivées sur cet appareil.');render()}
 async function askNotif(){if(notifOk()&&pushOn())return pushOff();try{if(typeof Notification==='undefined')return toast('Ton navigateur ne gère pas les alertes. Installe l’appli sur l’écran d’accueil.','bad');const r=await Notification.requestPermission();if(r==='granted')await pushSubscribe(false);toast(r==='granted'?(pushOn()?'Alertes activées : tu seras prévenu même appli fermée quand une attaque part vers toi.':'Pastille activée, mais les notifications n’ont pas pu être enregistrées.'):'Alertes refusées. Tu peux les activer dans Réglages › Notifications.',r==='granted'?'':'bad');BADGE_N=-1;render()}catch(e){}}
+const LOG_EPOCH=Date.UTC(2026,9,17,18,15); // les rapports plus anciens ne comptent pas dans la pastille du Journal
 const EV={init:false,seen:new Set(),repInit:false,reps:new Set(),badge:{planet:[],yard:[],lab:[]}};
 // pastilles rouges sur les onglets : travaux terminés que tu n'as pas encore consultés
 let BSEEN=null;const bseen=()=>{if(!BSEEN){BSEEN=new Set();try{for(const k of JSON.parse(localStorage.getItem('orion-bseen-'+ME)||'[]'))BSEEN.add(k)}catch(e){}}return BSEEN};
@@ -2170,7 +2189,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
   for(const it of Object.values(S.planets).filter(p=>p.owner===ME).flatMap(p=>(p.armQ||[]).map(x=>[p,x]))){const[p,x]=it,end=x.start+x.n*x.per*1000;if(end<=now)keys.push(['d','m'+p.pid+end+x.t,`Modules « ${WEAP[x.t].n} » prêts sur ${PLANETS[p.pid].name}.`])}
   {const rs=S.players[ME].research;if(rs&&rs.until<=now)keys.push(['d','r'+rs.until,`Recherche terminée : ${WEAP[rs.k].n}.`]);const cm=cometAt(),hv=hiveAt();if(cm)keys.push(['d','cm'+cm.id,`Une comète traverse ${PLANETS[cm.pid].name} (${GALS[galOf(cm.pid)].name}). Le premier qui la récolte gagne gros.`]);for(const c of myMiniComets())keys.push(['d','mc'+c.id,`☄ Une petite comète est apparue près de ${PLANETS[c.pid].name}, dans ton système. Récolte-la avant qu’elle ne disparaisse !`]);if(hv)keys.push(['a','hv'+hv.id,`La Ruche a surgi à ${PLANETS[hv.pid].name}. Unissez vos flottes pour l’abattre.`])}
   musicTension(incoming().length>0);appBadge(incoming().length);for(const f of incoming())keys.push(['a','a'+f.fid,`Alerte : ${pname(f.owner)} attaque ${PLANETS[f.to].name}, arrivée à ${clock(f.arrive)}.`]);
-  {const B={planet:[],yard:[],lab:[],news:[]};const j0=(S.players[ME]||{}).joined||0;for(const e of Object.values(S.events))if(e.news&&e.at>j0&&!(e.uids&&e.uids.length===1&&e.uids[0]===ME))B.news.push('n'+e.id);if(!EV.newsInit){EV.newsInit=true;try{if(!localStorage.getItem('orion-ninit-'+ME)){const S0=bseen();B.news.forEach(k=>S0.add(k));localStorage.setItem('orion-bseen-'+ME,JSON.stringify([...S0].slice(-300)));localStorage.setItem('orion-ninit-'+ME,'1')}}catch(e){}}for(const[t,k]of keys){if(t!=='d')continue;const c=k[0];if(c==='b')B.planet.push(k);else if(c==='s')B.yard.push(k);else if(c==='m'||(c==='r'&&/^r\d/.test(k)))B.lab.push(k)}EV.badge=B}
+  {const B={planet:[],yard:[],lab:[],news:[]};const j0=(S.players[ME]||{}).joined||0;for(const e of Object.values(S.events))if(e.news&&e.at>j0&&!(e.uids&&e.uids.length===1&&e.uids[0]===ME))B.news.push('n'+e.id);B.log=S.reports.filter(r=>(r.at||0)>Math.max(j0,LOG_EPOCH)).map(r=>'L'+r.id);if(!EV.newsInit){EV.newsInit=true;try{if(!localStorage.getItem('orion-ninit-'+ME)){const S0=bseen();B.news.forEach(k=>S0.add(k));localStorage.setItem('orion-bseen-'+ME,JSON.stringify([...S0].slice(-300)));localStorage.setItem('orion-ninit-'+ME,'1')}}catch(e){}}for(const[t,k]of keys){if(t!=='d')continue;const c=k[0];if(c==='b')B.planet.push(k);else if(c==='s')B.yard.push(k);else if(c==='m'||(c==='r'&&/^r\d/.test(k)))B.lab.push(k)}EV.badge=B}
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
   for(const[t,k,msg]of keys){if(EV.seen.has(k))continue;EV.seen.add(k);if(t==='a'){sfx.alert();toast(msg,'alert')}else{sfx.done();toast(msg)}}}
 function reportSounds(){if(!EV.repInit){S.reports.forEach(r=>EV.reps.add(r.id));EV.repInit=true;return}
@@ -2843,7 +2862,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='90';
+const APP_VERSION='91';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

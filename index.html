@@ -590,13 +590,22 @@ function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
   else{let born=packBorn(S.events[s.packs[0]]);if(le&&le.done)born=Math.max(born,le.doneAt||0);founded=born+lairDelay(s);if(now<founded)return null}
   const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
 // Léviathans des Écumeurs : énormes vaisseaux-mères stationnés dans le vide, entre deux systèmes voisins. Plus forts qu'une horde.
-(function registerLeviathans(){for(let g=0;g<GALS.length;g++){const L=SYS_BY_GAL[g].filter(s=>!s.deep),seen=new Set(),placed=[];
-  for(const a of L){let b=null,bd=1e9;for(const o of L){if(o===a)continue;const d=Math.hypot(o.x-a.x,o.y-a.y,o.z-a.z);if(d<bd){bd=d;b=o}}if(!b)continue;
-    const key=Math.min(a.i,b.i)+'-'+Math.max(a.i,b.i);if(seen.has(key))continue;seen.add(key);if(hash('lev'+key)%3)continue;const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,mz=(a.z+b.z)/2;if(placed.some(q=>Math.hypot(q[0]-mx,q[1]-my,q[2]-mz)<70))continue;placed.push([mx,my,mz]);
-    const r=rng(hash('levs'+key)),lv=a=>GALS[a.gal].rich*(1+(500-Math.min(a.rad,500))/400),K=(lv(a)+lv(b))/2*4.5*(.9+r()*.2),pid='v'+key,home=a.rad<b.rad?a:b;
-    RAIDS[pid]={pid,sys:home.i,gal:g,tier:2,local:true,mid:true,start:0,end:Infinity,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,mz:(a.z+b.z)/2+4,
-      ships:{fighter:Math.round(10*K),cruiser:Math.round(4*K),battleship:Math.round(1.2*K)},...raidLoot(K*1.3)};
-    PLANETS[pid]={pid,sys:home.i,slot:12,name:`Léviathan · entre ${a.name} et ${b.name}`,type:'raid',raid:true,local:true,mid:true}}}})();
+(function registerLeviathans(){const lv=a=>GALS[a.gal].rich*(1+(500-Math.min(a.rad,500))/400);
+  for(let g=0;g<GALS.length;g++){const L=SYS_BY_GAL[g].filter(s=>!s.deep),seen=new Set(),placed=[],cand=[],maxR=Math.max(...L.map(s=>s.rad));
+    // entre deux systèmes voisins
+    for(const a of L){let b=null,bd=1e9;for(const o of L){if(o===a)continue;const d=Math.hypot(o.x-a.x,o.y-a.y,o.z-a.z);if(d<bd){bd=d;b=o}}if(!b)continue;
+      const key=Math.min(a.i,b.i)+'-'+Math.max(a.i,b.i);if(seen.has(key)||hash('lev'+key)%2)continue;seen.add(key);cand.push({key,a,b,x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2,name:`entre ${a.name} et ${b.name}`})}
+    // en bordure de galaxie, vers l'extérieur
+    for(const a of L){if(a.rad<maxR*.82||hash('levo'+a.i)%3)continue;const d=Math.hypot(a.x-500,a.y-500)||1,k=48;cand.push({key:'o'+a.i,a,b:a,x:a.x+(a.x-500)/d*k,y:a.y+(a.y-500)/d*k,z:a.z,name:`aux confins de ${a.name}`})}
+    for(const c of cand){if(L.some(s=>Math.hypot(s.x-c.x,s.y-c.y,s.z-c.z)<17))continue;if(placed.some(q=>Math.hypot(q[0]-c.x,q[1]-c.y,q[2]-c.z)<60))continue;placed.push([c.x,c.y,c.z]);
+      const{a,b}=c,r=rng(hash('levs'+c.key)),lvl=(lv(a)+lv(b))/2,K=lvl*4.5*(.9+r()*.2),pid='v'+c.key,home=a.rad<b.rad?a:b;
+      RAIDS[pid]={pid,sys:home.i,gal:g,tier:2,local:true,mid:true,start:0,end:Infinity,mx:c.x,my:c.y,mz:c.z+3,ships:{fighter:Math.round(10*K),cruiser:Math.round(4*K),battleship:Math.round(1.2*K)},...raidLoot(K*1.3)};
+      PLANETS[pid]={pid,sys:home.i,slot:12,name:`Léviathan ${c.name}`,type:'raid',raid:true,local:true,mid:true};
+      // escorte : hordes et meutes d'élite autour du Léviathan
+      const ne=2+(r()<.5?1:0),a0=r()*6.28;for(let k=0;k<ne;k++){const big=k===0,kk=(big?3:1.2)*lvl*.6*1.7*(.9+r()*.2),an=a0+k*6.28/ne,eid=pid+'-e'+k;
+        RAIDS[eid]={pid:eid,sys:home.i,gal:g,tier:1,local:true,mid:true,esc:true,big,start:0,end:Infinity,mx:c.x+Math.cos(an)*11,my:c.y+Math.sin(an)*11,mz:c.z+3+(r()-.5)*4,
+          ships:{fighter:Math.round(10*kk+r()*5),cruiser:Math.round(3.5*kk),battleship:Math.round((big?.6:.2)*kk)},...raidLoot(kk*1.2)};
+        PLANETS[eid]={pid:eid,sys:home.i,slot:12,name:`${big?'Horde':'Meute'} d’élite · escorte du Léviathan`,type:'raid',raid:true,local:true,mid:true}}}}})();
 const leviathans=g=>Object.values(RAIDS).filter(r=>r.mid&&r.gal===g&&sysVisible(r.sys)&&!raidState(r.pid).done);
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:R.ships;
   if(R.boss||R.mid){if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;return R.ships}
@@ -615,8 +624,8 @@ function packRow(pid,joined){const v=view(pid),R=RAIDS[pid],st=raidState(pid);if
     <div class="eff">${st.done?`De retour dans <span class="cd" data-cd="${st.back}"></span>`:`${raidCmdTxt(pid)} · ${R.lair?`Installé sur ${esc(PLANETS[lairInfoAt(SYSTEMS[R.sys]).pid].name)} · `:''}${big>1.05?`<b style="color:var(--warn)">renforcés ×${big.toFixed(1)}</b> · `:''}Butin ${lootTxt(scaleShips(R.treasure,Math.max(1,big)))} · ${Math.round(R.frag*Math.max(1,big))} Éclats du Vide${joined?` · ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs`:''}`}</div>${st.done?'':intelBox(pid)}
     ${joined&&!st.done?`<div class="foot"><span></span><button class="btn sm" data-act="send" data-p="${pid}">Espionner ou attaquer</button></div>`:''}</div>`}
 function cultureNow(uid){const pl=S.players[uid];if(!pl)return 0;const dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);return(pl.culture??50)+cultureRate(uid)*dt}
-function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g),lv=leviathans(g).sort((a,b)=>S.sel?etaOf(S.sel,a.pid,{fighter:1})-etaOf(S.sel,b.pid,{fighter:1}):0).slice(0,5);
-  const levH=lv.length?`<section style="display:grid;gap:10px"><h2>Léviathans des Écumeurs</h2><p class="meta" style="margin:0">D’énormes vaisseaux-mères pirates, immobiles dans le vide entre deux systèmes. Bien plus forts qu’une horde : attaque-les à plusieurs. Butin rare, 3 insignes et souvent un coffre d’or.</p><div class="list">${lv.map(r=>packRow(r.pid,joined)).join('')}</div></section>`:'';
+function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g),lv=leviathans(g).filter(r=>!r.esc).sort((a,b)=>S.sel?etaOf(S.sel,a.pid,{fighter:1})-etaOf(S.sel,b.pid,{fighter:1}):0).slice(0,5);
+  const levH=lv.length?`<section style="display:grid;gap:10px"><h2>Léviathans des Écumeurs</h2><p class="meta" style="margin:0">D’énormes vaisseaux-mères pirates, immobiles dans le vide entre les systèmes ou aux confins de la galaxie, escortés de hordes et de meutes d’élite. Bien plus forts qu’une horde : attaque-les à plusieurs. Butin rare, 3 insignes et souvent un coffre d’or.</p><div class="list">${lv.map(r=>packRow(r.pid,joined)).join('')}</div></section>`:'';
   if(!list.length)return levH;
   return levH+`<section style="display:grid;gap:10px"><h2>Armadas des Écumeurs</h2><p class="meta" style="margin:0">De grosses flottes pirates croisent dans la galaxie, visibles de loin. Mieux vaut les attaquer à plusieurs. Chaque système abrite aussi ses propres meutes, visibles en entrant dans le système.</p><div class="list">${list.map(r=>{const v=view(r.pid);
     return`<div class="item hostile"><div class="ihead"><b>${esc(PLANETS[r.pid].name)}</b><span class="cd" data-cd="${r.end}"></span></div><div class="eff">${raidCmdTxt(r.pid)} · Menace ${threat(worth(v.garrison))}  · butin ${lootTxt(r.treasure)} · ${r.frag} Éclats du Vide${joined?` · ${fmtDur(etaOf(S.sel,r.pid,{fighter:1}))} en chasseurs`:''}</div>${intelBox(r.pid)}${joined?`<div class="foot"><span></span><button class="btn sm" data-act="send" data-p="${r.pid}">Espionner ou attaquer</button></div>`:''}</div>`}).join('')}</div></section>`}
@@ -779,7 +788,7 @@ const cmdNext=L=>Math.ceil(60*Math.pow(L+1,2.4));
 const cmdInfo=c=>c&&c.key&&CMDK[c.key]?CMDK[c.key]:{k:null,n:(c&&c.n)||'Officier',r:'c',sp:'att'};
 const cmdSpecVal=c=>{const i=cmdInfo(c);return Math.round(RAR[i.r].sp*100*(1+.1*cmdLvl(c.xp)))};
 // insignes : butin des repaires, Armadas, hordes, sentinelles et gardiens ; servent à entraîner les commandants
-const insDrop=R=>!R?0:R.boss||R.mid?3:(R.lair||R.guard||!R.local)?2:R.tier>=1?1:(Math.random()<.35?1:0);
+const insDrop=R=>!R?0:R.boss||(R.mid&&!R.esc)?3:(R.lair||R.guard||!R.local)?2:R.tier>=1?1:(Math.random()<.35?1:0);
 const insOf=uid=>(S.players[uid]||{}).ins||0;
 const cmdsOf=uid=>((S.players[uid]||{}).cmds)||[];
 const cmdById=(uid,id)=>id?cmdsOf(uid).find(c=>c.id===id):null;
@@ -798,7 +807,7 @@ async function killCmd(uid,id){if(!uid||!id||!S.players[uid])return;let nm=null,
 // ---------- coffres ----------
 const CHEST={st:{n:'Coffre de départ',col:'#a9b4c8',p:{c:1},cmd:1},b:{n:'Coffre de bronze',col:'#c98a54',p:{c:.75,r:.22,e:.03},cmd:.35},s:{n:'Coffre d’argent',col:'#cfd8e6',p:{c:.4,r:.45,e:.13,l:.02},cmd:.6},g:{n:'Coffre d’or',col:'#ffcf6b',p:{c:.1,r:.4,e:.38,l:.12},cmd:1}};
 const chestsOf=uid=>(S.players[uid]||{}).chests||{};
-const chestDrop=R=>!R?null:R.boss?'g':R.mid?(Math.random()<.3?'g':'s'):(R.lair||R.guard||!R.local)?'s':R.tier>=1?(Math.random()<.5?'b':null):(Math.random()<.08?'b':null);
+const chestDrop=R=>!R?null:R.boss?'g':R.mid&&!R.esc?(Math.random()<.3?'g':'s'):(R.lair||R.guard||!R.local)?'s':R.tier>=1?(Math.random()<.5?'b':null):(Math.random()<.08?'b':null);
 async function giveChest(uid,t,n=1){if(!uid||!S.players[uid]||!CHEST[t])return;try{await withPlayer(uid,d=>{d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+n})}catch(e){}}
 const chestTxt=t=>CHEST[t]?CHEST[t].n.toLowerCase():'';
 function rollRar(p,r){let x=r,acc=0;for(const k of['c','r','e','l']){acc+=p[k]||0;if(x<acc)return k}return'c'}
@@ -944,6 +953,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
       ...(!won&&!isEmpty(fa)?['Le temps est écoulé : les attaquants restent en position autour de la planète.']:[])];
     e.done=true;e.doneAt=now;e.won=won;await eref.set(e);
     reps.push({news:annex>=0||npcTook?['battle','conquest']:'battle',to:[...new Set([...atkU,...defU])],tone:won?'win':'loss',loser:won?e.owner:atkU[0],title:won?`${atkU.map(pname).join(', ')} ${atkU.length>1?'remportent':'remporte'} la grande bataille de ${tn}`:`${pname(e.owner)} tient ${tn}`,lines,
+      intel:(()=>{const rem={};for(const k in e.iD){if(k==='turret')continue;const v=Math.max(0,(e.iD[k]||0)-((fd||{})[k]||0));if(v)rem[k]=v}return{pid:e.pid,at:Date.now()+1000,owner:annex>=0?A[annex].owner:e.owner,ships:rem,turrets:Math.max(0,((e.iD||{}).turret||0)-((fd||{}).turret||0)),after:true}})(),
       battle:{ia:e.iA,id:e.iD,rounds:e.snaps,att:A.map(x=>({uid:x.owner,ships:x.ships0,ck:(cmdById(x.owner,x.cmd)||{}).key||null})),def:e.owner,pid:e.pid,planet:true}})});
   for(const r of reps)await report(r)}
 async function retreatBattle(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.owner!==ME||f.phase!=='battle')throw err('Cette flotte n’est plus au combat.');let ent=null;
@@ -1377,7 +1387,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
     if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({news:'battle',newsBy:atkUids,to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
     const insK=isEmpty(G.B.d)?insDrop(R):0,chK=isEmpty(G.B.d)?chestDrop(R):null;if(chK)for(const u of atkUids)await giveChest(u,chK);if(insK)for(const u of atkUids)await withPlayer(u,d=>{d.ins=(d.ins||0)+insK}).catch(()=>{});
-    const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({news:(R.boss||R.lair||R.guard||!R.local||R.tier>=1)?'battle':null,to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat${insK?` · ${insK} insigne${insK>1?'s':''} de commandement pour chaque participant`:''}${chK?` · un ${chestTxt(chK)} pour chaque participant`:''}.`],battle:rec(G.B,'raid')});
+    const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({news:(R.boss||R.lair||R.guard||!R.local||R.tier>=1)?'battle':null,to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat${insK?` · ${insK} insigne${insK>1?'s':''} de commandement pour chaque participant`:''}${chK?` · un ${chestTxt(chK)} pour chaque participant`:''}.`],battle:rec(G.B,'raid'),intel:{pid:f.to,at:Date.now()+1000,owner:null,ships:{...G.B.d},after:true}});
     for(const r of reps)await report(r);return}
   await locked('planets/'+f.to,async(d,ref)=>{
     const p=d&&d.owner?settle(d,Math.max(d.at,f.arrive)):null;
@@ -1829,7 +1839,7 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
      const fp=new THREE.Points(fg,fm);fp.frustumCulled=false;fp.renderOrder=9;MP.fog=fp;scene.add(fp)}
     const fl=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending}));fl.frustumCulled=false;fl.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(400*6),3));fl.geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(400*6),3));MP.fleetLines=fl;scene.add(fl);
     const fd=new THREE.Points(ptsGeo(400),ptsMat(90));fd.frustumCulled=false;fd.material.depthTest=false;fd.renderOrder=12;MP.fleetDots=fd;scene.add(fd);
-    MP.fm=new Map();const tp=new THREE.Points(ptsGeo(4000),ptsMat(90));tp.frustumCulled=false;tp.material.depthTest=false;tp.renderOrder=11;MP.trail=tp;scene.add(tp);MP.chevGeo=new THREE.ConeGeometry(.45,1.5,3);MP.chevGeo.rotateX(Math.PI/2);const rp=new THREE.Points(ptsGeo(200),ptsMat(90));rp.frustumCulled=false;rp.material.depthTest=false;rp.renderOrder=12;MP.raidPts=rp;scene.add(rp);
+    MP.fm=new Map();const tp=new THREE.Points(ptsGeo(4000),ptsMat(90));tp.frustumCulled=false;tp.material.depthTest=false;tp.renderOrder=11;MP.trail=tp;scene.add(tp);MP.chevGeo=new THREE.ConeGeometry(.45,1.5,3);MP.chevGeo.rotateX(Math.PI/2);const rp=new THREE.Points(ptsGeo(60),ptsMat(90));rp.frustumCulled=false;rp.material.depthTest=false;rp.renderOrder=12;MP.raidPts=rp;scene.add(rp);
     MP.glow=gt;MP.ok=true;
     const pts=()=>[...MP.ptr.values()];
     mpc.addEventListener('pointerdown',e=>{MP.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});try{mpc.setPointerCapture(e.pointerId)}catch(x){}
@@ -1925,7 +1935,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>${cmdsOf(capP.owner).length?`<i class="sub2">${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>cmdBadge(c,13)+esc(cmdInfo(c).n)).join(' ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
-    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:raidPos(r.pid),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
+    if(MP.dist<95)for(const r of leviathans(MP.gal)){if(r.esc){if(MP.dist<38)L.push({w:raidPos(r.pid),cls:'mini',h:`${r.big?'Horde':'Meute'} d’élite${spyTag(r.pid)}`});continue}L.push({w:(w=>[w[0],w[1]+.7,w[2]])(raidPos(r.pid)),cls:'ev bad',pr:2,h:`◆ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`})}
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase!=='out'&&f.phase!=='back'){if(f.owner===ME&&f.phase==='hold')L.push({fl:f,cls:'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}Flotte en position`});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
@@ -1953,9 +1963,8 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
   for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();MP.fm.delete(id)}
   MP.fleetLines.geometry.setDrawRange(0,n*2);MP.fleetDots.geometry.setDrawRange(0,n);MP.trail.geometry.setDrawRange(0,tn);TA.position.needsUpdate=true;TA.color.needsUpdate=true;TA.sz.needsUpdate=true;TA.rg.needsUpdate=true;
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
-function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;if(MP.lev&&MP.lev.size){for(const o of MP.lev.values()){MP.scene.remove(o);v3Clear(o)}MP.lev.clear()}
-  // Léviathans : même marqueur que les Armadas, en plus gros
-  const lv=MP.level==='universe'?[]:leviathans(MP.gal);for(const r of[...list,...lv]){if(n>=200)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set(r.mid?[1,.2,.3]:[1,.28,.42],n*3);a.sz.array[n]=r.mid?18:cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
+function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;mpLevs();
+  for(const r of list){if(n>=200)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
   rp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
 // le Léviathan : destroyer stellaire en forme de coin, gris et noir, éclairage précalculé (la carte n'a pas de lumière directionnelle)
 function levShade(geo,hex,M){let g=geo.index?geo.toNonIndexed():geo;if(M)g.applyMatrix4(M);g.computeVertexNormals();const n=g.attributes.normal,c=new THREE.Color(hex),L=new THREE.Vector3(.45,1,.35).normalize(),cols=new Float32Array(n.count*3);
@@ -1976,15 +1985,19 @@ function buildLeviathan(len){const grp=new THREE.Group(),mat=new THREE.MeshBasic
   for(const z of[-.09,0,.09]){const sp=new THREE.Sprite(libGlow('d6e6ff',.55));sp.position.set(-.555,.035,z);sp.scale.setScalar(.09);grp.add(sp)}
   grp.scale.setScalar(len);return grp}
 function mpLevs(){if(!MP.lev)MP.lev=new Map();const want=MP.level==='universe'?[]:leviathans(MP.gal),keep=new Set();
-  for(const r of want){keep.add(r.pid);let o=MP.lev.get(r.pid);if(o&&o.userData.ver===SHIPLIB.ver)continue;if(o){MP.scene.remove(o);v3Clear(o);MP.lev.delete(r.pid)}
-    const g=buildLeviathan(.62);
-    const w=raidPos(r.pid);g.position.set(w[0],w[1],w[2]);g.rotation.y=(hash(r.pid)%628)/100;g.userData.ver=SHIPLIB.ver;g.renderOrder=9;MP.scene.add(g);MP.lev.set(r.pid,g)}
-  for(const[id,o]of MP.lev)if(!keep.has(id)){MP.scene.remove(o);v3Clear(o);MP.lev.delete(id)}}
+  if(!MP.levMat)MP.levMat={red:new THREE.MeshBasicMaterial({color:0xff3b5c}),dark:new THREE.MeshBasicMaterial({color:0x8a1a2c}),ring:new THREE.MeshBasicMaterial({color:0xff3b5c,transparent:true,opacity:.55})};const M=MP.levMat;
+  for(const r of want){keep.add(r.pid);if(MP.lev.has(r.pid))continue;const g=new THREE.Group();
+    if(!r.esc){const d=new THREE.Mesh(new THREE.OctahedronGeometry(.3,0),M.red);d.scale.set(1,1.5,1);g.add(d);const e=new THREE.Mesh(new THREE.OctahedronGeometry(.31,0),new THREE.MeshBasicMaterial({color:0xffb0bc,wireframe:true,transparent:true,opacity:.5}));e.scale.set(1,1.5,1);g.add(e);
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(.62,.018,4,40),M.ring);ring.rotation.x=Math.PI/2;g.add(ring);g.userData.spin=d}
+    else{const rr=rng(hash(r.pid));for(let i=0;i<(r.big?5:3);i++){const m=new THREE.Mesh(new THREE.ConeGeometry(.05,.17,3),M.red);m.rotation.z=-Math.PI/2;m.position.set((rr()-.5)*.3,(rr()-.5)*.1,(rr()-.5)*.3);g.add(m)}
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(r.big?.3:.22,.01,4,28),M.ring);ring.rotation.x=Math.PI/2;g.add(ring)}
+    const w=raidPos(r.pid);g.position.set(w[0],w[1],w[2]);g.rotation.y=(hash(r.pid)%628)/100;MP.scene.add(g);MP.lev.set(r.pid,g)}
+  for(const[id,o]of MP.lev)if(!keep.has(id)){MP.scene.remove(o);o.traverse(x=>{if(x.geometry)x.geometry.dispose()});MP.lev.delete(id)}}
 // trous noirs et épaves de la carte : transparents quand la caméra est tout près, opaques de loin
 function deepFade(x){const G=x.H||x.W;if(!G)return;if(!x.mats){x.mats=[];G.traverse(o=>{const m=o.material;if(!m)return;if(m.uniforms&&m.uniforms.op)x.mats.push([m,'u',m.uniforms.op.value]);else{m.transparent=true;x.mats.push([m,'o',m.opacity])}})}
   const d=MP.cam.position.distanceTo(G.position),r=x.H?28:14,f=Math.max(0,Math.min(1,(d-r)/(r*1.5)));if(f===x.f)return;x.f=f;G.visible=f>.02;
   for(const[m,t,o0]of x.mats){if(t==='u')m.uniforms.op.value=o0*f;else{m.opacity=o0*f;m.depthWrite=f>.98&&m.blending!==THREE.AdditiveBlending}}}
-function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t-MP.last)/1000||0);MP.last=t;const k=RM?.3:1;
+function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t-MP.last)/1000||0);MP.last=t;const k=RM?.3:1;if(MP.lev)for(const o of MP.lev.values())if(o.userData.spin)o.userData.spin.rotation.y+=dt*.8*k;
   const f=Math.min(1,dt*(RM?8:2.2));for(let i=0;i<3;i++)MP.tgt[i]+=(MP.tgtT[i]-MP.tgt[i])*f;MP.dist=Math.exp(Math.log(MP.dist)+(Math.log(MP.distT)-Math.log(MP.dist))*f);
   if(!MP.drag&&!MP.pinch&&!MP.pan&&t>(MP.idle||0))MP.yaw+=dt*.03*k;
   const d=MP.dist,cp=Math.cos(MP.pitch);MP.cam.position.set(MP.tgt[0]+d*cp*Math.sin(MP.yaw),MP.tgt[1]+d*Math.sin(MP.pitch),MP.tgt[2]+d*cp*Math.cos(MP.yaw));MP.cam.lookAt(MP.tgt[0],MP.tgt[1],MP.tgt[2]);
@@ -2614,7 +2627,7 @@ const BT={ok:false,tried:false,r:null,comp:null,scene:null,cam:null,g:null,raf:0
 const btel=document.getElementById('bt'),btc=document.getElementById('btc');
 const PIRATE_PAINT={hull:'#2b1d24',trim:'#ff3b5c',glow:'#ff6a3a'},HIVE_PAINT={hull:'#1d2b1f',trim:'#9dff5a',glow:'#c8ff5a'},RAID_PAINT={hull:'#251a33',trim:'#c23bff',glow:'#ff3bd8'};
 const BTCAP={fighter:12,cruiser:6,battleship:3,colony:2,probe:2,turret:8,flag:1},BTSC={fighter:6,cruiser:4.6,battleship:3.6,colony:4,probe:7,flag:3.6};
-const BTROW={fighter:5,cruiser:8.5,battleship:12.5,colony:15,probe:14},RD=3.2;
+const BTROW={fighter:5,cruiser:8.5,battleship:12.5,colony:15,probe:14,flag:10.5},RD=3.2;
 function btInit(){if(BT.tried)return BT.ok;BT.tried=true;if(!window.THREE)return false;
   try{const r=new THREE.WebGLRenderer({canvas:btc,antialias:true,powerPreference:'high-performance'});r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,.1,500);
@@ -2690,7 +2703,7 @@ function btShot(s,tg,col){btSound(s.k==='probe'||s.k==='colony'?'fighter':s.k);c
   if(s.k==='fighter'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2,col,{size:.45,dur:.28})},i*90);return}
   if(s.k==='cruiser'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1.clone().add(new THREE.Vector3(0,(i-.5)*.6,0)),p2,0xffb060,{size:.6,dur:.75,arc:1.6*(i?1:-1),trail:true})},i*140);return}
   if(s.k==='battleship'){btHeavy(p1,p2,col,.09);return}
-  if(s.k==='flag'){btHeavy(p1,p2,0xffd27a,.14);return}
+  if(s.k==='flag'){btHeavy(p1,p2,0xffd27a,.24);btProj(p1,p2,0xffe2a0,{size:1.3,dur:.35});return}
   if(s.k==='turret'){for(let i=0;i<3;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2.clone().add(new THREE.Vector3(0,(Math.random()-.5),0)),0xff7050,{size:.35,dur:.22})},i*60);return}
   btBeam(p1,p2,col)}
 function btFxStep(f,dt){if(f.proj){const k=Math.min(1,f.t/f.dur),p=f.a.clone().lerp(f.b,k);p.y+=Math.sin(k*Math.PI)*f.arc;f.proj.position.copy(p);if(f.trail){const k2=Math.max(0,k-.08),q=f.a.clone().lerp(f.b,k2);q.y+=Math.sin(k2*Math.PI)*f.arc;f.trail.position.copy(q)}
@@ -2864,7 +2877,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='92';
+const APP_VERSION='93';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

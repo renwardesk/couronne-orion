@@ -1402,7 +1402,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const killedDef=worth(B.id)-worth(B.d),killedAtk=worth(B.ia)-worth(B.a),sh=shares(forces);
     const lines=fightLines(B);if(count(mineLost))lines.unshift(`Champ de mines : ${unitLine(mineLost)} détruits à l’approche.`);
     if(p){const victim=p.owner;{const sv=splitSurv([p.ships,...guards.map(g=>g.ships)],B.d);p.ships={...zeroShips(),...sv[0]};for(let i=0;i<guards.length;i++){const g=guards[i];if(isEmpty(sv[i+1])){await g.ref.delete();if(g.f.cmd)await killCmd(g.owner,g.f.cmd)}else await g.ref.set({...g.f,ships:sv[i+1]})}}
-      if(guards.length)lines.push(`Renforts alliés en défense : ${[...new Set(guards.map(g=>pname(g.owner)))].join(', ')}.`);
+      if(guards.length){const own=guards.filter(g=>p&&g.owner===p.owner),al=guards.filter(g=>!p||g.owner!==p.owner);if(own.length)lines.push(`Flottes en orbite engagées en défense : ${unitLine(sumShips(own.map(g=>g.ships)))}.`);if(al.length)lines.push(`Renforts alliés en défense : ${[...new Set(al.map(g=>pname(g.owner)))].join(', ')}.`)}
       if(won&&isNpc(f.owner)&&f.conquer&&!p.capital){const sv0=G.surv[0];await ref.set({kind:'planet',pid:f.to,owner:null,garrison:sv0,pill:true});for(const x of forces)await x.ref.delete();
         reps.push({news:'conquest',newsBy:[victim],to:[victim],tone:'loss',loser:victim,title:`${tn} est tombée aux mains des ${NPC_NAME}`,lines:[...lines,'La colonie est perdue : les pillards y ont installé une garnison. Reprends-la en l’attaquant avec un vaisseau colon.'],battle:rec(B,victim,{planet:true})});return}
       let loots=forces.map(()=>({m:0,c:0,f:0}));
@@ -2810,7 +2810,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='87';
+const APP_VERSION='88';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -355,14 +355,16 @@ async function drillSwitch(pid,rk){await act(async()=>{if(!(rk in RARE))return;c
 const capOf=p=>Math.round(2500*1.6**(p.lv.store||0));
 // ---------- hangars : chaque lieu a un nombre de places limité ----------
 const PLACES={fighter:1,probe:1,cruiser:3,colony:4,battleship:8,flag:0};
-const placesOf=sh=>{let n=0;for(const k in sh||{})n+=(sh[k]||0)*(PLACES[k]||1);return n};
+const placesOf=sh=>{let n=0;for(const k in sh||{})n+=(sh[k]||0)*(PLACES[k]??1);return n}; // le vaisseau amiral ne prend pas de place
+// Hangars d'attache : une flotte en orbite d'une de tes planètes dotée de Hangars compte pour celle-ci, sinon pour sa planète d'origine
+const bayHome=(f,uid)=>{const q=f.phase==='hold'&&S.planets[f.to];return q&&q.owner===uid&&((q.lv||{}).bay||0)>=1?f.to:fleetBase(f)};
 const bayLv=p=>isBody(p.pid)?(p.lv.dock||0):(p.lv.bay||0);
 const bayCapL=(L,body)=>body?(L?Math.round(60*1.55**(L-1)):0):(L?Math.round(80*1.55**(L-1)):20);
 const bayCap=p=>bayCapL(bayLv(p),isBody(p.pid));
 const fleetBase=f=>f.home||f.from;
 function bayUse(p,uid){let n=placesOf(p.ships);for(const it of p.shipQ||[]){const done=Math.max(0,Math.min(it.n,Math.floor((Date.now()-it.start)/(it.per*1000))));n+=(it.n-done)*(PLACES[it.t]||1)}
-  for(const f of Object.values(S.fleets)){if(f.owner!==uid)continue;if(f.phase==='hold'&&S.planets[f.to]&&S.planets[f.to].owner===uid)continue; // en orbite d'une de tes planètes : hors des Hangars
-    const tr=f.phase==='out'&&f.mission==='transfer';if(tr?f.to===p.pid:fleetBase(f)===p.pid)n+=placesOf(f.ships)}return n}
+  for(const f of Object.values(S.fleets)){if(f.owner!==uid)continue;
+    const tr=f.phase==='out'&&f.mission==='transfer';if(tr?f.to===p.pid:bayHome(f,uid)===p.pid)n+=placesOf(f.ships)}return n}
 // ---------- minerais rares exigés pour les hauts niveaux de bâtiments ----------
 const bRare=(k,L)=>{const t=L+1,o={};if(t>=5)o.ir=Math.round(30*1.45**(t-5));if(t>=8)o.xe=Math.round(20*1.45**(t-8));if(t>=11)o.am=Math.round(12*1.45**(t-11));return o};
 const rareCostHtml=(r,c)=>Object.keys(c).map(k=>`<span class="${(r[k]||0)<c[k]?'no':''}" ${(r[k]||0)<c[k]?'':'style="color:#c9b6ff"'}>${fmt(c[k])} ${RARE[k].toLowerCase()}</span>`).join('');
@@ -1563,9 +1565,9 @@ function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],
   ${body&&p.lv.dock<1?'<p class="eff" style="margin:0">Sans base de flotte, les vaisseaux envoyés ici repartent vers ta capitale.</p>':''}</section>`}
 function bayHtml(p){const u=bayUse(p,ME),c=bayCap(p),pc=c?Math.min(100,u/c*100):100,over=u>c;
   return`<div class="card" style="display:grid;gap:6px"><div class="ihead"><b>Hangars</b><span class="lv" style="color:${over?'var(--bad)':u>=c?'var(--warn)':'inherit'}">${u} / ${c} places</span></div><span class="prog"><b style="width:${pc}%;${over||u>=c?'background:var(--bad)':''}"></b></span>
-  ${(()=>{const here={};for(const k of SK)if(p.ships[k]>0)here[k]=p.ships[k];const away=Object.values(S.fleets).filter(f=>f.owner===ME&&fleetBase(f)===p.pid);const orb=Object.values(S.fleets).filter(f=>f.owner===ME&&f.phase==='hold'&&f.to===p.pid&&fleetBase(f)!==p.pid);
-    return`<div class="baysplit"><div><span>Sur place</span><b>${unitShort(here)}</b></div><div><span>En mission ailleurs</span><b>${away.length?away.map(f=>`${unitShort(f.ships)} <small>(${esc(MIS[f.mission]||f.mission)} · ${esc(plName(f.phase==='back'?(f.home||f.from):f.to))}${f.phase==='back'?', retour':''})</small>`).join('<br>'):'—'}</b></div>${orb.length?`<div><span>En orbite (rattachées ailleurs)</span><b>${orb.map(f=>`${unitShort(f.ships)} <small>(de ${esc(plName(fleetBase(f)))})</small>`).join('<br>')}</b></div>`:''}</div>`})()}
-  <span class="eff">Chasseur et sonde 1 place · croiseur 3 · colon 4 · cuirassé 8. Les flottes en route gardent leur place ; celles en orbite d’une de tes planètes n’en prennent pas.${over?' <b style="color:var(--bad)">Trop de vaisseaux : production bloquée tant que tu n’agrandis pas les Hangars.</b>':''}</span></div>`}
+  ${(()=>{const here={};for(const k of SK)if(p.ships[k]>0)here[k]=p.ships[k];const away=Object.values(S.fleets).filter(f=>f.owner===ME&&fleetBase(f)===p.pid&&bayHome(f,ME)===p.pid);const orb=Object.values(S.fleets).filter(f=>f.owner===ME&&f.phase==='hold'&&f.to===p.pid&&fleetBase(f)!==p.pid);const lent=Object.values(S.fleets).filter(f=>f.owner===ME&&fleetBase(f)===p.pid&&bayHome(f,ME)!==p.pid);
+    return`<div class="baysplit"><div><span>Sur place</span><b>${unitShort(here)}</b></div><div><span>En mission ailleurs</span><b>${away.length?away.map(f=>`${unitShort(f.ships)} <small>(${esc(MIS[f.mission]||f.mission)} · ${esc(plName(f.phase==='back'?(f.home||f.from):f.to))}${f.phase==='back'?', retour':''})</small>`).join('<br>'):'—'}</b></div>${orb.length?`<div><span>En orbite ici (venues d’ailleurs)</span><b>${orb.map(f=>`${unitShort(f.ships)} <small>(de ${esc(plName(fleetBase(f)))})</small>`).join('<br>')}</b></div>`:''}${lent.length?`<div><span>Gardées ailleurs</span><b>${lent.map(f=>`${unitShort(f.ships)} <small>(en orbite de ${esc(plName(f.to))}, comptées là-bas)</small>`).join('<br>')}</b></div>`:''}</div>`})()}
+  <span class="eff">Chasseur et sonde 1 place · croiseur 3 · colon 4 · cuirassé 8. Le vaisseau amiral ne prend pas de place. Les flottes en route gardent leur place ici ; une flotte en orbite d’une autre de tes planètes équipée de Hangars compte pour celle-ci.${over?' <b style="color:var(--bad)">Trop de vaisseaux : production bloquée tant que tu n’agrandis pas les Hangars.</b>':''}</span></div>`}
 const SHIPSVG={
   fighter:'<path d="M32 6 L38 30 L56 40 L56 46 L38 42 L36 54 L42 58 L22 58 L28 54 L26 42 L8 46 L8 40 L26 30 Z" fill="url(#gS)"/><path d="M32 10 L35 28 L29 28 Z" fill="#9fd8ff"/><circle cx="32" cy="57" r="3" fill="#ffb060"/>',
   cruiser:'<path d="M32 4 L40 18 L40 34 L52 40 L52 50 L40 48 L40 56 L24 56 L24 48 L12 50 L12 40 L24 34 L24 18 Z" fill="url(#gS)"/><rect x="28" y="16" width="8" height="10" rx="2" fill="#9fd8ff"/><rect x="26" y="34" width="12" height="4" fill="#6a7896"/><circle cx="28" cy="57" r="2.5" fill="#ffb060"/><circle cx="36" cy="57" r="2.5" fill="#ffb060"/>',
@@ -1634,6 +1636,8 @@ function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[p
   if(!old&&!P.raid&&SYSTEMS[P.sys]&&SYSTEMS[P.sys].lair){const L=lairInfoAt(SYSTEMS[P.sys]);if(L&&L.pid===pid&&L.founded>it.at)old=true}
   if(!old&&P.raid){const ev=S.events[pid];if(ev&&((ev.doneAt||0)>it.at||(ev.at||0)>it.at))old=true}
   return old?'<i class="sub2" style="color:#ff9b6b">🔍 à re-espionner</i>':`<i class="sub2" style="color:#9fe0a8">🔍 espionnée ${ago(it.at)}</i>`}
+// rapports : les pertes en rouge
+const repLine=l=>esc(l).replace(/(pertes\s*:\s*)([^.—·]+)/gi,(m,a,b)=>/^aucune/i.test(b.trim())?m:`${a}<b style="color:var(--bad,#ff6b6b)">${b}</b>`);
 function intelLine(pid){const it=latestIntel(pid);if(!it)return null;return`Renseignement ${ago(it.at)} : ${it.ships?`${unitLine(it.ships)}${it.turrets?`, ${it.turrets} tourelles`:''}`:'flotte inconnue'}`}
 function planetRow(pid,joined){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type];let who,btn='';const cm=cometAt(),hv=hiveAt();
   const il=intelLine(pid),lr=lairInfoAt(SYSTEMS[m.sys]);
@@ -1710,7 +1714,7 @@ function renderCmds(){return`<h1>Commandants</h1>${cmdsHtml()}`}
 function renderQuests(){return`<section style="display:grid;gap:4px"><h1>Quêtes</h1><p class="meta" style="margin:0">Chaque quête t’apprend une mécanique du jeu et rapporte des ressources.</p></section><div class="foot" style="justify-content:flex-end"><button class="btn ghost sm" data-act="welshow">Revoir le guide du débutant</button></div>${questsHtml()}`}
 const isCombatRep=r=>!!r.battle||r.tone==='win'||r.tone==='loss';
 const questReady=()=>{const pl=S.players[ME];if(!pl)return 0;const done=pl.quests||[],st=qStats();return QUESTS.filter(q=>!done.includes(q.id)).filter(q=>{const[c,g]=q.need(st);return c>=g}).length};
-function renderLog(){const lt=S.logTab||'combat',R=S.reports.filter(r=>lt==='combat'?isCombatRep(r):!isCombatRep(r));return`<section style="display:grid;gap:10px"><h1>Journal</h1><div class="chips"><button class="chip" data-act="logt" data-t="combat" aria-pressed="${lt==='combat'}">Combats</button><button class="chip" data-act="logt" data-t="other" aria-pressed="${lt!=='combat'}">Espionnage et autres</button></div>${R.length?`<div class="list">${R.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${esc(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">${lt==='combat'?'Tes rapports de combat apparaîtront ici.':'Rapports d’espionnage, convois, constructions et nouvelles de l’univers.'}</p>`}</section>`}
+function renderLog(){const lt=S.logTab||'combat',R=S.reports.filter(r=>lt==='combat'?isCombatRep(r):!isCombatRep(r));return`<section style="display:grid;gap:10px"><h1>Journal</h1><div class="chips"><button class="chip" data-act="logt" data-t="combat" aria-pressed="${lt==='combat'}">Combats</button><button class="chip" data-act="logt" data-t="other" aria-pressed="${lt!=='combat'}">Espionnage et autres</button></div>${R.length?`<div class="list">${R.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${repLine(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}</div>`}).join('')}</div>`:`<p class="empty">${lt==='combat'?'Tes rapports de combat apparaîtront ici.':'Rapports d’espionnage, convois, constructions et nouvelles de l’univers.'}</p>`}</section>`}
 function renderNews(){const t=S.newsTab||'conquest',L=Object.values(S.events).filter(e=>e.news&&e.type===t).sort((a,b)=>b.at-a.at).slice(0,40);
   const ico=t==='conquest'?'🚩':'⚔';
   return`<section style="display:grid;gap:10px"><h1>Événements</h1><p class="meta" style="margin:0">Les dernières nouvelles de l’univers : qui s’étend, qui se bat.</p>
@@ -1984,7 +1988,7 @@ function buildLeviathan(len){const grp=new THREE.Group(),mat=new THREE.MeshBasic
   const cyl=new THREE.CylinderGeometry(.03,.034,.05,12);cyl.rotateZ(Math.PI/2);for(const z of[-.09,0,.09])add(cyl,'#45484e',-.52,.035,z);
   for(const z of[-.09,0,.09]){const sp=new THREE.Sprite(libGlow('d6e6ff',.55));sp.position.set(-.555,.035,z);sp.scale.setScalar(.09);grp.add(sp)}
   grp.scale.setScalar(len);return grp}
-function mpLevs(){if(!MP.lev)MP.lev=new Map();const want=MP.level==='universe'?[]:leviathans(MP.gal),keep=new Set();
+function mpLevs(){if(!MP.lev)MP.lev=new Map();const want=MP.level!=='galaxy'?[]:leviathans(MP.gal),keep=new Set();
   if(!MP.levMat)MP.levMat={red:new THREE.MeshBasicMaterial({color:0xff3b5c}),dark:new THREE.MeshBasicMaterial({color:0x8a1a2c}),ring:new THREE.MeshBasicMaterial({color:0xff3b5c,transparent:true,opacity:.55})};const M=MP.levMat;
   for(const r of want){keep.add(r.pid);if(MP.lev.has(r.pid))continue;const g=new THREE.Group();
     if(!r.esc){const d=new THREE.Mesh(new THREE.OctahedronGeometry(.3,0),M.red);d.scale.set(1,1.5,1);g.add(d);const e=new THREE.Mesh(new THREE.OctahedronGeometry(.31,0),new THREE.MeshBasicMaterial({color:0xffb0bc,wireframe:true,transparent:true,opacity:.5}));e.scale.set(1,1.5,1);g.add(e);
@@ -2877,7 +2881,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='93';
+const APP_VERSION='94';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

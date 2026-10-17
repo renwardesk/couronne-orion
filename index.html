@@ -731,7 +731,7 @@ function waitRow(f){const c=S.fleets[f.target];return`<div class="item hostile">
 function holdRow(f){const nx=ambushNext(f),m=PLANETS[f.to],fog=m&&inFog(m.sys);
   return`<div class="item ${nx?'hostile':''}"><div class="ihead"><b>En position · ${esc(plName(f.to))}</b><span class="lv">depuis ${fmtDur((Date.now()-(f.holdAt||Date.now()))/1000)}</span></div>${f.cmd?`<div class="eff">${cmdTag(f.owner,f.cmd)}</div>`:''}
     <div class="eff">${unitLine(f.ships)}${count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}</div>
-    <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${f.mission==='reinforce'?`🛡 En garde : ta flotte défend ${esc(plName(f.to))} avec ${S.planets[f.to]&&S.planets[f.to].owner?esc(pname(S.planets[f.to].owner)):'son propriétaire'} et ses troupes. Pas d’embuscade possible ici.`:nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:S.planets[f.to]&&S.planets[f.to].owner?'Planète habitée : pas d’embuscade possible ici.':'Zone calme : aucun Écumeur actif dans ce système.'}</div>
+    <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${f.mission==='reinforce'?`🛡 En garde : ta flotte défend ${esc(plName(f.to))} avec ${S.planets[f.to]&&S.planets[f.to].owner?esc(pname(S.planets[f.to].owner)):'son propriétaire'} et ses troupes. Pas d’embuscade possible ici.`:nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:S.planets[f.to]&&S.planets[f.to].owner===f.owner?`🛡 En orbite de ta planète : elle la défend si elle est attaquée. Flotte rattachée à ${esc(plName(f.home||f.from))}, hors des Hangars.`:S.planets[f.to]&&S.planets[f.to].owner?'Planète habitée : pas d’embuscade possible ici.':'Zone calme : aucun Écumeur actif dans ce système.'}</div>
     <div class="foot"><span class="eff">Retour en ${fmtDur(etaOf(f.to,f.home||f.from,f.ships))}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost sm" data-act="fhome" data-f="${f.fid}">Rentrer (gratuit)</button><button class="btn sm" data-act="fretask" data-f="${f.fid}">Nouvelle mission</button></div></div></div>`}
 async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');if(M.mission==='spy'&&count(ships)!==(ships.probe||0))throw err('Une mission d’espionnage n’emporte que des sondes.');if(M.mission==='reinforce'&&!activeBattle(M.to)&&!(S.planets[M.to]&&S.planets[M.to].owner&&S.planets[M.to].owner!==ME))throw err('Le renfort se fait vers la planète d’un autre joueur.');if(M.mission==='intercept'){const c=S.fleets[M.intercept];if(!c||c.phase!=='out')throw err('Cette cible est déjà arrivée.');if(c.owner===ME)throw err('Tu ne peux pas intercepter ta propre flotte.');if(c.mission!=='attack'&&Date.now()+etaOf(M.from,M.to,ships)*1000>c.arrive-5000)throw err('Trop lent : ta flotte arriverait après le convoi.')}
@@ -1156,8 +1156,8 @@ async function spyIncoming(fid){await act(async()=>{const f=S.fleets[fid];if(!f|
   await locked('planets/'+f.to,async(d,ref)=>{if(!d||d.owner!==ME)return;const p=settle(d,Date.now());p.ships.probe=Math.max(0,(p.ships.probe||0)-1);await ref.set(p)});
   sfx.done();toast('Espionnage réussi : composition révélée (1 sonde perdue).')})}
 // flottes alliées en garde sur une planète : elles défendent avec le propriétaire
-async function gatherGuards(pid,attacker){const out=[];for(const g of Object.values(S.fleets)){if(g.phase!=='hold'||g.mission!=='reinforce'||g.to!==pid||g.owner===attacker)continue;
-  try{await locked('fleets/'+g.fid,async(gd,gref)=>{if(gd&&gd.phase==='hold'&&gd.mission==='reinforce'&&gd.to===pid)out.push({f:gd,ref:gref,owner:gd.owner,ships:gd.ships})})}catch(e){}}return out}
+async function gatherGuards(pid,attacker){const out=[];for(const g of Object.values(S.fleets)){const own=(S.planets[pid]||{}).owner;if(g.phase!=='hold'||(g.mission!=='reinforce'&&g.owner!==own)||g.to!==pid||g.owner===attacker)continue;
+  try{await locked('fleets/'+g.fid,async(gd,gref)=>{if(gd&&gd.phase==='hold'&&(gd.mission==='reinforce'||gd.owner===own)&&gd.to===pid)out.push({f:gd,ref:gref,owner:gd.owner,ships:gd.ships})})}catch(e){}}return out}
 function guardsHtml(pid){const G=Object.values(S.fleets).filter(g=>g.phase==='hold'&&g.mission==='reinforce'&&g.to===pid&&g.owner!==ME);if(!G.length)return'';
   return`<div class="card" style="display:grid;gap:4px;border-color:var(--good)"><b style="color:var(--good)">🛡 Flottes alliées en garde</b>${G.map(g=>`<span class="eff">${esc(pname(g.owner))} · ${unitLine(g.ships)}</span>`).join('')}<span class="eff" style="font-size:12px">Elles combattent à tes côtés si tu es attaqué.</span></div>`}
 function threatsHtml(pid){const L=Object.values(S.fleets).filter(f=>isNpc(f.owner)&&f.phase==='out'&&f.to===pid);if(!L.length)return'';
@@ -1388,7 +1388,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const lrH=!body&&lairInfoAt(SYSTEMS[meta.sys]);if(f.mission==='colonize'&&lrH&&lrH.pid===f.to){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Repaire des Écumeurs sur ${tn}`,lines:['Les Écumeurs ont colonisé cette planète. Détruis leur repaire avant de t’y installer.']});return}
     if(f.mission==='colonize'){
       if(!p&&isEmpty(gar)&&limitOk){if(!(await cultureOk())){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Pas d’emplacement libre pour ${tn}`,lines:[`Tes ${slotsOf(f.owner)} emplacements de planètes sont occupés. Débloque-en un autre avec ta culture (flèche à côté de la barre de culture, en haut).`]});return}
-        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner);const s={...f.ships};s.colony--;addShips(n.ships,s);await ref.set(n);await fref.delete();reps.push({news:'conquest',to:[f.owner],tone:'win',title:body?`Avant-poste installé : ${tn}`:`Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
+        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner);const s={...f.ships};s.colony--;await ref.set(n);await holdAt(f,fref,s,f.cargo);reps.push({news:'conquest',to:[f.owner],tone:'win',title:body?`Avant-poste installé : ${tn}`:`Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
       if(!limitOk||(p&&p.owner===f.owner)||(p&&p.capital)){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Installation impossible sur ${tn}`,lines:[p&&p.capital?'On ne peut pas annexer une capitale.':p?'La cible est déjà occupée.':limTxt]});return}
       // gardée par des pirates ou tenue par un ennemi : il faut gagner la bataille, le colon s'installe ensuite
     }
@@ -1409,7 +1409,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(won&&!body){loots=splitLoot({m:p.res.m/2,c:p.res.c/2,f:p.res.f/2},G.surv);const t=sumLoot(loots);for(const k in RES)p.res[k]-=t[k]}
       await award([...forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})),{uid:victim,v:killedAtk}]);
       lines.push(`Points de combat : ${Math.round(killedDef)} pour l’attaque, ${Math.round(killedAtk)} pour la défense.`);
-      if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=A;addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await fref.delete();
+      if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=zeroShips();addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await holdAt(f,fref,A,{m:0,c:0,f:0}); // l'escorte reste en orbite, rattachée à sa planète d'origine
         for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
         reps.push({news:'conquest',to:[...atkUids,victim],tone:'win',loser:victim,title:`${tn} annexé${body?'':'e'} par ${pname(f.owner)}`,lines,battle:rec(B,victim,{planet:true})});return}
       await ref.set(p);await finish(G.surv,loots);
@@ -1417,7 +1417,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     // cible neutre (pirates)
     const frac=killedDef/(worth(B.id)||1),loots=splitLoot(Object.fromEntries(Object.entries(treasureOf(B.id)).map(([k,v])=>[k,v*frac])),G.surv);
     await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})));lines.push(`Butin : ${lootTxt(sumLoot(loots))} · ${Math.round(killedDef)} points de combat.`);
-    if(won&&G.surv[0].colony>0&&limitOk&&await cultureOk()){if(body)await settleRare(f.owner);const A=G.surv[0];A.colony--;const n=colonyPlanet(f.to,f.owner);addShips(n.ships,A);if(!body)addRes(n.res,loots[0]);await ref.set(n);await fref.delete();
+    if(won&&G.surv[0].colony>0&&limitOk&&await cultureOk()){if(body)await settleRare(f.owner);const A=G.surv[0];A.colony--;const n=colonyPlanet(f.to,f.owner);if(!body)addRes(n.res,loots[0]);await ref.set(n);await holdAt(f,fref,A,{m:0,c:0,f:0});
       for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
       reps.push({news:'conquest',to:atkUids,tone:'win',title:`${tn} libéré${body?'':'e'} et ${body?'équipé d’un avant-poste':'colonisée'}`,lines,battle:rec(B,'pirates',{planet:!body})});return}
     await ref.set({kind:'planet',pid:f.to,owner:null,garrison:won?{}:B.d});await finish(G.surv,loots);
@@ -2810,7 +2810,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='86';
+const APP_VERSION='87';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

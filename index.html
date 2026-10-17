@@ -1139,9 +1139,11 @@ function mpMiniComet(i){const c=miniComet(i);if(!c||!sysVisible(i))return;const 
   o.mesh.add(g)}
 // ---------- difficulté d'espionnage (seulement contre les PNJ : les joueurs, il faut tester) ----------
 const SPYLV=[['néant','var(--good)'],['faible','var(--good)'],['moyen','var(--warn)'],['difficile','var(--bad)']];
+// sondes nécessaires contre les Écumeurs d'élite : leurs éclaireurs abattent les petites missions
+const raidSpyNeed=pid=>{const R=RAIDS[pid];if(!R)return 1;return R.boss?12:R.mid&&!R.esc?9:!R.local?6:R.esc?(R.big?5:4):R.lair?4:1};
 function spyNeedPid(pid){const m=PLANETS[pid];if(!m)return null;const raw=S.planets[pid];
   if(raw&&raw.owner&&!isNpc(raw.owner))return null; // un autre joueur : inconnu
-  if(m.raid)return{lv:0,n:1};
+  if(m.raid){const n=raidSpyNeed(pid);return{lv:n<=1?0:n<=3?1:n<=6?2:3,n}}
   const v=view(pid),dp=raw&&raw.owner?(v.ships&&v.ships.probe||0):0,str=raw&&raw.owner?((v.lv&&v.lv.def||0)*4+count(v.ships||{})*.3+((v.lv&&v.lv.cspy)||0)*10):count(v.garrison||{})*.3;
   if(str<=0&&!dp)return{lv:0,n:1};const n=Math.max(dp+1,Math.ceil(str*.94)),lv=n<=2?1:n<=8?2:3;return{lv,n}}
 function spyNeedF(f){if(!f||!isNpc(f.owner))return null;const n=pillSpyNeed(f);return{lv:n<=4?1:n<=10?2:3,n}}
@@ -1446,9 +1448,10 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     await locked('events/'+f.to,async(ev,eref)=>{const nw=Date.now(),fresh=!ev||(R.lair?!!ev.done:(R.local&&((ev.done&&nw-(ev.doneAt||0)>RESPAWN)||(!ev.done&&nw-(ev.at||0)>RESPAWN))));
       if(fresh){const L=R.lair?lairInfoAt(s0,nw):null;ev={kind:'event',id:f.to,remaining:raidGarrison(f.to,R.lair?null:ev,nw),...(L?{founded:L.founded}:{})}}
       if(!ev.remaining)ev.remaining=raidGarrison(f.to,null,nw);if(ev.done||isEmpty(ev.remaining)){gone=true;return}
-      if(f.mission==='spy'){spy=ev.remaining;return}
+      if(f.mission==='spy'){if((f.ships.probe||0)<raidSpyNeed(f.to)){spy='fail';return}spy=ev.remaining;return}
       CMDCTX.vs='raid';G=groupFight(forces,ev.remaining,raidMods(f.to));CMDCTX.vs=null;val=worth(ev.remaining)-worth(G.B.d);frac=val/(worth(R.ships)||1);ev.remaining=G.B.d;ev.at=Date.now();if(isEmpty(G.B.d)){ev.done=true;ev.doneAt=Date.now()}await eref.set(ev)});
     if(gone){await finish(forces.map(x=>x.ships));reps.push({to:atkUids,tone:'info',title:`${tn} : groupe déjà dispersé`,lines:[R.local?'D’autres capitaines sont passés avant toi. Ils reviendront bientôt.':'D’autres capitaines sont passés avant toi.']});for(const r of reps)await report(r);return}
+    if(spy==='fail'){const need=raidSpyNeed(f.to),lost=Math.ceil((f.ships.probe||0)*.7),left={...f.ships,probe:(f.ships.probe||0)-lost};if(left.probe>0)await goBack(f,fref,left,f.cargo);else await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage raté : ${tn}`,lines:[`Les éclaireurs des Écumeurs ont repéré tes sondes : ${lost} détruite${lost>1?'s':''}.`,`Il faut au moins ${need} sondes pour percer leur écran.`]});for(const r of reps)await report(r);return}
     if(spy){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[`Flotte : ${unitLine(spy)}.`,`Butin estimé si anéantis : ${lootTxt(R.treasure)} et ${R.frag} Éclats du Vide.`],intel:{pid:f.to,at:f.arrive,owner:null,ships:spy,turrets:0}});for(const r of reps)await report(r);return}
     const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv,shares(forces)),frag=Math.round(R.frag*frac),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
@@ -2987,7 +2990,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='109';
+const APP_VERSION='110';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

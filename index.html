@@ -143,6 +143,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .mccard{display:grid;gap:6px;border-color:#5fb8d6;background:linear-gradient(180deg,rgba(127,208,255,.08),transparent 60%)}.mccard .ihead b{color:#8fe6ff}
 .winp{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;font-size:13px}.winp>span:first-child{color:var(--dim)}.winp>b{color:var(--c);font-size:17px;font-variant-numeric:tabular-nums}.winp .prog{height:6px}
 .spyh{display:block;font-size:12px;color:var(--dim);margin-top:2px}
+.tipcard{display:grid;gap:6px;border-color:color-mix(in srgb,var(--brass,#e3ac55) 60%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--brass,#e3ac55) 9%,transparent),transparent 70%)}.tipcard .ihead b{color:var(--brass,#e3ac55)}
 .atkcard{display:grid;gap:6px;border-color:var(--bad);background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 8%,transparent),transparent 60%)}.atkrow{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:baseline;font-size:13px;padding-left:8px;border-left:3px solid var(--c)}.atkrow span{color:var(--dim);font-size:12px}.atkrow b{color:var(--c);font-weight:600}
 .bgrp{display:grid;gap:8px}.bgh{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gc)}.bgh::after{content:'';flex:1;height:1px;background:color-mix(in srgb,var(--gc) 35%,transparent)}.bgrp>.item{border-left:3px solid var(--gc);background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 7%,transparent),transparent 40%)}
 .v3atk{position:absolute;top:10px;left:10px;z-index:3;width:44px;height:44px;border-radius:50%;border:2px solid #ff3b4a;background:rgba(40,4,10,.75);color:#ff3b4a;font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;animation:v3atk 1s ease-in-out infinite}.v3atk[hidden]{display:none}@keyframes v3atk{0%,100%{opacity:1;box-shadow:0 0 14px #ff3b4a}50%{opacity:.25;box-shadow:0 0 0 #ff3b4a}}
@@ -180,6 +181,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 #btc{display:block;width:100%;height:100%;touch-action:none}
 .bthud{position:absolute;left:0;right:0;top:0;padding:calc(12px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 18px max(14px,env(safe-area-inset-left,0px));display:grid;gap:6px;background:linear-gradient(#04060fe6,#04060f00);pointer-events:none}
 #bttitle{font-family:var(--f-display);font-size:18px;font-weight:600;letter-spacing:.02em}
+.btd{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;margin:0 3px 0 4px;vertical-align:-1px}
 .btforces{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--f-data);font-size:11.5px;color:var(--dim)}
 .btbtns{display:flex;gap:8px;pointer-events:auto}
 .btbtns .tgl{background:color-mix(in srgb,var(--void) 70%,transparent);padding:6px 12px;font-size:12px}
@@ -700,7 +702,8 @@ async function holdAt(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref
   if(f.cmd&&(f.ships||{}).flag&&!(ships||{}).flag){await killCmd(f.owner,f.cmd);f={...f,cmd:null}}
   await fref.set({...f,...extra,ships,cargo,phase:'hold',holdAt:f.arrive,lastAmb:f.arrive,amb:0,home:f.home||f.from,group:null})}
 function sysPacksAlive(si){const s=SYSTEMS[si];if(!s)return[];return[s.lair,...(s.packs||[])].filter(pid=>{const st=raidState(pid);return!st.done&&!st.absent&&worth(st.garrison)>0})}
-function ambushNext(f){const m=PLANETS[f.to];if(!m||!sysPacksAlive(m.sys).length)return null;return(f.lastAmb||f.holdAt||Date.now())+(inFog(m.sys)?AMB_INT_FOG:AMB_INT)*cmdAmb(f.owner,f.cmd)}
+function ambushNext(f){const m=PLANETS[f.to];if(!m||!sysPacksAlive(m.sys).length)return null;if(f.mission==='reinforce'||(S.planets[f.to]&&S.planets[f.to].owner))return null; // en orbite d'une planète habitée : la flotte défend avec elle
+  return(f.lastAmb||f.holdAt||Date.now())+(inFog(m.sys)?AMB_INT_FOG:AMB_INT)*cmdAmb(f.owner,f.cmd)}
 async function ambush(f,fref){const si=PLANETS[f.to].sys,alive=sysPacksAlive(si),now=Date.now();if(!alive.length){await fref.set({...f,lastAmb:now});return}
   const n=(f.amb||0)+1,chance=Math.min(.9,.35+.15*Math.floor((now-(f.holdAt||now))/AMB_INT)),roll=(hash(f.fid+':'+n)%1000)/1000;
   if(roll>chance){await fref.set({...f,lastAmb:now,amb:n});return}
@@ -722,7 +725,7 @@ function waitRow(f){const c=S.fleets[f.target];return`<div class="item hostile">
 function holdRow(f){const nx=ambushNext(f),m=PLANETS[f.to],fog=m&&inFog(m.sys);
   return`<div class="item ${nx?'hostile':''}"><div class="ihead"><b>En position · ${esc(plName(f.to))}</b><span class="lv">depuis ${fmtDur((Date.now()-(f.holdAt||Date.now()))/1000)}</span></div>${f.cmd?`<div class="eff">${cmdTag(f.owner,f.cmd)}</div>`:''}
     <div class="eff">${unitLine(f.ships)}${count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}</div>
-    <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:'Zone calme : aucun Écumeur actif dans ce système.'}</div>
+    <div class="eff" style="color:${nx?'var(--warn)':'var(--good)'}">${f.mission==='reinforce'?`🛡 En garde : ta flotte défend ${esc(plName(f.to))} avec ${S.planets[f.to]&&S.planets[f.to].owner?esc(pname(S.planets[f.to].owner)):'son propriétaire'} et ses troupes. Pas d’embuscade possible ici.`:nx?`Écumeurs dans la zone : risque d’embuscade${fog?' élevé (brouillard)':''} · prochain contrôle dans <span class="cd" data-cd="${nx}"></span>`:S.planets[f.to]&&S.planets[f.to].owner?'Planète habitée : pas d’embuscade possible ici.':'Zone calme : aucun Écumeur actif dans ce système.'}</div>
     <div class="foot"><span class="eff">Retour en ${fmtDur(etaOf(f.to,f.home||f.from,f.ships))}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost sm" data-act="fhome" data-f="${f.fid}">Rentrer (gratuit)</button><button class="btn sm" data-act="fretask" data-f="${f.fid}">Nouvelle mission</button></div></div></div>`}
 async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');if(M.mission==='spy'&&count(ships)!==(ships.probe||0))throw err('Une mission d’espionnage n’emporte que des sondes.');if(M.mission==='reinforce'&&!activeBattle(M.to)&&!(S.planets[M.to]&&S.planets[M.to].owner&&S.planets[M.to].owner!==ME))throw err('Le renfort se fait vers la planète d’un autre joueur.');if(M.mission==='intercept'){const c=S.fleets[M.intercept];if(!c||c.phase!=='out')throw err('Cette cible est déjà arrivée.');if(c.owner===ME)throw err('Tu ne peux pas intercepter ta propre flotte.');if(c.mission!=='attack'&&Date.now()+etaOf(M.from,M.to,ships)*1000>c.arrive-5000)throw err('Trop lent : ta flotte arriverait après le convoi.')}
@@ -1491,7 +1494,7 @@ function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
 function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],T=PTYPES[m.type],body=isBody(p.pid);
   const bonus=body?`extraction de ${RARE[rkOf(p)].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
   const bq=p.bq||[],full=bq.length>=BQ_MAX,qn=k=>bq.filter(x=>x.k===k).length,has3d=V3.on&&V3.ok,B=body?BUILD_OUT:(NOTECH?Object.fromEntries(Object.entries(BUILD).filter(([k])=>k!=='acad'&&k!=='arsenal')):BUILD),cap=body?view(capitalOf(ME).pid):null,payer=body?cap.res:p.res;
-  return`${welcomeHtml()}${attackCards(S.sel)}${miniCometCards()}${questCard()}${(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
+  return`${welcomeHtml()}${attackCards(S.sel)}${miniCometCards()}${tipsHtml(S.planets[S.sel])}${questCard()}${(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
     <div style="min-width:0;flex:1"><h1>${esc(m.name)}${p.capital?'<span class="badge">Capitale</span>':body?'<span class="badge">Avant-poste</span>':''}</h1><p class="meta">${T.n} (${bonus}) · ${esc(sys.name)} · ${esc(GALS[sys.gal].name)}</p></div>
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/${BQ_MAX}</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span class="cd" data-cd="${it.until}"></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
@@ -1945,6 +1948,7 @@ document.addEventListener('click',e=>{
   else if(a==='freechest')claimFree();
   else if(a==='ins2t')insToChestT(b.dataset.t);
   else if(a==='onl'){S.onlOpen=!S.onlOpen;render()}
+  else if(a==='tipx'){try{localStorage.setItem('orion-tip-'+b.dataset.k+'-'+ME,'1')}catch(e){}S.tipx={...(S.tipx||{}),[b.dataset.k]:1};render()}
   else if(a==='mppopx'){S.pickP=null;render()}
   else if(a==='mmis'){S.modal.mission=b.dataset.m;renderModal()}
   else if(a==='mq'){const t=b.dataset.t,have=view(S.modal.from).ships[t]||0;S.modal.ships[t]=b.dataset.d==='max'?have:Math.max(0,Math.min(have,S.modal.ships[t]+Number(b.dataset.d)));renderModal()}
@@ -2539,7 +2543,7 @@ function btBuild(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(
     else{m=buildShip(k,paint,lo&&lo[k]);m.scale.setScalar(BTSC[k]);for(const s of m.userData.spins)BT.fx.push({spin:s})}
     const dir=side==='a'?1:-1,row=k==='turret'?(BT.planet?20:10):BTROW[k],col=idx%4,lay=Math.floor(idx/4);
     m.position.set(-dir*row-dir*lay*1.6+(Math.random()-.5)*.6,(lay%2?1.4:-.6)+(col%2)*.8-(k==='battleship'?.5:0),(col-1.5)*(k==='battleship'?4.2:k==='cruiser'?3.2:2.4)+(Math.random()-.5)*.5);
-    if(side==='d')m.rotation.y=Math.PI;m.userData.base=m.position.clone();m.userData.ph=Math.random()*6;g.add(m);BT.units.push({m,k,side,uid,alive:true,paint})};
+    if(side==='d')m.rotation.y=Math.PI;m.userData.base=m.position.clone();m.userData.ph=Math.random()*6;g.add(m);const dot=new THREE.Sprite(new THREE.SpriteMaterial({map:btDotTex(side==='a'?btCol(uid):(defUid?btCol(defUid):D.def==='hive'?'#b98cff':'#ff5a5a')),depthWrite:false,transparent:true}));dot.material.userData.shared=true;dot.scale.setScalar(k==='battleship'||k==='flag'?.7:.45);g.add(dot);BT.units.push({m,k,side,uid,alive:true,paint,dot})};
   const atkOwners=k=>{const by={};for(const a of D.att)if(a.ships[k]>0)by[a.uid]=(by[a.uid]||0)+a.ships[k];return Object.entries(by).map(([uid,n])=>({uid,n}))};
   for(const k of Object.keys(D.ia)){const tot=D.ia[k];if(!tot)continue;const shown=Math.min(tot,BTCAP[k]||4);let idx=0;for(const o of btAlloc(tot,shown,atkOwners(k)))for(let i=0;i<o.m;i++)add('a',k,o.uid,paintOf(o.uid),loadoutOf(S.players[o.uid]),idx++,tot)}
   for(const k of Object.keys(D.id)){const tot=D.id[k];if(!tot)continue;const shown=Math.min(tot,BTCAP[k]||4);for(let i=0;i<shown;i++)add('d',k,defUid,defPaint,defLo,i,tot)}
@@ -2547,7 +2551,8 @@ function btBuild(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(
 function btCounts(i){const D=BT.rep.battle;return i<0?{a:D.ia,d:D.id}:D.rounds[Math.min(i,D.rounds.length-1)]||{a:D.ia,d:D.id}}
 function btHud(i){const D=BT.rep.battle,c=btCounts(i),R=D.rounds.length;const end=i>=R-1;const aw=isEmpty(c.d)&&!isEmpty(c.a);
   document.getElementById('btround').textContent=i<0?'Engagement…':end?(aw?' · Victoire de l’attaque':isEmpty(c.a)?' · L’attaque est anéantie':' · La défense tient'):` · Manche ${i+1}/${R}`;
-  document.getElementById('btforces').innerHTML=`<span><b style="color:var(--good)">Attaque</b> ${esc(unitLine(c.a))}</span><span><b style="color:var(--bad)">Défense</b> ${esc(unitLine(c.d))}</span>`}
+  const dotL=uids=>[...new Set(uids)].map(u=>`<i class="btd" style="background:${esc(btCol(u))}"></i>${esc(isNpc(u)?NPC_NAME:S.players[u]?pname(u):'')}`).join(' ');
+  document.getElementById('btforces').innerHTML=`<span><b style="color:var(--good)">Attaque</b> ${dotL((D.att||[]).map(x=>x.uid))} · ${esc(unitLine(c.a))}</span><span><b style="color:var(--bad)">Défense</b> ${S.players[D.def]?dotL([D.def]):`<i class="btd" style="background:${D.def==='hive'?'#b98cff':'#ff5a5a'}"></i>${D.def==='hive'?'La Ruche':D.def==='raid'?'Écumeurs':'Pirates'}`} · ${esc(unitLine(c.d))}</span>`}
 function btBoom(pos,big){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:0xffa040,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.position.copy(pos);BT.g.add(s);
   const n=24,pg=new THREE.BufferGeometry(),pp=new Float32Array(n*3),vel=[];for(let i=0;i<n;i++){pp.set([pos.x,pos.y,pos.z],i*3);vel.push(new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(2+Math.random()*4))}
   pg.setAttribute('position',new THREE.BufferAttribute(pp,3));const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xffc070,size:.25,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));BT.g.add(pts);
@@ -2556,20 +2561,50 @@ function btBeam(a,b,col){const geo=new THREE.BufferGeometry().setFromPoints([a,b
   const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(b);fl.scale.setScalar(1.2);BT.g.add(fl);BT.fx.push({beam:l,flash:fl,t:0});
   const now=performance.now();if(now-BT.lastBeep>110){BT.lastBeep=now;tone(col===0xff5a5a?520:900,.08,{type:'sawtooth',vol:.025,slide:.5})}}
 const btShooter=u=>u.alive&&u.k!=='colony'&&u.k!=='probe';
+// ---------- conseils contextuels sur la page Base ----------
+const tipOff=k=>{try{return localStorage.getItem('orion-tip-'+k+'-'+ME)==='1'}catch(e){return!!(S.tipx&&S.tipx[k])}};
+function tipsHtml(p){if(!S.players[ME]||!p||p.owner!==ME||isBody(p.pid))return'';const out=[];
+  if(!tipOff('ir')&&outpostsOf(ME)===0&&Object.keys(BUILD).some(k=>!(NOTECH&&(k==='acad'||k==='arsenal'))&&Object.keys(bRare(k,p.lv[k]||0)).length))
+    out.push(['ir','🛰 Il te faut de l’iridium','Tes prochains niveaux de bâtiments demandent des minerais rares (iridium, puis xénite et antimatière). Ils ne se trouvent que sur les satellites : lunes, astéroïdes et anomalies. Construis un vaisseau colon (Chantier spatial niv. 3), envoie-le sur un satellite libre en mission « Avant-poste », puis choisis son extracteur.','galaxy','Ouvrir la carte']);
+  const pl=S.players[ME],cap=capitalOf(ME);
+  if(!tipOff('col')&&planetsOf(ME)===1&&slotsOf(ME)>=2&&((cap&&(cap.lv.yard||0)>=2)||Date.now()-(pl.joined||Date.now())>4*HR))
+    out.push(['col','🪐 Il est temps de conquérir une deuxième planète','Construis un vaisseau colon (Chantier spatial niv. 3, onglet Chantier), puis envoie-le sur une planète vierge (orbite libre, sans pirates) avec la mission « Coloniser ». Ta deuxième planète est déjà débloquée.','yard','Ouvrir le Chantier']);
+  return out.map(([k,t,d,tab,lbl])=>`<div class="card tipcard"><div class="ihead"><b>${t}</b><button class="mppx" data-act="tipx" data-k="${k}" aria-label="Masquer ce conseil">✕</button></div><span class="eff">${d}</span><div class="mpacts"><button class="btn sm" data-act="tab" data-t="${tab}">${lbl}</button></div></div>`).join('')}
+// ---------- rejeu des batailles : pastilles de couleur et tirs différents selon le vaisseau ----------
+const BTDOT={};function btDotTex(col){if(BTDOT[col])return BTDOT[col];return BTDOT[col]=canvasTex(64,64,(x,W)=>{x.beginPath();x.arc(32,32,20,0,Math.PI*2);x.fillStyle=col;x.fill();x.lineWidth=6;x.strokeStyle='rgba(255,255,255,.9)';x.stroke()})}
+const btCol=uid=>uid&&S.players[uid]?pcolor(uid):isNpc(uid)?NPC_COL:'#ff5a5a';
+function btProj(a,b,col,o){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.scale.setScalar(o.size);s.position.copy(a);BT.g.add(s);
+  const trail=o.trail?new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.5})):null;if(trail){trail.scale.setScalar(o.size*.7);BT.g.add(trail)}
+  BT.fx.push({proj:s,trail,a:a.clone(),b:b.clone(),t:0,dur:o.dur,arc:o.arc||0,col})}
+function btHeavy(a,b,col,w){const d=b.clone().sub(a),len=d.length(),m=new THREE.Mesh(new THREE.CylinderGeometry(w,w,len,8,1,true),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+  m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());BT.g.add(m);
+  const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(b);fl.scale.setScalar(2.4);BT.g.add(fl);BT.fx.push({heavy:m,flash:fl,t:0,dur:.45})}
+function btShot(s,tg,col){const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));
+  if(s.k==='fighter'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2,col,{size:.45,dur:.28})},i*90);return}
+  if(s.k==='cruiser'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1.clone().add(new THREE.Vector3(0,(i-.5)*.6,0)),p2,0xffb060,{size:.6,dur:.75,arc:1.6*(i?1:-1),trail:true})},i*140);return}
+  if(s.k==='battleship'){btHeavy(p1,p2,col,.09);return}
+  if(s.k==='flag'){btHeavy(p1,p2,0xffd27a,.14);return}
+  if(s.k==='turret'){for(let i=0;i<3;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2.clone().add(new THREE.Vector3(0,(Math.random()-.5),0)),0xff7050,{size:.35,dur:.22})},i*60);return}
+  btBeam(p1,p2,col)}
+function btFxStep(f,dt){if(f.proj){const k=Math.min(1,f.t/f.dur),p=f.a.clone().lerp(f.b,k);p.y+=Math.sin(k*Math.PI)*f.arc;f.proj.position.copy(p);if(f.trail){const k2=Math.max(0,k-.08),q=f.a.clone().lerp(f.b,k2);q.y+=Math.sin(k2*Math.PI)*f.arc;f.trail.position.copy(q)}
+    if(k>=1){BT.g.remove(f.proj);f.proj.material.dispose();if(f.trail){BT.g.remove(f.trail);f.trail.material.dispose()}const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:f.col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(f.b);fl.scale.setScalar(f.arc?1.6:.9);BT.g.add(fl);BT.fx.push({beam:null,flash:fl,t:0,flashOnly:true});return false}return true}
+  if(f.heavy){const o=Math.max(0,1-f.t/f.dur);f.heavy.material.opacity=.9*o;f.heavy.scale.x=f.heavy.scale.z=1+Math.sin(f.t*40)*.25;f.flash.material.opacity=o;if(f.t>f.dur){BT.g.remove(f.heavy);BT.g.remove(f.flash);f.heavy.geometry.dispose();f.heavy.material.dispose();f.flash.material.dispose();return false}return true}
+  if(f.flashOnly){const o=Math.max(0,1-f.t/.2);f.flash.material.opacity=o;if(f.t>.2){BT.g.remove(f.flash);f.flash.material.dispose();return false}return true}
+  return null}
 function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const dt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;const D=BT.rep.battle,R=D.rounds.length,e=(t-BT.t0)/1000-1.2;
   if(!BT.drag)BT.yaw+=dt*.06;BT.cam.position.set(Math.sin(BT.yaw)*34,11,Math.cos(BT.yaw)*34);BT.cam.lookAt(2,0,0);
-  for(const u of BT.units)if(u.alive){const b=u.m.userData.base;u.m.position.y=b.y+Math.sin(t/700+u.m.userData.ph)*.25;if(u.k!=='turret')u.m.position.x=b.x+(u.side==='a'?1:-1)*Math.min(3,Math.max(0,e)*.4)}
+  for(const u of BT.units){if(u.dot){u.dot.visible=u.alive;if(u.alive)u.dot.position.set(u.m.position.x,u.m.position.y+(u.k==='battleship'||u.k==='flag'?2.2:1.4),u.m.position.z)}if(u.alive){const b=u.m.userData.base;u.m.position.y=b.y+Math.sin(t/700+u.m.userData.ph)*.25;if(u.k!=='turret')u.m.position.x=b.x+(u.side==='a'?1:-1)*Math.min(3,Math.max(0,e)*.4)}}
   const ri=e<0?-1:Math.floor(e/RD);
   if(ri>=0&&ri<R){const u=e-ri*RD;
     if(u<2.3){const A=BT.units.filter(x=>x.side==='a'&&btShooter(x)),Dd=BT.units.filter(x=>x.side==='d'&&btShooter(x)),ta=BT.units.filter(x=>x.side==='d'&&x.alive),tdd=BT.units.filter(x=>x.side==='a'&&x.alive);
       const rate=Math.min(26,(A.length+Dd.length)*1.1);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)],tg=T1[Math.floor(Math.random()*T1.length)];
-        const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btBeam(p1,p2,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}
+        const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btShot(s,tg,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}
     else if(BT.done<ri){BT.done=ri;const before=btCounts(ri-1),after=D.rounds[ri];
       for(const side of['a','d'])for(const k of Object.keys(side==='a'?D.ia:D.id)){const init=(side==='a'?D.ia:D.id)[k]||0,aft=(after[side][k]||0);const units=BT.units.filter(x=>x.side===side&&x.k===k),alive=units.filter(x=>x.alive);const want=aft>0?Math.max(1,Math.round(units.length*aft/init)):0;
         let kill=alive.length-want;alive.sort(()=>Math.random()-.5);for(const x of alive){if(kill<=0)break;x.alive=false;kill--;const pos=x.m.position.clone();setTimeout(()=>{x.m.visible=false},120+Math.random()*500);btBoom(pos,x.k==='battleship'||x.k==='cruiser')}}
       btHud(ri)}}
   else if(ri>=R&&BT.done<R){BT.done=R;btHud(R-1)}
-  BT.fx=BT.fx.filter(f=>{if(f.spin){f.spin.o.rotation[f.spin.ax]+=dt*f.spin.sp;return true}f.t+=dt;
+  BT.fx=BT.fx.filter(f=>{if(f.spin){f.spin.o.rotation[f.spin.ax]+=dt*f.spin.sp;return true}f.t+=dt;{const r=btFxStep(f,dt);if(r!==null)return r}
     if(f.beam){f.beam.material.opacity=Math.max(0,1-f.t/.22);f.flash.material.opacity=f.beam.material.opacity;if(f.t>.22){BT.g.remove(f.beam);BT.g.remove(f.flash);f.beam.geometry.dispose();f.beam.material.dispose();f.flash.material.dispose();return false}return true}
     if(f.boom){const q=f.t/(f.big?1:.7);f.boom.scale.setScalar((f.big?7:4.5)*Math.min(1,q*2.2));f.boom.material.opacity=Math.max(0,1-q);const a=f.pts.geometry.attributes.position;for(let i=0;i<f.vel.length;i++){a.array[i*3]+=f.vel[i].x*dt;a.array[i*3+1]+=f.vel[i].y*dt;a.array[i*3+2]+=f.vel[i].z*dt}a.needsUpdate=true;f.pts.material.opacity=Math.max(0,1-f.t/1.4);
       if(f.t>1.4){BT.g.remove(f.boom);BT.g.remove(f.pts);f.boom.material.dispose();f.pts.geometry.dispose();f.pts.material.dispose();return false}return true}return false});
@@ -2673,7 +2708,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='75';
+const APP_VERSION='76';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

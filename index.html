@@ -139,6 +139,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 #v3c{display:block;width:100%;height:clamp(300px,92vw,480px);touch-action:pan-y;cursor:grab}
 .freech{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px dashed color-mix(in srgb,#c98a54 55%,transparent);border-radius:10px}.insx{display:grid;gap:6px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--brass,#e3ac55) 6%,transparent)}.insrow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.insc{display:grid;gap:4px;text-align:center;font-size:12px}.insc .prog{height:4px}
 .mccard{display:grid;gap:6px;border-color:#5fb8d6;background:linear-gradient(180deg,rgba(127,208,255,.08),transparent 60%)}.mccard .ihead b{color:#8fe6ff}
+.winp{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;font-size:13px}.winp>span:first-child{color:var(--dim)}.winp>b{color:var(--c);font-size:17px;font-variant-numeric:tabular-nums}.winp .prog{height:6px}
 .atkcard{display:grid;gap:6px;border-color:var(--bad);background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 8%,transparent),transparent 60%)}.atkrow{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:baseline;font-size:13px;padding-left:8px;border-left:3px solid var(--c)}.atkrow span{color:var(--dim);font-size:12px}.atkrow b{color:var(--c);font-weight:600}
 .bgrp{display:grid;gap:8px}.bgh{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gc)}.bgh::after{content:'';flex:1;height:1px;background:color-mix(in srgb,var(--gc) 35%,transparent)}.bgrp>.item{border-left:3px solid var(--gc);background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 7%,transparent),transparent 40%)}
 .v3atk{position:absolute;top:10px;left:10px;z-index:3;width:44px;height:44px;border-radius:50%;border:2px solid #ff3b4a;background:rgba(40,4,10,.75);color:#ff3b4a;font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;animation:v3atk 1s ease-in-out infinite}.v3atk[hidden]{display:none}@keyframes v3atk{0%,100%{opacity:1;box-shadow:0 0 14px #ff3b4a}50%{opacity:.25;box-shadow:0 0 0 #ff3b4a}}
@@ -493,6 +494,12 @@ function battle(a0,d0,ma,md,RN,KD){const cl=s=>{const o={};for(const k in s)if(s
 const plur=(n,w)=>n>1?w.split(' ').map((x,i)=>i?x:(x.endsWith('au')?x+'x':x+'s')).join(' '):w;
 const unitLine=s=>{const parts=Object.keys(s||{}).filter(k=>s[k]>0).map(k=>`${s[k]} ${plur(s[k],UNIT[k].n.toLowerCase())}`);return parts.length?parts.join(', '):'aucune unité'};
 const lossLine=(i,f)=>{const parts=Object.keys(i).filter(k=>i[k]-(f[k]||0)>0).map(k=>`${i[k]-(f[k]||0)} ${plur(i[k]-(f[k]||0),UNIT[k].n.toLowerCase())}`);return parts.length?parts.join(', '):'aucune'};
+// estimation des chances de victoire : on rejoue le combat plusieurs fois et on lisse le résultat
+function winChance(att,def,ma,md){const A={},D={};for(const k in att||{})if(att[k]>0)A[k]=att[k];for(const k in def||{})if(def[k]>0)D[k]=def[k];if(isEmpty(A))return 0;if(isEmpty(D))return 100;
+  const N=40,wa=worth(A),wd=worth(D);let w=0,sc=0;for(let i=0;i<N;i++){const B=battle(A,D,ma,md,8);if(isEmpty(B.d)&&!isEmpty(B.a))w++;sc+=worth(B.a)/wa-worth(B.d)/wd}
+  const emp=w/N,sig=1/(1+Math.exp(-3*sc/N));return Math.max(1,Math.min(99,Math.round(100*(.2*emp+.8*sig))))}
+const pctCol=p=>p<35?'var(--bad)':p<65?'var(--warn)':'var(--good)';
+const pctHtml=(p,lbl)=>`<div class="winp" style="--c:${pctCol(p)}"><span>${lbl}</span><b>${p} %</b><span class="prog"><b style="width:${p}%;background:var(--c)"></b></span></div>`;
 const VALUE={fighter:1,cruiser:4,battleship:12,colony:6,probe:.3,turret:2,flag:30};
 const worth=s=>Object.keys(s||{}).reduce((t,k)=>t+(s[k]||0)*(VALUE[k]||1),0);
 
@@ -1048,9 +1055,12 @@ function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='o
   const myHelp=(S.players[ME]||{}).help;
   return L.map(f=>{const npc=isNpc(f.owner),who=npc?NPC_NAME:pname(f.owner),seen=(f.spied||[]).includes(ME),icp=Object.values(S.fleets).filter(g=>g.mission==='intercept'&&g.target===f.fid&&(g.phase==='out'||g.phase==='wait'));
     const row=(col,lbl,txt)=>`<div class="atkrow" style="--c:${col}"><span>${lbl}</span><b>${txt}</b></div>`;
+    const defS=sumShips([v.ships,...guards.map(g=>g.ships),...coming.filter(g=>g.arrive<f.arrive).map(g=>g.ships)]);delete defS.probe;if(tur)defS.turret=tur;
+    const hold=seen?100-winChance(f.ships,defS,forceMods(f.owner,f.cmd),S.planets[pid]?planetMods(S.planets[pid]):null):null;
     return`<div class="card atkcard"><div class="ihead"><b style="color:var(--bad)">⚔ ${esc(who)} attaque ${esc(plName(pid))}</b><span class="cd" data-cd="${f.arrive}"></span></div>
     <span class="eff" style="font-size:12px">Impact à ${clock(f.arrive)}</span>
     ${row('var(--bad)','Ennemis',seen?unitLine(f.ships):`inconnus · ${pillSpyNeed(f)} sondes pour espionner`)}
+    ${hold!=null?pctHtml(hold,'Chance de tenir'):`<span class="eff" style="font-size:12px">Chance de tenir : inconnue, espionne l’attaque pour la calculer.</span>`}
     ${row('var(--warn)','Tu possèdes',`${count(mine)?unitLine(mine):'aucun vaisseau'}${tur?` · ${tur} tourelles`:''}`)}
     ${guards.length||coming.length||icp.length?row('var(--good)','Soutiens',[...guards.map(g=>`${unitLine(g.ships)} (${esc(pname(g.owner))}, sur place)`),...coming.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, en route · ${clock(g.arrive)}${g.arrive>f.arrive?' ⚠ trop tard':''})`),...icp.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, interception à ${clock(g.arrive)})`)].join(' · ')):row('var(--good)','Soutiens','aucun pour l’instant')}
     <div class="mpacts"><button class="btn sm" data-act="icpt" data-f="${f.fid}">⚔ Intercepter</button>${seen?'':`<button class="btn ghost sm" data-act="spyin" data-f="${f.fid}">👁 Espionner</button>`}<button class="btn ghost sm" data-act="defsend" data-f="${f.fid}">🛡 Renforcer</button>${myHelp&&myHelp.fid===f.fid?'<span class="lv" style="align-self:center">Aide demandée ✓</span>':`<button class="btn ghost sm" data-act="callhelp" data-f="${f.fid}">🆘 Demander de l’aide</button>`}</div></div>`}).join('')+guardsHtml(pid)}
@@ -1518,9 +1528,9 @@ function renderHangar0(){if(S.hcls==='flag')return flagHtml();const p=view(S.sel
   <div class="card" style="display:grid;gap:10px">${[['hull','Coque',HULLS],['trim','Liserés',COLORS],['glow','Réacteurs',GLOWS]].map(([part,lab,pal])=>`<div style="display:grid;gap:6px"><span class="eff">${lab}</span><div class="swatches">${pal.map(c=>`<button class="sw" data-act="paint" data-p="${part}" data-c="${c}" aria-label="${lab} ${c}" aria-pressed="${pt[part]===c}" style="background:${c}"></button>`).join('')}</div></div>`).join('')}</div></section>`}
 function intelBox(pid){const it=latestIntel(pid);if(!it)return'';const parts=[];parts.push(it.ships?`flotte : ${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue');if(it.res)parts.push(`stocks : ${fmt(it.res.m)} métal, ${fmt(it.res.c)} cristal, ${fmt(it.res.f)} hélium-3`);
   return`<span class="intel">🔭 Espionné ${ago(it.at)} · ${parts.join(' · ')}</span>`}
-function modalIntel(to,ships){const it=latestIntel(to);if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
+function modalIntel(to,ships){const it=latestIntel(to);const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
   const foe={...(it.ships||{}),...(it.turrets?{turret:it.turrets}:{})},wf=worth(foe),wm=worth(ships),r=wf?wm/wf:0;
-  return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)}, hors armes et commandants)</span>`:''}</div>`}
+  return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)})</span>${M.mission==='attack'?pctHtml(winChance(att,foe,forceMods(ME,M.cmd),md),'Chance de victoire'):''}`:''}</div>`}
 function intelLine(pid){const it=latestIntel(pid);if(!it)return null;return`Renseignement ${ago(it.at)} : ${it.ships?`${unitLine(it.ships)}${it.turrets?`, ${it.turrets} tourelles`:''}`:'flotte inconnue'}`}
 function planetRow(pid,joined){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type];let who,btn='';const cm=cometAt(),hv=hiveAt();
   const il=intelLine(pid),lr=lairInfoAt(SYSTEMS[m.sys]);
@@ -2628,7 +2638,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='70';
+const APP_VERSION='71';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

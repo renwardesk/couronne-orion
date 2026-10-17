@@ -1620,7 +1620,7 @@ function modalIntel(to,ships){const it=latestIntel(to);const M=S.modal||{},att={
   const foe={...(it.ships||{}),...(it.turrets?{turret:it.turrets}:{})},wf=worth(foe),wm=worth(ships),r=wf?wm/wf:0;
   return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)})</span>${M.mission==='attack'?pctHtml(winChance(att,foe,forceMods(ME,M.cmd),md),'Chance de victoire'):''}`:''}</div>`}
 // mot sous le nom sur la carte : espionnée récemment, ou à re-espionner si la cible a changé depuis (nouveau maître, repaire des Écumeurs, flotte détruite)
-function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);let old=!P.raid&&(it.owner||null)!==(v.owner||null);
+function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);if(v.owner===ME)return'';let old=!P.raid&&(it.owner||null)!==(v.owner||null);
   if(!old&&!P.raid&&SYSTEMS[P.sys]&&SYSTEMS[P.sys].lair){const L=lairInfoAt(SYSTEMS[P.sys]);if(L&&L.pid===pid&&L.founded>it.at)old=true}
   if(!old&&P.raid){const ev=S.events[pid];if(ev&&((ev.doneAt||0)>it.at||(ev.at||0)>it.at))old=true}
   return old?'<i class="sub2" style="color:#ff9b6b">🔍 à re-espionner</i>':`<i class="sub2" style="color:#9fe0a8">🔍 espionnée ${ago(it.at)}</i>`}
@@ -1829,7 +1829,7 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
      const fp=new THREE.Points(fg,fm);fp.frustumCulled=false;fp.renderOrder=9;MP.fog=fp;scene.add(fp)}
     const fl=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending}));fl.frustumCulled=false;fl.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(400*6),3));fl.geometry.setAttribute('color',new THREE.BufferAttribute(new Float32Array(400*6),3));MP.fleetLines=fl;scene.add(fl);
     const fd=new THREE.Points(ptsGeo(400),ptsMat(90));fd.frustumCulled=false;fd.material.depthTest=false;fd.renderOrder=12;MP.fleetDots=fd;scene.add(fd);
-    MP.fm=new Map();const tp=new THREE.Points(ptsGeo(4000),ptsMat(90));tp.frustumCulled=false;tp.material.depthTest=false;tp.renderOrder=11;MP.trail=tp;scene.add(tp);MP.chevGeo=new THREE.ConeGeometry(.45,1.5,3);MP.chevGeo.rotateX(Math.PI/2);const rp=new THREE.Points(ptsGeo(60),ptsMat(90));rp.frustumCulled=false;rp.material.depthTest=false;rp.renderOrder=12;MP.raidPts=rp;scene.add(rp);
+    MP.fm=new Map();const tp=new THREE.Points(ptsGeo(4000),ptsMat(90));tp.frustumCulled=false;tp.material.depthTest=false;tp.renderOrder=11;MP.trail=tp;scene.add(tp);MP.chevGeo=new THREE.ConeGeometry(.45,1.5,3);MP.chevGeo.rotateX(Math.PI/2);const rp=new THREE.Points(ptsGeo(200),ptsMat(90));rp.frustumCulled=false;rp.material.depthTest=false;rp.renderOrder=12;MP.raidPts=rp;scene.add(rp);
     MP.glow=gt;MP.ok=true;
     const pts=()=>[...MP.ptr.values()];
     mpc.addEventListener('pointerdown',e=>{MP.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});try{mpc.setPointerCapture(e.pointerId)}catch(x){}
@@ -1925,7 +1925,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>${cmdsOf(capP.owner).length?`<i class="sub2">${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>cmdBadge(c,13)+esc(cmdInfo(c).n)).join(' ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
-    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:(w=>[w[0],w[1]+.45,w[2]])(raidPos(r.pid)),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
+    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:raidPos(r.pid),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase!=='out'&&f.phase!=='back'){if(f.owner===ME&&f.phase==='hold')L.push({fl:f,cls:'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}Flotte en position`});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
@@ -1953,7 +1953,9 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
   for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();MP.fm.delete(id)}
   MP.fleetLines.geometry.setDrawRange(0,n*2);MP.fleetDots.geometry.setDrawRange(0,n);MP.trail.geometry.setDrawRange(0,tn);TA.position.needsUpdate=true;TA.color.needsUpdate=true;TA.sz.needsUpdate=true;TA.rg.needsUpdate=true;
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
-function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;mpLevs();for(const r of list){if(n>=60)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
+function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;if(MP.lev&&MP.lev.size){for(const o of MP.lev.values()){MP.scene.remove(o);v3Clear(o)}MP.lev.clear()}
+  // Léviathans : même marqueur que les Armadas, en plus gros
+  const lv=MP.level==='universe'?[]:leviathans(MP.gal);for(const r of[...list,...lv]){if(n>=200)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set(r.mid?[1,.2,.3]:[1,.28,.42],n*3);a.sz.array[n]=r.mid?18:cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
   rp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
 // le Léviathan : destroyer stellaire en forme de coin, gris et noir, éclairage précalculé (la carte n'a pas de lumière directionnelle)
 function levShade(geo,hex,M){let g=geo.index?geo.toNonIndexed():geo;if(M)g.applyMatrix4(M);g.computeVertexNormals();const n=g.attributes.normal,c=new THREE.Color(hex),L=new THREE.Vector3(.45,1,.35).normalize(),cols=new Float32Array(n.count*3);
@@ -2034,7 +2036,7 @@ document.addEventListener('click',e=>{
   else if(a==='ship')buildShips(S.sel,b.dataset.t,S.qty[b.dataset.t]);
   else if(a==='mapuni')mpGoUniverse();
   else if(a==='mapgal')mpGoGalaxy(+b.dataset.g);
-  else if(a==='mapsys')mpGoSystem(+b.dataset.s);
+  else if(a==='mapsys'){const si=+b.dataset.s;if(S.tab!=='galaxy'){S.tab='galaxy';render()}setTimeout(()=>{try{mpGoSystem(si)}catch(e){}const el=document.getElementById('mp');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},60)}
   else if(a==='pmap'){const si=+b.dataset.s;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok)mpGoSystem(si)},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
   else if(a==='mappl'){S.mpPl=!S.mpPl;mpNav()}
@@ -2862,7 +2864,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='91';
+const APP_VERSION='92';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

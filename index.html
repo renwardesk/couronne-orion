@@ -535,9 +535,9 @@ const RARE_BASE=50,siloCapL=L=>L?Math.round(100*1.6**(L-1)):0;
 function rareCap(uid){let c=RARE_BASE;for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid))c+=siloCapL((p.lv&&p.lv.silo)||0);return c}
 const rareFill=(b,add,cap)=>b>=cap?b:Math.min(cap,b+add);
 // chaque satellite garde son propre stock (capacité : réserve de base + son silo) ; les planètes peuvent puiser dans tous
-const bodyRareCap=p=>RARE_BASE+siloCapL((p&&p.lv&&p.lv.silo)||0);
-const rareCapAll=uid=>rareCap(uid)+Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid)).reduce((t,p)=>t+bodyRareCap(p),0);
-function rareOf(uid,pid){const pl=S.players[uid],o={ir:0,xe:0,am:0},p=S.planets[pid];if(!pl||!p)return o;const b=(pl.rareBy||{})[pid]||{},x=rareRate(settle(p,Date.now())),cp=bodyRareCap(p),dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);for(const k in o)o[k]=rareFill(b[k]||0,x[k]*dt,cp);return o};
+const bodyRareCap=p=>{const q=p&&p.owner?settle(p,Date.now()):p;return RARE_BASE+siloCapL((q&&q.lv&&q.lv.silo)||0)}; // niveau d'entrepôt réellement terminé
+const rareCapAll=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid)).reduce((t,p)=>t+bodyRareCap(p),0);
+function rareOf(uid,pid){const pl=S.players[uid],o={ir:0,xe:0,am:0},p=S.planets[pid];if(!pl||!p)return o;const b=(pl.rareBy||{})[pid]||{},x=rareRate(settle(p,Date.now())),cp=bodyRareCap(p),dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);for(const k in o)o[k]=Math.min(cp,rareFill(b[k]||0,x[k]*dt,cp));return o} // jamais au-delà de la capacité du satellite;
 function rareNow(uid){const pl=S.players[uid],o={ir:0,xe:0,am:0};if(!pl)return o;const b=pl.rare||{};for(const k in o)o[k]=b[k]||0;for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid)){const x=rareOf(uid,p.pid);for(const k in o)o[k]+=x[k]}return o} // total de l'empire : réserve centrale + stocks des satellites
 const latestIntel=pid=>{const r=S.reports.find(x=>x.intel&&x.intel.pid===pid);return r&&r.intel};
 
@@ -1219,7 +1219,7 @@ let HB_T=0;async function heartbeat(force){if(!db||!ME||!S.players[ME]||S.specta
 setInterval(()=>heartbeat(),20000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')heartbeat(true)});
 async function withPlayer(uid,fn){return locked('players/'+uid,async(d,ref)=>{if(!d)throw err('Empire introuvable.');const now=Date.now(),rt=rareRates(uid),dt=Math.max(0,(now-(d.rareAt||now))/60000);
   d.rare=d.rare||{};d.rareBy=d.rareBy||{};const rcap=rareCap(uid),bodies=Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid));
-  for(const p of bodies){const x=rareRate(settle(p,now)),b=d.rareBy[p.pid]=d.rareBy[p.pid]||{},cp=bodyRareCap(p);for(const k in RARE)b[k]=rareFill(b[k]||0,x[k]*dt,cp)}for(const pid in d.rareBy)if(!bodies.some(p=>p.pid===pid))delete d.rareBy[pid];
+  for(const p of bodies){const x=rareRate(settle(p,now)),b=d.rareBy[p.pid]=d.rareBy[p.pid]||{},cp=bodyRareCap(p);for(const k in RARE)b[k]=Math.min(cp,rareFill(b[k]||0,x[k]*dt,cp))}for(const pid in d.rareBy)if(!bodies.some(p=>p.pid===pid))delete d.rareBy[pid];
   // migration : l'ancienne réserve commune venait des satellites → on la reverse dans leurs stocks
   if(!d.rareMig&&bodies.length){const w=bodies.map(p=>{const x=rareRate(settle(p,now));return Object.values(x).reduce((a,b)=>a+b,0)||1}),W=w.reduce((a,b)=>a+b,0);for(const k in RARE){const v=d.rare[k]||0;if(v>0){bodies.forEach((p,i)=>{d.rareBy[p.pid][k]=(d.rareBy[p.pid][k]||0)+v*w[i]/W});d.rare[k]=0}}d.rareMig=1}
   const central={...d.rare};for(const k in RARE){central[k]=central[k]||0;d.rare[k]=central[k]+bodies.reduce((t,p)=>t+(d.rareBy[p.pid][k]||0),0)} // pendant l'action, d.rare = total disponible
@@ -2986,7 +2986,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='107';
+const APP_VERSION='108';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

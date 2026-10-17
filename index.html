@@ -1559,7 +1559,7 @@ function render(){
   if(joined&&(!S.sel||!S.planets[S.sel]||S.planets[S.sel].owner!==ME))S.sel=myPlanets()[0].pid;
   renderTop(joined);renderTabs(joined);chatBtnSync(joined);v3Sync(joined);hgSync(joined);
   const keep={};if(main.querySelectorAll)main.querySelectorAll('input[id],select[id]').forEach(el=>{if(el.value!=='')keep[el.id]=el.value});
-  main.innerHTML=({planet:renderPlanet,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,cmds:renderCmds,players:renderPlayers,news:renderNews,quests:renderQuests,log:renderLog})[S.tab]();
+  main.innerHTML=({planet:renderPlanet,empire:renderEmpire,yard:renderYard,lab:renderLab,hangar:renderHangar,galaxy:renderGalaxy,fleets:renderFleets,cmds:renderCmds,players:renderPlayers,news:renderNews,quests:renderQuests,log:renderLog})[S.tab]();
   for(const id in keep){const el=document.getElementById(id);if(el&&el.value==='')el.value=keep[id];else if(el&&el.tagName==='SELECT')el.value=keep[id]}if(keep.mkn)mkPreview();
   mpSync();
   tickUi();
@@ -1591,7 +1591,7 @@ function renderTop(joined){top_.hidden=false;
 function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME),sl=slotsOf(ME),max=sl>=MAXP,cost=cultureCost(ME),pc=max?100:Math.min(100,cu/cost*100),can=!max&&cu>=cost;
   return`<span class="emp"><span title="Planètes : possédées / emplacements débloqués (maximum ${MAXP})">🪐 <b>${np}</b>/${sl}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Points de combat pour débloquer une planète de plus"><span>${max?'Planètes au maximum':`combats <b>${fmt(cu)}</b>/${fmt(cost)} → ${sl+1} planètes`}</span><span class="prog"><b style="width:${pc}%"></b></span></span>${max?'':`<button class="slotup${can?' on':''}" data-act="slotup" ${can?'':'aria-disabled="true"'} title="${can?`Débloquer une ${sl+1}e planète (${fmt(cost)} points de combat)`:`Il faut ${fmt(cost)} points de combat`}" aria-label="Débloquer une planète de plus">▲</button>`}</span>`}
 // icônes des onglets (traits fins, couleur du texte)
-const TABICO={planet:'<path d="M11.5 6.5l4-3.5 5.5 5.5-3.5 4z"/><path d="M14 9.5L4.2 19.3a1.5 1.5 0 0 0 2.1 2.1L16.1 11.6"/>',
+const TABICO={empire:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',planet:'<path d="M11.5 6.5l4-3.5 5.5 5.5-3.5 4z"/><path d="M14 9.5L4.2 19.3a1.5 1.5 0 0 0 2.1 2.1L16.1 11.6"/>',
   yard:'<path d="M12 2.5c3 2.3 4.5 5.6 4.5 9.5v4h-9v-4c0-3.9 1.5-7.2 4.5-9.5z"/><circle cx="12" cy="10" r="1.6"/><path d="M7.5 13.5L4.5 17v2h3M16.5 13.5l3 3.5v2h-3M10 16v3.5M14 16v3.5"/>',
   lab:'<path d="M9 3h6M10 3v6l-5 9.5c-.5 1 .2 2.5 1.4 2.5h11.2c1.2 0 1.9-1.5 1.4-2.5L14 9V3"/><path d="M7.5 15h9"/>',
   galaxy:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5M12 3.5C9.4 5.9 8.2 8.7 8.2 12s1.2 6.1 3.8 8.5"/>',
@@ -1605,7 +1605,7 @@ const TABICO={planet:'<path d="M11.5 6.5l4-3.5 5.5 5.5-3.5 4z"/><path d="M14 9.5
 // coffres prêts à ouvrir (gratuits ou en stock)
 const cmdN=()=>{const pl=S.players[ME];if(!pl)return 0;return freeChestState(ME).n+Object.values(pl.chests||{}).reduce((a,b)=>a+(b>0?b:0),0)};
 function renderTabs(joined){tabsEl.hidden=false;const inc=incoming().length,qr=joined?questReady():0;badgeSeen(S.tab);
-  const T=joined?[['planet','Base'],['yard','Chantier'],...(NOTECH?[]:[['lab','Labo']]),['galaxy','Carte'],['fleets','Flottes'],['cmds','Commandants'],['players','Joueurs'],['news','Actus'],['quests','Quêtes'],['log','Journal'],['hangar','Hangar']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
+  const T=joined?[['planet','Base'],...(empireOn()?[['empire','Empire']]:[]),['yard','Chantier'],...(NOTECH?[]:[['lab','Labo']]),['galaxy','Carte'],['fleets','Flottes'],['cmds','Commandants'],['players','Joueurs'],['news','Actus'],['quests','Quêtes'],['log','Journal'],['hangar','Hangar']]:[['galaxy','Carte'],['players','Joueurs'],['news','Actus'],['log','Journal']];
   document.body.classList.toggle('tabs2',T.length>7);tabsEl.innerHTML=`<div class="wrap${T.length>7?' many':''}" style="grid-template-columns:repeat(${T.length},1fr)">${T.map(([k,l])=>`<button class="tab" data-act="tab" data-t="${k}" aria-current="${S.tab===k}">${TABICO[k]?`<svg class="ti" viewBox="0 0 24 24" aria-hidden="true">${TABICO[k]}</svg>`:''}${l}${k==='fleets'&&inc?`<span class="n">${inc}</span>`:k==='quests'&&qr?`<span class="n">${qr}</span>`:k==='cmds'&&cmdN()?`<span class="n">${cmdN()}</span>`:badgeN(k)?`<span class="n">${badgeN(k)}</span>`:''}</button>`).join('')}</div>`}
 
 function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
@@ -1628,7 +1628,7 @@ function effect(p,k){const L=p.lv[k]||0,q={...p,lv:{...p.lv,[k]:L+1}};
 function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],T=PTYPES[m.type],body=isBody(p.pid);
   const bonus=body?`extraction de ${RARE[rkOf(p)].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
   const bq=p.bq||[],full=bq.length>=BQ_MAX,qn=k=>bq.filter(x=>x.k===k).length,has3d=V3.on&&V3.ok,B=body?BUILD_OUT:(NOTECH?Object.fromEntries(Object.entries(BUILD).filter(([k])=>k!=='acad'&&k!=='arsenal')):BUILD),cap=body?view(capitalOf(ME).pid):null,payer=body?cap.res:p.res;
-  return`${welcomeHtml()}${attackCards(S.sel)}${miniCometCards()}${tipsHtml(S.planets[S.sel])}${questCard()}${cmdBaseHtml(S.planets[S.sel])}${(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
+  return`${welcomeHtml()}${empireWelcome()}${attackCards(S.sel)}${miniCometCards()}${tipsHtml(S.planets[S.sel])}${questCard()}${cmdBaseHtml(S.planets[S.sel])}${(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})()}<section class="phead">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
     <div style="min-width:0;flex:1"><h1>${esc(m.name)}${p.capital?'<span class="badge">Capitale</span>':body?'<span class="badge">Avant-poste</span>':''}</h1><p class="meta">${T.n} (${bonus}) · ${esc(sys.name)} · ${esc(GALS[sys.gal].name)}</p></div>
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/${BQ_MAX}</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span style="display:flex;gap:8px;align-items:center"><span class="cd" data-cd="${it.until}"></span><button class="xbtn" data-act="bcancel" data-i="${i}" aria-label="Annuler">✕</button></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
@@ -1785,6 +1785,42 @@ function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter
   return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${ralliesHtml()}${battlesHtml()}${convoysHtml()}
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   ${armyHtml()}<section style="display:grid;gap:10px"><h2>Tes flottes</h2>${myFleetsHtml(mine)}</section>`}
+// ---------- gestion d'empire : tout voir et lancer les mêmes ordres partout ----------
+const EMP_MIN=4;const empireOn=()=>!!S.players[ME]&&myPlanets().length>=EMP_MIN;
+function empireWelcome(){if(!empireOn())return'';try{if(localStorage.getItem('orion-emp-'+ME))return''}catch(e){return''}
+  return`<div class="card" style="display:grid;gap:8px;border-color:var(--brass)"><b style="font-size:16px">🌌 Gestion d’empire débloquée</b><span class="eff">Ton empire compte maintenant ${myPlanets().length} planètes et satellites. Le nouvel onglet <b>Empire</b> montre tout d’un coup d’œil (constructions, chantiers, vaisseaux, ressources) et permet de lancer la même amélioration ou la même production de vaisseaux sur plusieurs planètes en une seule fois.</span><div class="foot"><button class="btn ghost sm" data-act="empx">Plus tard</button><button class="btn sm" data-act="empgo">Ouvrir l’Empire</button></div></div>`}
+const EMPB=()=>({...(NOTECH?Object.fromEntries(Object.entries(BUILD).filter(([k])=>k!=='acad'&&k!=='arsenal')):BUILD)});
+function empBuildPlan(){const out=(S.empB||'').startsWith('o:'),k=(S.empB||'mine').replace(/^o:/,''),now=Date.now(),cap=capitalOf(ME),capRes=cap?{...view(cap.pid).res}:{m:0,c:0,f:0},rn={...rareNow(ME)};
+  return myPlanets().filter(p=>isBody(p.pid)===out).map(p=>{const v=view(p.pid),bq=v.bq||[],L=(v.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L),res=out?capRes:v.res;let why=null;
+    if(bq.length>=BQ_MAX)why='file pleine';else if(!afford(res,c))why=out?'capitale à court':'pas assez de ressources';else if(!affordR(rn,rc))why='minerais rares insuffisants';
+    if(!why){if(out)pay(capRes,c);payR(rn,rc)}return{pid:p.pid,L,c,rc,why}})}
+function empShipPlan(){const t=S.empT||'fighter',n=Math.max(1,S.empN||10);return myPlanets().filter(p=>!isBody(p.pid)).map(p=>{const v=view(p.pid);let why=null;
+  if((v.lv.yard||0)<SHIPS[t].yard)why=`chantier niv. ${SHIPS[t].yard} requis`;else if((v.shipQ||[]).length>=3)why='chantier plein';else if(!afford(v.res,SHIPS[t].cost,n))why='pas assez de ressources';else if(bayUse(v,ME)+n*(PLACES[t]||1)>bayCap(v))why='hangars pleins';return{pid:p.pid,why}})}
+async function quietly(fn){let e=null;const t0=toast;toast=(m,c)=>{if(c==='bad')e=m};try{await fn()}finally{toast=t0}return e}
+async function empBuildAll(){const k=(S.empB||'mine').replace(/^o:/,''),L=empBuildPlan().filter(x=>!x.why);if(!L.length)return toast('Aucune planète ne peut lancer cette amélioration maintenant.','bad');let ok=0,ko=[];
+  for(const x of L){const e=await quietly(()=>upgrade(x.pid,k));if(e)ko.push(`${plName(x.pid)} (${e})`);else ok++}sfx.build();toast(`${lvBase(k).n} : ${ok} amélioration${ok>1?'s':''} lancée${ok>1?'s':''}${ko.length?` · échec : ${ko.join(', ')}`:''}.`,ko.length?'bad':'');render()}
+async function empShipAll(){const t=S.empT||'fighter',n=Math.max(1,S.empN||10),L=empShipPlan().filter(x=>!x.why);if(!L.length)return toast('Aucun chantier ne peut lancer cette production maintenant.','bad');let ok=0,ko=[];
+  for(const x of L){const e=await quietly(()=>buildShips(x.pid,t,n));if(e)ko.push(`${plName(x.pid)} (${e})`);else ok++}sfx.build();toast(`${n} ${SHIPS[t].n.toLowerCase()}${n>1?'s':''} lancés sur ${ok} chantier${ok>1?'s':''}${ko.length?` · échec : ${ko.join(', ')}`:''}.`,ko.length?'bad':'');render()}
+function renderEmpire(){if(!empireOn())return`<h1>Empire</h1><p class="empty">L’onglet Empire se débloque à ${EMP_MIN} planètes et satellites.</p>`;
+  const P=myPlanets(),pl=P.filter(p=>!isBody(p.pid)),sat=P.filter(p=>isBody(p.pid)),bad=t=>`<b style="color:var(--bad)">${t}</b>`;
+  const qTxt=v=>{const bq=v.bq||[];return bq.length?`🔨 ${bq.length}/${BQ_MAX} · ${lvBase(bq[0].k).n} <span class="cd" data-cd="${bq[0].until}"></span>`:`🔨 ${bad('file vide')}`};
+  const yTxt=v=>{const q=v.shipQ||[];if(!(v.lv.yard>=1))return'🚀 pas de chantier';if(!q.length)return`🚀 ${bad('chantier à l’arrêt')}`;const end=Math.max(...q.map(x=>x.start+x.n*x.per*1000));return`🚀 ${q.length} lot${q.length>1?'s':''} · fin <span class="cd" data-cd="${end}"></span>`};
+  const tot={};for(const p of pl)for(const k of SK)tot[k]=(tot[k]||0)+((view(p.pid).ships||{})[k]||0);
+  const B=EMPB(),bp=empBuildPlan(),sp=empShipPlan(),bk=S.empB||'mine',st=S.empT||'fighter';
+  setTimeout(()=>{const a=document.getElementById('empb'),b=document.getElementById('empt'),c=document.getElementById('empn');if(a)a.onchange=()=>{S.empB=a.value;render()};if(b)b.onchange=()=>{S.empT=b.value;render()};if(c)c.onchange=()=>{S.empN=Math.max(1,Math.min(999,+c.value||1));render()}},0);
+  return`<section style="display:grid;gap:4px"><h1>Empire</h1><p class="meta" style="margin:0">${pl.length} planète${pl.length>1?'s':''} · ${sat.length} satellite${sat.length>1?'s':''} · flotte à quai : ${unitShort(tot)||'aucune'}</p></section>
+  <section style="display:grid;gap:10px"><h2>Planètes</h2><div class="list">${pl.map(p=>{const v=view(p.pid);return`<div class="item"><div class="ihead"><b>${esc(PLANETS[p.pid].name)}${v.capital?' <span class="badge">Capitale</span>':''}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
+    <div class="eff">${qTxt(v)}</div><div class="eff">${yTxt(v)}</div><div class="eff">${fmt(v.res.m)} métal · ${fmt(v.res.c)} cristal · ${fmt(v.res.f)} hélium-3</div><div class="eff">🛸 ${unitShort(Object.fromEntries(SK.filter(k=>(v.ships||{})[k]>0).map(k=>[k,v.ships[k]])))||'aucun vaisseau'} · Hangars ${bayUse(v,ME)}/${bayCap(v)}</div></div>`}).join('')}</div></section>
+  ${sat.length?`<section style="display:grid;gap:10px"><h2>Satellites</h2><div class="list">${sat.map(p=>{const v=view(p.pid),r=rareOf(ME,p.pid),k=v.rk||rkOf(v);return`<div class="item"><div class="ihead"><b>${esc(PLANETS[p.pid].name)}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
+    <div class="eff">${qTxt(v)}</div><div class="eff">Foreuse niv. ${v.lv.drill||0} · Réserves niv. ${v.lv.silo||0} · ${RARE[k]||''} ${fmt(r[k]||0)} / ${fmt(bodyRareCap(S.planets[p.pid]))}</div></div>`}).join('')}</div></section>`:''}
+  <section style="display:grid;gap:10px"><h2>Améliorer partout</h2><div class="card" style="display:grid;gap:8px">
+    <select id="empb" class="srsel"><optgroup label="Planètes">${Object.keys(B).map(k=>`<option value="${k}" ${k===bk?'selected':''}>${B[k].n}</option>`).join('')}</optgroup>${sat.length?`<optgroup label="Satellites">${Object.keys(BUILD_OUT).map(k=>`<option value="o:${k}" ${'o:'+k===bk?'selected':''}>${BUILD_OUT[k].n}</option>`).join('')}</optgroup>`:''}</select>
+    ${bp.map(x=>`<div class="foot" style="gap:6px"><span class="eff">${esc(plName(x.pid))} · niv. ${x.L} → ${x.L+1}</span><span class="eff" style="color:${x.why?'var(--bad)':'var(--good)'}">${x.why||`${fmt(x.c.m)} / ${fmt(x.c.c)} / ${fmt(x.c.f)}`}</span></div>`).join('')||'<span class="eff">Aucune planète concernée.</span>'}
+    <div class="foot"><span class="eff">${bk.startsWith('o:')?'Payé par la capitale.':'Chaque planète paie avec ses propres ressources.'}</span><button class="btn sm" data-act="empbuild" ${bp.some(x=>!x.why)?'':'disabled'}>Lancer sur ${bp.filter(x=>!x.why).length}</button></div></div></section>
+  <section style="display:grid;gap:10px"><h2>Produire partout</h2><div class="card" style="display:grid;gap:8px">
+    <div style="display:flex;gap:8px"><select id="empt" class="srsel" style="flex:1">${SK.map(k=>`<option value="${k}" ${k===st?'selected':''}>${SHIPS[k].n}</option>`).join('')}</select><input id="empn" type="number" min="1" max="999" inputmode="numeric" value="${S.empN||10}" style="width:80px"></div>
+    ${sp.map(x=>`<div class="foot" style="gap:6px"><span class="eff">${esc(plName(x.pid))}</span><span class="eff" style="color:${x.why?'var(--bad)':'var(--good)'}">${x.why||'prêt'}</span></div>`).join('')}
+    <div class="foot"><span class="eff">${S.empN||10} par chantier, payés par chaque planète.</span><button class="btn sm" data-act="empship" ${sp.some(x=>!x.why)?'':'disabled'}>Lancer sur ${sp.filter(x=>!x.why).length}</button></div></div></section>`}
 function renderCmds(){return`<h1>Commandants</h1>${cmdsHtml()}`}
 function renderQuests(){return`<section style="display:grid;gap:4px"><h1>Quêtes</h1><p class="meta" style="margin:0">Chaque quête t’apprend une mécanique du jeu et rapporte des ressources.</p></section><div class="foot" style="justify-content:flex-end"><button class="btn ghost sm" data-act="welshow">Revoir le guide du débutant</button></div>${questsHtml()}`}
 const isCombatRep=r=>!!r.battle||r.tone==='win'||r.tone==='loss';
@@ -2150,6 +2186,11 @@ document.addEventListener('click',e=>{
   else if(a==='mapgal')mpGoGalaxy(+b.dataset.g);
   else if(a==='cmdguard')cmdGuard(b.dataset.c);
   else if(a==='cmdmove'){const sl=document.getElementById('cmv-'+b.dataset.c);if(sl)cmdMove(b.dataset.c,sl.value)}
+  else if(a==='empgo'){try{localStorage.setItem('orion-emp-'+ME,'1')}catch(e){}S.tab='empire';window.scrollTo(0,0);render()}
+  else if(a==='empx'){try{localStorage.setItem('orion-emp-'+ME,'1')}catch(e){}render()}
+  else if(a==='empsel'){S.sel=b.dataset.p;S.tab='planet';window.scrollTo(0,0);render()}
+  else if(a==='empbuild')empBuildAll();
+  else if(a==='empship')empShipAll();
   else if(a==='mapsys'){const si=+b.dataset.s;if(S.tab!=='galaxy'){S.tab='galaxy';render()}setTimeout(()=>{try{mpGoSystem(si)}catch(e){}const el=document.getElementById('mp');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},60)}
   else if(a==='pmap'){const si=+b.dataset.s;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok)mpGoSystem(si)},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
@@ -2996,7 +3037,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='112';
+const APP_VERSION='113';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

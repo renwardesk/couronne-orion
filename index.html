@@ -32,7 +32,7 @@ button{font:inherit;color:inherit}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--void) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .top .wrap{padding-block:10px;display:grid;gap:8px}
 .row1{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand .onl{display:flex;width:fit-content;color:var(--ink)}.onl{display:inline-flex;align-items:center;gap:4px;margin:5px 0 0;padding:2px 8px;border:1px solid var(--line);border-radius:99px;font-family:var(--f-body,inherit);font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink);vertical-align:middle}.onl small{color:var(--dim);font-weight:400;margin-right:4px}.onl .d{width:7px;height:7px;border-radius:50%;background:#5c6478}.onl .d.on{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.brand .onlw{display:block;position:relative;width:fit-content}.brand .onl{display:flex;width:fit-content;color:var(--ink);white-space:nowrap;cursor:pointer;background:none}.onl .car{color:var(--dim);margin-left:2px;font-size:10px}.onlp{position:absolute;left:0;top:calc(100% + 6px);z-index:30;min-width:230px;display:grid;gap:2px;padding:8px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.5);font-family:var(--f-body,inherit);letter-spacing:0;text-transform:none;font-size:13px;font-weight:400;color:var(--ink)}.onlr{display:flex;align-items:center;gap:7px;padding:5px 4px}.onlr .pc{width:9px;height:9px;border-radius:50%}.onlr small{color:var(--dim)}.onlr .when{margin-left:auto;padding-left:10px}.onlr .d,.onl .d{width:7px;height:7px;border-radius:50%;background:#5c6478;flex:none}.onlr .d.on{background:#4ade80;box-shadow:0 0 6px #4ade80}.onl{display:inline-flex;align-items:center;gap:4px;margin:5px 0 0;padding:2px 8px;border:1px solid var(--line);border-radius:99px;font-family:var(--f-body,inherit);font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink);vertical-align:middle}.onl small{color:var(--dim);font-weight:400;margin-right:4px}.onl .d{width:7px;height:7px;border-radius:50%;background:#5c6478}.onl .d.on{background:#4ade80;box-shadow:0 0 6px #4ade80}
 .brand{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.06em;text-transform:uppercase}
 .brand span{color:var(--brass)}
 .who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim);min-width:0}
@@ -1147,7 +1147,8 @@ async function locked(path,fn){const ref=db.doc(path);
 const ONLINE_MS=3*60000;
 const isOnline=uid=>{const pl=S.players[uid];return!!(pl&&pl.seen&&Date.now()-pl.seen<ONLINE_MS)};
 function onlinePill(){const L=Object.values(S.players).filter(p=>p&&p.uid&&!isNpc(p.uid));if(!L.length)return'';const on=L.filter(p=>isOnline(p.uid)),off=L.length-on.length;
-  return`<span class="onl" title="En ligne : ${esc(on.map(p=>p.name).join(', ')||'personne')}"><i class="d on"></i>${on.length} <small>en ligne</small><i class="d"></i>${off} <small>hors ligne</small></span>`}
+  const list=S.onlOpen?`<div class="onlp" role="dialog" aria-label="Joueurs">${[...L].sort((a,b)=>(isOnline(b.uid)-isOnline(a.uid))||((b.seen||0)-(a.seen||0))).map(p=>`<div class="onlr"><i class="d${isOnline(p.uid)?' on':''}"></i><span class="pc" style="background:${esc(p.color||'#888')}"></span><b>${esc(p.name)}</b>${p.uid===ME?' <small>(toi)</small>':''}<small class="when">${isOnline(p.uid)?'en ligne':p.seen?'vu '+ago(p.seen):'pas encore vu'}</small></div>`).join('')}</div>`:'';
+  return`<span class="onlw"><button class="onl" data-act="onl" aria-expanded="${!!S.onlOpen}"><i class="d on"></i>${on.length}&nbsp;<small>en ligne</small><i class="d"></i>${off}&nbsp;<small>hors ligne</small><span class="car">▾</span></button>${list}</span>`}
 let HB_T=0;async function heartbeat(force){if(!db||!ME||!S.players[ME]||S.spectator||document.visibilityState!=='visible')return;const now=Date.now();if(!force&&now-HB_T<60000)return;HB_T=now;
   try{await locked('players/'+ME,async(d,ref)=>{if(!d)return;d.seen=Date.now();await ref.set(d)})}catch(e){}}
 setInterval(()=>heartbeat(),20000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')heartbeat(true)});
@@ -1630,7 +1631,7 @@ function renderPlayers(){const now=Date.now();
     return{pl,n,cols,outs,inFl,bld,shp,tch,cp,lvl:Math.max(gmax,unlockedOf(pl.uid))+1,s:Math.round(bld+shp+tch*20+cp*.5)}}).sort((a,b)=>b.s-a.s);
   const stat=(l,v)=>`<div><dt>${l}</dt><dd>${v}</dd></div>`;
   return`<section style="display:grid;gap:10px"><h1>Joueurs</h1><p class="meta" style="margin:0">${rows.length} empire${rows.length>1?'s':''} dans l’univers · classement par score (bâtiments, flottes, recherches et culture).</p>${rows.length?`<div class="list">${rows.map((r,i)=>{const cap=capitalOf(r.pl.uid),cs=cap&&PLANETS[cap.pid]?PLANETS[cap.pid].sys:null;
-    return`<div class="item pcard${r.pl.uid===ME?' me':''}"><div class="ihead"><span class="owner"><span class="pos">${i+1}</span><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}</span><span class="sc">${fmt(r.s)} pts</span></div>
+    return`<div class="item pcard${r.pl.uid===ME?' me':''}"><div class="ihead"><span class="owner"><span class="pos">${i+1}</span><span class="dot" style="background:${esc(r.pl.color)}"></span><b>${esc(r.pl.name)}</b>${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}<span class="eff" style="font-size:12px;margin-left:6px;color:${isOnline(r.pl.uid)?'#4ade80':'var(--dim)'}">${isOnline(r.pl.uid)?'● en ligne':r.pl.seen?'vu '+ago(r.pl.seen):''}</span></span><span class="sc">${fmt(r.s)} pts</span></div>
     <dl class="pstats">${stat('Colonies',r.cols)}${stat('Avant-postes',r.outs)}${stat('Niveau atteint',`${r.lvl} · ${esc(GALS[Math.min(r.lvl-1,GALS.length-1)].name)}`)}${stat('Puissance de flotte',fmt(Math.round(r.shp)))}${stat('Flottes en vol',r.inFl)}${stat('Recherches',`${r.tch} niv.`)}${stat('Culture',`${fmt(r.cp)} PC`)}${stat('Bâtiments',fmt(r.bld))}</dl>
     ${r.pl.uid!==ME&&cs!=null&&sysVisible(cs)?`<div class="foot"><span class="eff">Capitale : ${esc(PLANETS[cap.pid].name)}</span><button class="btn ghost sm" data-act="pmap" data-s="${cs}">Voir sur la carte</button></div>`:''}</div>`}).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>${tradeHtml()}`}
 function renderRank(){const now=Date.now();const rows=Object.values(S.players).map(pl=>{let s=0,n=0;for(const p of Object.values(S.planets)){if(p.owner!==pl.uid)continue;n++;const q=settle(p,now);for(const k in q.lv)s+=q.lv[k]*10;s+=(isBody(p.pid)?25:50)+worth(q.ships)}
@@ -1905,6 +1906,7 @@ function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpe
 
 // ---------- événements ----------
 document.addEventListener('click',e=>{
+  if(S.onlOpen&&!e.target.closest('.onlw')){S.onlOpen=false;render()}
   if(SFX.ambOn&&!SFX.amb&&SFX.on)ambient(true);
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(!['up','ship','mgo','join','mclose','res','mod','mount'].includes(a)||(a==='mclose'&&e.target===b))sfx.click();
@@ -1930,6 +1932,7 @@ document.addEventListener('click',e=>{
   else if(a==='callhelp')callHelp(b.dataset.f);
   else if(a==='freechest')claimFree();
   else if(a==='ins2t')insToChestT(b.dataset.t);
+  else if(a==='onl'){S.onlOpen=!S.onlOpen;render()}
   else if(a==='mppopx'){S.pickP=null;render()}
   else if(a==='mmis'){S.modal.mission=b.dataset.m;renderModal()}
   else if(a==='mq'){const t=b.dataset.t,have=view(S.modal.from).ships[t]||0;S.modal.ships[t]=b.dataset.d==='max'?have:Math.max(0,Math.min(have,S.modal.ships[t]+Number(b.dataset.d)));renderModal()}
@@ -2658,7 +2661,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='73';
+const APP_VERSION='74';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

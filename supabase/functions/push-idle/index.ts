@@ -29,7 +29,7 @@ Deno.serve(async () => {
         const { error: dupF } = await db.from("push_sent").insert({ k: `feat:${r.path}:${uid}` });
         if (dupF) continue;
         const payload = d.feat ? JSON.stringify({ title: "🏆 Exploit dans la galaxie", body: String(d.title ?? "").replace(/^🏆 /, ""), tag: "feat" })
-          : JSON.stringify({ title: "🪐 Colonisation réussie", body: String(d.title ?? "").replace(/^🪐 /, ""), tag: "push" });
+          : JSON.stringify({ title: String(d.ptitle ?? "Couronne d’Orion"), body: String(d.title ?? "").replace(/^(🪐|⚔|🏆) /u, ""), tag: "push" });
         for (const s2 of byUid.get(uid) ?? []) {
           try { await webpush.sendNotification(s2.sub as webpush.PushSubscription, payload, { TTL: 3 * 3600, urgency: "normal" }); feats++; }
           catch (e) { const c = (e as { statusCode?: number }).statusCode; if (c === 404 || c === 410) await db.from("push_subs").delete().eq("endpoint", s2.endpoint); }

@@ -277,10 +277,12 @@ function fmtDur(s){s=Math.max(0,Math.ceil(s));const h=Math.floor(s/3600),m=Math.
 const clock=t=>new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 
 // ---------- règles du jeu ----------
-const COLORS=['#5ec8ff','#ff8a5c','#b98cff','#6fe3a1','#ff6fae','#ffd25e','#4fe0d6','#c7d36a','#2f4fc4','#e5484d','#f0f0f0','#c08552'];
+const COLORS=['#5ec8ff','#ff8a5c','#b98cff','#6fe3a1','#ff6fae','#ffd25e','#4fe0d6','#c7d36a','#2f4fc4','#e5484d','#f0f0f0','#c08552','#ff5e00','#00a86b','#8a2be2','#9acd32','#c71585','#ffb4a2','#8c8c8c'];
 // une couleur par empire : celles déjà prises ne sont plus proposées
 const takenColors=()=>new Set(Object.values(S.players).filter(p=>p&&p.uid!==ME&&p.color).map(p=>p.color.toLowerCase()));
-const freeColor=()=>{const t=takenColors();return COLORS.find(c=>!t.has(c))||COLORS[0]};
+const freeColor=()=>{const t=takenColors(),f=COLORS.find(c=>!t.has(c));if(f)return f;
+  // palette épuisée : la teinte la plus éloignée de toutes celles déjà prises
+  const hx=c=>{const x=hex2rgb(c);return x.map(v=>v*255)};let best=null,bd=-1;for(let h=0;h<360;h+=7)for(const l of[45,62]){const c='#'+new THREE.Color().setHSL(h/360,.75,l/100).getHexString();if(t.has(c))continue;const[r,g,b]=hx(c);const d=Math.min(...[...t].map(o=>{const[R,G,B]=hx(o);return(r-R)**2+(g-G)**2+(b-B)**2}));if(d>bd){bd=d;best=c}}return best||COLORS[0]};
 const RES={m:'Métal',c:'Cristal',f:'Hélium-3'};
 const RARE={ir:'Iridium',xe:'Xénite',am:'Antimatière'};
 const PT4=['tel','vol','gla','gaz'];
@@ -587,8 +589,17 @@ function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
   if(le&&le.founded&&!le.done)founded=le.founded;
   else{let born=packBorn(S.events[s.packs[0]]);if(le&&le.done)born=Math.max(born,le.doneAt||0);founded=born+lairDelay(s);if(now<founded)return null}
   const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
+// Léviathans des Écumeurs : énormes vaisseaux-mères stationnés dans le vide, entre deux systèmes voisins. Plus forts qu'une horde.
+(function registerLeviathans(){for(let g=0;g<GALS.length;g++){const L=SYS_BY_GAL[g].filter(s=>!s.deep),seen=new Set(),placed=[];
+  for(const a of L){let b=null,bd=1e9;for(const o of L){if(o===a)continue;const d=Math.hypot(o.x-a.x,o.y-a.y,o.z-a.z);if(d<bd){bd=d;b=o}}if(!b)continue;
+    const key=Math.min(a.i,b.i)+'-'+Math.max(a.i,b.i);if(seen.has(key))continue;seen.add(key);if(hash('lev'+key)%3)continue;const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,mz=(a.z+b.z)/2;if(placed.some(q=>Math.hypot(q[0]-mx,q[1]-my,q[2]-mz)<70))continue;placed.push([mx,my,mz]);
+    const r=rng(hash('levs'+key)),lv=a=>GALS[a.gal].rich*(1+(500-Math.min(a.rad,500))/400),K=(lv(a)+lv(b))/2*4.5*(.9+r()*.2),pid='v'+key,home=a.rad<b.rad?a:b;
+    RAIDS[pid]={pid,sys:home.i,gal:g,tier:2,local:true,mid:true,start:0,end:Infinity,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,mz:(a.z+b.z)/2+4,
+      ships:{fighter:Math.round(10*K),cruiser:Math.round(4*K),battleship:Math.round(1.2*K)},...raidLoot(K*1.3)};
+    PLANETS[pid]={pid,sys:home.i,slot:12,name:`Léviathan · entre ${a.name} et ${b.name}`,type:'raid',raid:true,local:true,mid:true}}}})();
+const leviathans=g=>Object.values(RAIDS).filter(r=>r.mid&&r.gal===g&&sysVisible(r.sys)&&!raidState(r.pid).done);
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:R.ships;
-  if(R.boss){if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;return R.ships}
+  if(R.boss||R.mid){if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;return R.ships}
   if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;
   const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-Math.max(L.founded,GROW_EPOCH))/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.06:.03)*h))}
   const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.04:.015)*h)*(lairInfoAt(s,now)?1.3:1))}
@@ -597,15 +608,17 @@ function raidState(pid){const R=RAIDS[pid],ev=S.events[pid],now=Date.now();if(!R
   if(ev&&ev.done){if(!R.local)return{garrison:{},done:true,back:null};if(now-(ev.doneAt||0)<=RESPAWN)return{garrison:{},done:true,back:(ev.doneAt||0)+RESPAWN}}
   return{garrison:raidGarrison(pid,ev,now),done:false}}
 const activeRaids=(t=Date.now())=>Object.values(RAIDS).filter(r=>!r.local&&t>=r.start&&t<r.end&&!(S.events[r.pid]&&S.events[r.pid].done));
-function raidPos(pid){const R=RAIDS[pid],s=SYSTEMS[R.sys],a=(hash(pid)%628)/100;return galToWorld(R.gal,s.x+Math.cos(a)*28,s.y+Math.sin(a)*28,s.z+6)}
+function raidPos(pid){const R=RAIDS[pid],s=SYSTEMS[R.sys];if(R.mid)return galToWorld(R.gal,R.mx,R.my,R.mz);const a=(hash(pid)%628)/100;return galToWorld(R.gal,s.x+Math.cos(a)*28,s.y+Math.sin(a)*28,s.z+6)}
 registerRaids();
 function packRow(pid,joined){const v=view(pid),R=RAIDS[pid],st=raidState(pid);if(st.absent)return'';const big=worth(v.garrison)/(worth(R.ships)||1);
   return`<div class="item hostile" ${pid===S.pickP?'style="box-shadow:inset 3px 0 0 var(--brass)"':''}><div class="ihead"><b>${esc(PLANETS[pid].name)}</b><span class="lv">${st.done?'dispersés':`menace ${threat(worth(v.garrison))}`}</span></div>
     <div class="eff">${st.done?`De retour dans <span class="cd" data-cd="${st.back}"></span>`:`${raidCmdTxt(pid)} · ${R.lair?`Installé sur ${esc(PLANETS[lairInfoAt(SYSTEMS[R.sys]).pid].name)} · `:''}${big>1.05?`<b style="color:var(--warn)">renforcés ×${big.toFixed(1)}</b> · `:''}Butin ${lootTxt(scaleShips(R.treasure,Math.max(1,big)))} · ${Math.round(R.frag*Math.max(1,big))} Éclats du Vide${joined?` · ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs`:''}`}</div>${st.done?'':intelBox(pid)}
     ${joined&&!st.done?`<div class="foot"><span></span><button class="btn sm" data-act="send" data-p="${pid}">Espionner ou attaquer</button></div>`:''}</div>`}
 function cultureNow(uid){const pl=S.players[uid];if(!pl)return 0;const dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);return(pl.culture??50)+cultureRate(uid)*dt}
-function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g);if(!list.length)return'';
-  return`<section style="display:grid;gap:10px"><h2>Armadas des Écumeurs</h2><p class="meta" style="margin:0">De grosses flottes pirates croisent dans la galaxie, visibles de loin. Mieux vaut les attaquer à plusieurs. Chaque système abrite aussi ses propres meutes, visibles en entrant dans le système.</p><div class="list">${list.map(r=>{const v=view(r.pid);
+function raidsHtml(g,joined){const list=activeRaids().filter(r=>r.gal===g),lv=leviathans(g).sort((a,b)=>S.sel?etaOf(S.sel,a.pid,{fighter:1})-etaOf(S.sel,b.pid,{fighter:1}):0).slice(0,5);
+  const levH=lv.length?`<section style="display:grid;gap:10px"><h2>Léviathans des Écumeurs</h2><p class="meta" style="margin:0">D’énormes vaisseaux-mères pirates, immobiles dans le vide entre deux systèmes. Bien plus forts qu’une horde : attaque-les à plusieurs. Butin rare, 3 insignes et souvent un coffre d’or.</p><div class="list">${lv.map(r=>packRow(r.pid,joined)).join('')}</div></section>`:'';
+  if(!list.length)return levH;
+  return levH+`<section style="display:grid;gap:10px"><h2>Armadas des Écumeurs</h2><p class="meta" style="margin:0">De grosses flottes pirates croisent dans la galaxie, visibles de loin. Mieux vaut les attaquer à plusieurs. Chaque système abrite aussi ses propres meutes, visibles en entrant dans le système.</p><div class="list">${list.map(r=>{const v=view(r.pid);
     return`<div class="item hostile"><div class="ihead"><b>${esc(PLANETS[r.pid].name)}</b><span class="cd" data-cd="${r.end}"></span></div><div class="eff">${raidCmdTxt(r.pid)} · Menace ${threat(worth(v.garrison))}  · butin ${lootTxt(r.treasure)} · ${r.frag} Éclats du Vide${joined?` · ${fmtDur(etaOf(S.sel,r.pid,{fighter:1}))} en chasseurs`:''}</div>${intelBox(r.pid)}${joined?`<div class="foot"><span></span><button class="btn sm" data-act="send" data-p="${r.pid}">Espionner ou attaquer</button></div>`:''}</div>`}).join('')}</div></section>`}
 
 // ---------- brouillard de guerre ----------
@@ -765,7 +778,7 @@ const cmdNext=L=>Math.ceil(60*Math.pow(L+1,2.4));
 const cmdInfo=c=>c&&c.key&&CMDK[c.key]?CMDK[c.key]:{k:null,n:(c&&c.n)||'Officier',r:'c',sp:'att'};
 const cmdSpecVal=c=>{const i=cmdInfo(c);return Math.round(RAR[i.r].sp*100*(1+.1*cmdLvl(c.xp)))};
 // insignes : butin des repaires, Armadas, hordes, sentinelles et gardiens ; servent à entraîner les commandants
-const insDrop=R=>!R?0:R.boss?3:(R.lair||R.guard||!R.local)?2:R.tier>=1?1:(Math.random()<.35?1:0);
+const insDrop=R=>!R?0:R.boss||R.mid?3:(R.lair||R.guard||!R.local)?2:R.tier>=1?1:(Math.random()<.35?1:0);
 const insOf=uid=>(S.players[uid]||{}).ins||0;
 const cmdsOf=uid=>((S.players[uid]||{}).cmds)||[];
 const cmdById=(uid,id)=>id?cmdsOf(uid).find(c=>c.id===id):null;
@@ -784,7 +797,7 @@ async function killCmd(uid,id){if(!uid||!id||!S.players[uid])return;let nm=null,
 // ---------- coffres ----------
 const CHEST={st:{n:'Coffre de départ',col:'#a9b4c8',p:{c:1},cmd:1},b:{n:'Coffre de bronze',col:'#c98a54',p:{c:.75,r:.22,e:.03},cmd:.35},s:{n:'Coffre d’argent',col:'#cfd8e6',p:{c:.4,r:.45,e:.13,l:.02},cmd:.6},g:{n:'Coffre d’or',col:'#ffcf6b',p:{c:.1,r:.4,e:.38,l:.12},cmd:1}};
 const chestsOf=uid=>(S.players[uid]||{}).chests||{};
-const chestDrop=R=>!R?null:R.boss?'g':(R.lair||R.guard||!R.local)?'s':R.tier>=1?(Math.random()<.5?'b':null):(Math.random()<.08?'b':null);
+const chestDrop=R=>!R?null:R.boss?'g':R.mid?(Math.random()<.3?'g':'s'):(R.lair||R.guard||!R.local)?'s':R.tier>=1?(Math.random()<.5?'b':null):(Math.random()<.08?'b':null);
 async function giveChest(uid,t,n=1){if(!uid||!S.players[uid]||!CHEST[t])return;try{await withPlayer(uid,d=>{d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+n})}catch(e){}}
 const chestTxt=t=>CHEST[t]?CHEST[t].n.toLowerCase():'';
 function rollRar(p,r){let x=r,acc=0;for(const k of['c','r','e','l']){acc+=p[k]||0;if(x<acc)return k}return'c'}
@@ -1042,7 +1055,7 @@ async function claimFree(){await act(async()=>{let t=null;await withPlayer(ME,d=
 const INSX=[['b',2],['s',4],['g',10]];
 async function insToChestT(t){const need=(INSX.find(x=>x[0]===t)||[])[1];if(!need)return;await act(async()=>{await withPlayer(ME,d=>{if((d.ins||0)<need)throw err(`Il faut ${need} insignes.`);d.ins-=need;d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+1});sfx.done();toast(`${need} insignes échangés contre un ${chestTxt(t)}.`)})}
 // ---------- interception en plein espace : on calcule le point de rencontre sur la trajectoire ennemie ----------
-const wOf=pid=>{const m=PLANETS[pid];return m.raid&&RAIDS[pid]&&!RAIDS[pid].local?raidPos(pid):SYSTEMS[m.sys].w};
+const wOf=pid=>{const m=PLANETS[pid];return m.raid&&RAIDS[pid]&&(RAIDS[pid].mid||!RAIDS[pid].local)?raidPos(pid):SYSTEMS[m.sys].w};
 function fleetPt(c,t){const A=wOf(c.from),B=wOf(c.to),k=Math.min(1,Math.max(0,(t-c.depart)/((c.arrive-c.depart)||1)));return[0,1,2].map(i=>A[i]+(B[i]-A[i])*k)}
 function etaPt(from,P,ships,galTo,mult=1,meet=false){const sp=SK.filter(k=>ships[k]>0).map(k=>SHIPS[k].spd);if(!sp.length)return Infinity;const A=wOf(from),d=Math.hypot(A[0]-P[0],A[1]-P[1],A[2]-P[2])*10;
   let t=TRAVEL*((meet?2:40)+Math.min(d,1000)*.3+Math.max(0,d-1000)*.08)/Math.min(...sp);if(galOf(from)!==galTo)t*=1.25;const st=stormAt();if(st&&(galOf(from)===st.gal||galTo===st.gal))t*=1.5;return t/mult}
@@ -1251,7 +1264,7 @@ async function launch(){const M=S.modal;if(M.fleet)return launchHeld(M);fixMis(M
     S.modal=null;renderModal();sfx.launch();toast(IP?`Interception lancée : rencontre à ${clock(IP.t)}.`:`Flotte lancée. Arrivée à ${clock(LJ?LJ.arrive:now+eta*1000)}.`)})}
 async function join(){const name=(document.getElementById('pseudo').value||'').trim().slice(0,18);if(name.length<2)return toast('Choisis un nom d’au moins 2 caractères.','bad');
   if(S.joinColor&&takenColors().has(S.joinColor.toLowerCase()))return toast('Cette couleur est déjà prise par un autre empire.','bad');
-  const color=S.joinColor||freeColor();
+  const color=(S.joinColor||freeColor()).toLowerCase();
   const used=new Set(Object.keys(S.planets));const ownedSys=new Set(Object.values(S.planets).filter(p=>p.owner).map(p=>PLANETS[p.pid].sys));
   const free=p=>!p.body&&!p.raid&&!used.has(p.pid)&&!ownedSys.has(p.sys)&&(lairInfoAt(SYSTEMS[p.sys])||{}).pid!==p.pid;
   // on démarre près du premier empire fondé (l'hôte), dans un système voisin libre
@@ -1261,7 +1274,9 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
   c.sort(()=>Math.random()-.5);
   // un double appui ne doit pas fonder deux capitales
   if(S.joining)return;if(Object.values(S.planets).some(p=>p.owner===ME&&p.capital))return toast('Tu as déjà une capitale.','bad');S.joining=true;
-  try{await act(async()=>{for(const cand of c.slice(0,6)){let ok=false;await locked('planets/'+cand.pid,async(d,ref)=>{if(d&&d.owner)return;await ref.set(homePlanet(cand.pid,ME));ok=true});
+  try{await act(async()=>{// la couleur est réservée d’abord : deux nouveaux joueurs ne peuvent pas prendre la même au même moment
+    await locked('colors/'+color.slice(1),async(d,ref)=>{if(d&&d.uid&&d.uid!==ME)throw err('Cette couleur vient d’être prise par un autre empire. Choisis-en une autre.');if(takenColors().has(color))throw err('Cette couleur est déjà prise par un autre empire.');await ref.set({kind:'color',uid:ME,at:Date.now()})});
+    for(const cand of c.slice(0,6)){let ok=false;await locked('planets/'+cand.pid,async(d,ref)=>{if(d&&d.owner)return;await ref.set(homePlanet(cand.pid,ME));ok=true});
     if(ok){await db.doc('players/'+ME).set({kind:'player',uid:ME,name,color,joined:Date.now(),rare:{ir:40,xe:10,am:0},rareAt:Date.now(),tech:{},loadout:{},paint:{}});S.sel=cand.pid;S.tab='planet';sfx.win();toast(`Bienvenue, ${name}. Ta capitale est ${cand.name}.`);return}}
     throw err('Aucune planète libre trouvée.')})}finally{S.joining=false}}
 
@@ -1303,7 +1318,7 @@ const slotsOf=uid=>Math.min(MAXP,((S.players[uid]||{}).slots)||2);
 const slotCost=n=>Math.round(300*Math.pow(Math.max(1,n-1),1.6)); // passer de n à n+1 emplacements
 const cultureCost=uid=>slotCost(slotsOf(uid));
 async function unlockSlot(){await act(async()=>{await withPlayer(ME,d=>{const n=Math.min(MAXP,d.slots||2);if(n>=MAXP)throw err('Tu as déjà débloqué le maximum de planètes.');const c=slotCost(n),cu=d.culture??50;
-  if(cu<c)throw err(`Il faut ${fmt(c)} de culture (tu en as ${fmt(cu)}). Gagne-en en combattant.`);d.culture=cu-c;d.slots=n+1});sfx.win();toast(`Nouvel emplacement débloqué : tu peux avoir ${slotsOf(ME)} planètes.`)})}
+  if(cu<c)throw err(`Il faut ${fmt(c)} points de combat (tu en as ${fmt(cu)}). Gagne-en en combattant.`);d.culture=cu-c;d.slots=n+1});sfx.win();toast(`Nouvel emplacement débloqué : tu peux avoir ${slotsOf(ME)} planètes.`)})}
 async function payCulture(uid){return planetsOf(uid)<slotsOf(uid)}
 async function award(list){const by={};for(const{uid,v,frag,cmd}of list){if(!uid||!S.players[uid])continue;const b=by[uid]=by[uid]||{v:0,frag:0,cx:{}};b.v+=v||0;b.frag+=frag||0;if(cmd)b.cx[cmd]=(b.cx[cmd]||0)+(v||0)*cmdXpMul(uid,cmd)}
   for(const[uid,b]of Object.entries(by)){const v=Math.round(b.v);if(v<=0&&!b.frag)continue;try{await withPlayer(uid,d=>{d.cp=(d.cp||0)+v;d.culture+=v;if(b.frag)d.frag=(d.frag||0)+b.frag;for(const id in b.cx){const c=(d.cmds||[]).find(x=>x.id===id);if(c)c.xp=(c.xp||0)+Math.round(b.cx[id])}})}catch(e){}}}
@@ -1486,7 +1501,7 @@ function renderTop(joined){top_.hidden=false;
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
 function empireBar(){const np=planetsOf(ME),no=outpostsOf(ME),cu=cultureNow(ME),sl=slotsOf(ME),max=sl>=MAXP,cost=cultureCost(ME),pc=max?100:Math.min(100,cu/cost*100),can=!max&&cu>=cost;
-  return`<span class="emp"><span title="Planètes : possédées / emplacements débloqués (maximum ${MAXP})">🪐 <b>${np}</b>/${sl}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Culture pour débloquer une planète de plus"><span>${max?'Planètes au maximum':`culture <b>${fmt(cu)}</b>/${fmt(cost)} → ${sl+1} planètes`}</span><span class="prog"><b style="width:${pc}%"></b></span></span>${max?'':`<button class="slotup${can?' on':''}" data-act="slotup" ${can?'':'aria-disabled="true"'} title="${can?`Débloquer une ${sl+1}e planète (${fmt(cost)} de culture)`:`Il faut ${fmt(cost)} de culture`}" aria-label="Débloquer une planète de plus">▲</button>`}</span>`}
+  return`<span class="emp"><span title="Planètes : possédées / emplacements débloqués (maximum ${MAXP})">🪐 <b>${np}</b>/${sl}</span><span title="Avant-postes">🌙 <b>${no}</b>/${MAXO}</span><span class="empcu" title="Points de combat pour débloquer une planète de plus"><span>${max?'Planètes au maximum':`combats <b>${fmt(cu)}</b>/${fmt(cost)} → ${sl+1} planètes`}</span><span class="prog"><b style="width:${pc}%"></b></span></span>${max?'':`<button class="slotup${can?' on':''}" data-act="slotup" ${can?'':'aria-disabled="true"'} title="${can?`Débloquer une ${sl+1}e planète (${fmt(cost)} points de combat)`:`Il faut ${fmt(cost)} points de combat`}" aria-label="Débloquer une planète de plus">▲</button>`}</span>`}
 // icônes des onglets (traits fins, couleur du texte)
 const TABICO={planet:'<path d="M11.5 6.5l4-3.5 5.5 5.5-3.5 4z"/><path d="M14 9.5L4.2 19.3a1.5 1.5 0 0 0 2.1 2.1L16.1 11.6"/>',
   yard:'<path d="M12 2.5c3 2.3 4.5 5.6 4.5 9.5v4h-9v-4c0-3.9 1.5-7.2 4.5-9.5z"/><circle cx="12" cy="10" r="1.6"/><path d="M7.5 13.5L4.5 17v2h3M16.5 13.5l3 3.5v2h-3M10 16v3.5M14 16v3.5"/>',
@@ -1601,6 +1616,11 @@ function intelBox(pid){const it=latestIntel(pid);if(!it)return'';const parts=[];
 function modalIntel(to,ships){const it=latestIntel(to);const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
   const foe={...(it.ships||{}),...(it.turrets?{turret:it.turrets}:{})},wf=worth(foe),wm=worth(ships),r=wf?wm/wf:0;
   return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)})</span>${M.mission==='attack'?pctHtml(winChance(att,foe,forceMods(ME,M.cmd),md),'Chance de victoire'):''}`:''}</div>`}
+// mot sous le nom sur la carte : espionnée récemment, ou à re-espionner si la cible a changé depuis (nouveau maître, repaire des Écumeurs, flotte détruite)
+function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);let old=!P.raid&&(it.owner||null)!==(v.owner||null);
+  if(!old&&!P.raid&&SYSTEMS[P.sys]&&SYSTEMS[P.sys].lair){const L=lairInfoAt(SYSTEMS[P.sys]);if(L&&L.pid===pid&&L.founded>it.at)old=true}
+  if(!old&&P.raid){const ev=S.events[pid];if(ev&&((ev.doneAt||0)>it.at||(ev.at||0)>it.at))old=true}
+  return old?'<i class="sub2" style="color:#ff9b6b">🔍 à re-espionner</i>':`<i class="sub2" style="color:#9fe0a8">🔍 espionnée ${ago(it.at)}</i>`}
 function intelLine(pid){const it=latestIntel(pid);if(!it)return null;return`Renseignement ${ago(it.at)} : ${it.ships?`${unitLine(it.ships)}${it.turrets?`, ${it.turrets} tourelles`:''}`:'flotte inconnue'}`}
 function planetRow(pid,joined){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type];let who,btn='';const cm=cometAt(),hv=hiveAt();
   const il=intelLine(pid),lr=lairInfoAt(SYSTEMS[m.sys]);
@@ -1846,7 +1866,7 @@ function mpZoomTo(d,wheel){const[lo,hi]=RANGE[MP.level],now=performance.now();
     if(MP.level==='galaxy'){const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal),cx,cy,mpc.clientWidth*.3);if(s){mpGoSystem(s.i);after();return}}}
   MP.distT=Math.max(lo,Math.min(hi,d))}
 function mpPick(x,y){if(MP.level==='universe'){const dd=mpNearest(DEEP.flatMap(D=>[{w:D.m,i:D.hole.i},{w:D.wreck.w,i:D.wreck.i}]),x,y,40);if(dd){sfx.click();mpGoSystem(dd.i);return}const g=mpNearest(GALS.map((G,i)=>({w:G.c,i})),x,y,70);if(g){sfx.click();mpGoGalaxy(g.i)}return}
-  if(MP.level==='galaxy'){const rd=mpNearest(activeRaids().filter(r=>r.gal===MP.gal).map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
+  if(MP.level==='galaxy'){const rd=mpNearest([...activeRaids().filter(r=>r.gal===MP.gal),...leviathans(MP.gal)].map(r=>({w:raidPos(r.pid),pid:r.pid})),x,y,26);if(rd){sfx.click();if(S.players[ME]&&S.sel)openSend(rd.pid);return}if(MP.dist<80&&MP.pList){const pp=mpNearest(MP.pList,x,y,20);if(pp){sfx.click();mpGoSystem(pp.sys);S.pickP=pp.pid;render();return}}const s=mpNearest(SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep),x,y,34);if(s){sfx.click();mpGoSystem(s.i)}return}
   if(MP.level==='system'){const o=mpNearest(MP.orbs.filter(o=>!o.ghost).map(o=>{const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return{w:[v.x,v.y,v.z],pid:o.pid}}),x,y,36);if(o){sfx.click();S.pickP=o.pid;render()}else if(S.pickP){S.pickP=null;render()}}}
 function mpGoUniverse(at,dist){MP.level='universe';MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...UNI];MP.distT=dist||1350;mpClearSystem();render()}
 function mpGoGalaxy(g,at,dist){MP.level='galaxy';MP.gal=g;MP.sys=null;S.pickP=null;MP.tgtT=at?[...at]:[...GALS[g].c];MP.distT=dist||115;mpClearSystem();render()}
@@ -1902,10 +1922,11 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);L.push({w:s.w,cls:mine?'me':'',h:`<b style="color:${esc(pcolor(mine?ME:[...os][0]))}">●</b> ${esc(s.name)}${capP?`<i class="sub">${esc(pname(capP.owner))}</i>${cmdsOf(capP.owner).length?`<i class="sub2">${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>cmdBadge(c,13)+esc(cmdInfo(c).n)).join(' ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
     if(cm)evLab(cm.pid,'Comète','ev');if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
+    if(MP.dist<95)for(const r of leviathans(MP.gal))L.push({w:raidPos(r.pid),cls:'ev bad',pr:2,h:`☠ Léviathan<i class="sub">menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`});
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     for(const f of Object.values(S.fleets)){if(!PLANETS[f.from]||!PLANETS[f.to])continue;const host=isHostileF(f);if(f.owner!==ME&&!host)continue;if(galOf(f.from)!==MP.gal&&galOf(f.to)!==MP.gal)continue;if(f.phase!=='out'&&f.phase!=='back'){if(f.owner===ME&&f.phase==='hold')L.push({fl:f,cls:'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}Flotte en position`});continue}const end=f.phase==='out'?f.arrive:f.back;L.push({fl:f,cls:host?'ev bad':'me',h:`${f.cmd&&cmdById(f.owner,f.cmd)?cmdBadge(cmdById(f.owner,f.cmd),13):''}${host?'Alerte · ':''}${f.phase==='out'?(f.group?'Attaque groupée':MIS[f.mission]):'Retour'} → ${esc(plName(f.phase==='out'?f.to:f.from))} · ${fmtDur((end-Date.now())/1000)}`})}
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
-  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>`:'?'})})}
+  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>${spyTag(o.pid)}`:'?'})})}
   L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
@@ -1916,7 +1937,7 @@ function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal]
   const h=parts.join('');if(nav.innerHTML!==h)nav.innerHTML=h}
 function nodePos(pid){const m=PLANETS[pid];if(!m)return null;
   if(MP.level==='system'&&MP.sys===m.sys){const o=MP.orbs.find(o=>o.pid===pid);if(o){const v=new THREE.Vector3();o.mesh.getWorldPosition(v);return[v.x,v.y,v.z]}}
-  if(m.raid&&RAIDS[pid]&&!RAIDS[pid].local)return raidPos(pid);return SYSTEMS[m.sys].w}
+  if(m.raid&&RAIDS[pid]&&(RAIDS[pid].mid||!RAIDS[pid].local))return raidPos(pid);return SYSTEMS[m.sys].w}
 function fleetPos(f,t){const A=nodePos(f.from),B=f.meet?[...f.meet]:nodePos(f.to);if(!A||!B)return null;if(f.phase==='hold'||f.phase==='battle'||f.phase==='wait')return{p:B,from:B,to:[B[0]+.01,B[1],B[2]+.01],hold:true};const out=f.phase==='out',t0=out?f.depart:f.arrive,t1=out?f.arrive:f.back,k=Math.min(1,Math.max(0,(t-t0)/(t1-t0||1))),P=out?[A,B]:[B,A];return{p:[0,1,2].map(i=>P[0][i]+(P[1][i]-P[0][i])*k),from:P[0],to:P[1]}}
 const isHostileF=f=>f.owner!==ME&&f.phase==='out'&&f.mission==='attack'&&S.planets[f.to]&&S.planets[f.to].owner===ME;
 function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&&PLANETS[f.to]&&(f.owner===ME||isHostileF(f)||sysVisible(PLANETS[f.from].sys)||sysVisible(PLANETS[f.to].sys))).slice(0,200),LP=MP.fleetLines.geometry.attributes.position.array,LC=MP.fleetLines.geometry.attributes.color.array,da=MP.fleetDots.geometry.attributes,seen=new Set();
@@ -1929,8 +1950,16 @@ function mpFleets(t){const fl=Object.values(S.fleets).filter(f=>PLANETS[f.from]&
   for(const[id,m]of MP.fm)if(!seen.has(id)){MP.scene.remove(m);m.material.dispose();MP.fm.delete(id)}
   MP.fleetLines.geometry.setDrawRange(0,n*2);MP.fleetDots.geometry.setDrawRange(0,n);MP.trail.geometry.setDrawRange(0,tn);TA.position.needsUpdate=true;TA.color.needsUpdate=true;TA.sz.needsUpdate=true;TA.rg.needsUpdate=true;
   MP.fleetLines.geometry.attributes.position.needsUpdate=true;MP.fleetLines.geometry.attributes.color.needsUpdate=true;da.position.needsUpdate=true;da.color.needsUpdate=true;da.sz.needsUpdate=true;da.rg.needsUpdate=true}
-function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;for(const r of list){if(n>=60)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
+function mpRaids(){const rp=MP.raidPts,a=rp.geometry.attributes,list=activeRaids();let n=0;mpLevs();for(const r of list){if(n>=60)break;const cur=MP.level!=='universe'&&r.gal===MP.gal;a.position.array.set(raidPos(r.pid),n*3);a.color.array.set([1,.28,.42],n*3);a.sz.array[n]=cur?14:(MP.level==='universe'?6:5);a.rg.array[n]=cur?2:0;n++}
   rp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
+// le Léviathan : un gros cuirassé pirate rouge, bien visible sur la carte de la galaxie
+function mpLevs(){if(!MP.lev)MP.lev=new Map();const want=MP.level==='universe'?[]:leviathans(MP.gal),keep=new Set();
+  for(const r of want){keep.add(r.pid);let o=MP.lev.get(r.pid);if(o&&o.userData.ver===SHIPLIB.ver)continue;if(o){MP.scene.remove(o);v3Clear(o);MP.lev.delete(r.pid)}
+    const g=new THREE.Group(),sh=buildShip('battleship',{hull:'#3b2228',trim:'#ff3b5c',glow:'#ff6a3c'},null),L=protoLen('battleship');
+    sh.traverse(x=>{if(x.isMesh&&x.material){const m=x.material;x.material=new THREE.MeshBasicMaterial({map:m.map||null,color:m.map?0xd8c8c8:(m.color||new THREE.Color('#8a3040'))})}});
+    sh.scale.setScalar(2.2/L);g.add(sh);const halo=new THREE.Sprite(libGlow('ff3b5c',.32));halo.scale.set(5,5,1);g.add(halo);
+    const w=raidPos(r.pid);g.position.set(w[0],w[1],w[2]);g.rotation.y=(hash(r.pid)%628)/100;g.userData.ver=SHIPLIB.ver;g.renderOrder=9;MP.scene.add(g);MP.lev.set(r.pid,g)}
+  for(const[id,o]of MP.lev)if(!keep.has(id)){MP.scene.remove(o);v3Clear(o);MP.lev.delete(id)}}
 // trous noirs et épaves de la carte : transparents quand la caméra est tout près, opaques de loin
 function deepFade(x){const G=x.H||x.W;if(!G)return;if(!x.mats){x.mats=[];G.traverse(o=>{const m=o.material;if(!m)return;if(m.uniforms&&m.uniforms.op)x.mats.push([m,'u',m.uniforms.op.value]);else{m.transparent=true;x.mats.push([m,'o',m.opacity])}})}
   const d=MP.cam.position.distanceTo(G.position),r=x.H?28:14,f=Math.max(0,Math.min(1,(d-r)/(r*1.5)));if(f===x.f)return;x.f=f;G.visible=f>.02;
@@ -2814,7 +2843,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='89';
+const APP_VERSION='90';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

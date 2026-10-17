@@ -2549,9 +2549,12 @@ function btInit(){if(BT.tried)return BT.ok;BT.tried=true;if(!window.THREE)return
     scene.add(new THREE.HemisphereLight(0x9fb4ff,0x140c18,.55));const sun=new THREE.DirectionalLight(0xfff0dc,1.6);sun.position.set(-6,8,10);scene.add(sun);const rim=new THREE.DirectionalLight(0xff8a6a,.7);rim.position.set(10,2,-8);scene.add(rim);
     let comp=null;if(THREE.EffectComposer&&THREE.UnrealBloomPass){comp=new THREE.EffectComposer(r);comp.addPass(new THREE.RenderPass(scene,cam));comp.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(512,512),1.0,.5,.65))}
     Object.assign(BT,{r,scene,cam,comp,glow:glowTex(),ok:true});
-    btc.addEventListener('pointerdown',e=>{BT.drag={x:e.clientX,yaw:BT.yaw};try{btc.setPointerCapture(e.pointerId)}catch(x){}});
-    btc.addEventListener('pointermove',e=>{if(BT.drag)BT.yaw=BT.drag.yaw-(e.clientX-BT.drag.x)*.008});
-    const up=()=>{BT.drag=null};btc.addEventListener('pointerup',up);btc.addEventListener('pointercancel',up);
+    // un doigt : tourner autour du combat · deux doigts ou molette : zoomer (entre 10 et 90)
+    BT.ptr=new Map();BT.dist=BT.distT=34;const bpts=()=>[...BT.ptr.values()],bclamp=v=>Math.max(10,Math.min(90,v));
+    btc.addEventListener('pointerdown',e=>{BT.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});try{btc.setPointerCapture(e.pointerId)}catch(x){}if(BT.ptr.size===2){const[a,b]=bpts();BT.pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,dist:BT.distT};BT.drag=null}else BT.drag={x:e.clientX,yaw:BT.yaw}});
+    btc.addEventListener('pointermove',e=>{if(!BT.ptr.has(e.pointerId))return;BT.ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});if(BT.ptr.size>=2&&BT.pinch){const[a,b]=bpts();BT.distT=bclamp(BT.pinch.dist*BT.pinch.d/(Math.hypot(a.x-b.x,a.y-b.y)||1))}else if(BT.drag)BT.yaw=BT.drag.yaw-(e.clientX-BT.drag.x)*.008});
+    const up=e=>{BT.ptr.delete(e.pointerId);if(BT.ptr.size<2)BT.pinch=null;if(!BT.ptr.size)BT.drag=null};btc.addEventListener('pointerup',up);btc.addEventListener('pointercancel',up);
+    btc.addEventListener('wheel',e=>{e.preventDefault();BT.distT=bclamp(BT.distT*Math.exp(e.deltaY*.0012))},{passive:false});btc.style.touchAction='none';
     document.getElementById('btclose').addEventListener('click',()=>{sfx.click();btClose()});
     document.getElementById('btreplay').addEventListener('click',()=>{sfx.click();btBuild();BT.t0=performance.now()});
     window.addEventListener('resize',btSize);
@@ -2650,7 +2653,7 @@ function battleMusic(on){const c=audio();if(!c)return;
     BMUS.on=true;BMUS.next=c.currentTime+.1;BMUS.step=0;BMUS.timer=setInterval(bmSchedule,150);bmSchedule()}
   else if(!on&&BMUS.on){BMUS.on=false;clearInterval(BMUS.timer);const g=BMUS.gain;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(g.gain.value,c.currentTime);g.gain.linearRampToValueAtTime(0,c.currentTime+1);setTimeout(()=>{try{g.disconnect()}catch(e){}},1300);if(BMUS.resumeAmb&&SFX.ambOn)setTimeout(()=>ambient(true),900)}}
 function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const dt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;const D=BT.rep.battle,R=D.rounds.length,e=(t-BT.t0)/1000-1.2;
-  if(!BT.drag)BT.yaw+=dt*.06;BT.cam.position.set(Math.sin(BT.yaw)*34,11,Math.cos(BT.yaw)*34);BT.cam.lookAt(2,0,0);
+  if(!BT.drag)BT.yaw+=dt*.06;BT.dist+=((BT.distT||34)-(BT.dist||34))*Math.min(1,dt*4);const dd=BT.dist||34;BT.cam.position.set(Math.sin(BT.yaw)*dd,11*dd/34,Math.cos(BT.yaw)*dd);BT.cam.lookAt(2,0,0);
   for(const u of BT.units){if(u.dot){u.dot.visible=u.alive;if(u.alive)u.dot.position.set(u.m.position.x,u.m.position.y+(u.k==='battleship'||u.k==='flag'?2.2:1.4),u.m.position.z)}if(u.alive){const b=u.m.userData.base;u.m.position.y=b.y+Math.sin(t/700+u.m.userData.ph)*.25;if(u.k!=='turret')u.m.position.x=b.x+(u.side==='a'?1:-1)*Math.min(3,Math.max(0,e)*.4)}}
   const RDv=Math.max(6.5,Math.min(10,28/Math.max(1,R))),ri=e<0?-1:Math.floor(e/RDv);
   if(ri>=0&&ri<R){const u=e-ri*RDv;
@@ -2766,7 +2769,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='81';
+const APP_VERSION='82';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

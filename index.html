@@ -416,7 +416,7 @@ GALS.forEach((G,g)=>{const r=rng(31337+g*977),rz=rng(555+g),extra=Math.round(G.N
     for(let k=0;k<n;k++){const pid=`n${g}-${made}-${k}`,pr=rng(hash(pid));PLANETS[pid]={pid,sys:gi,slot:k,name:`${name} ${ROM[k]}`,type:PT4[Math.floor(pr()*4)]};sys.planets.push(pid)}
     SYSTEMS.push(sys);near.push(sys);made++}});
 const GREEK=['α','β','γ','δ'];
-SYSTEMS.forEach(s=>{const r=rng(hash('b'+s.i)),G=GALS[s.gal],kinds=[];const nb=r()<.75?1+Math.floor(r()*2):0;for(let k=0;k<nb;k++)kinds.push(r()<.6?'ast':'moon');if(r()<.05+(G.rich-1)*.35)kinds.push('anom');
+SYSTEMS.forEach(s=>{const r=rng(hash('b'+s.i)),G=GALS[s.gal],kinds=[];const nb=r()<.75?1+Math.floor(r()*2):0;for(let k=0;k<nb;k++)kinds.push(r()<.6?'ast':'moon');if(r()<.05+(G.rich-1)*.35)kinds.push('anom');if(!kinds.length&&!s.deep)kinds.push(hash('sat'+s.i)%2?'moon':'ast'); // au moins un satellite par système
   kinds.forEach((t,k)=>{const pid=`b${s.i}-${k}`;PLANETS[pid]={pid,sys:s.i,slot:s.planets.length+k,name:t==='ast'?`Ceinture ${GREEK[k]} de ${s.name}`:t==='moon'?`Lune ${GREEK[k]} de ${s.name}`:`Anomalie de ${s.name}`,type:t,body:true};s.bodies.push(pid)})});
 // ---------- histoire : une galaxie = un niveau ----------
 const STORY=[
@@ -574,7 +574,8 @@ function registerRaids(t=Date.now()){const w=Math.floor(t/RAIDW);for(let ww=w-2;
     RAIDS[pid]={pid,sys:sys.i,gal:g,tier:2,start:ww*RAIDW,end:(ww+1)*RAIDW,ships:{fighter:Math.round(12*kk),cruiser:Math.round(4*kk),battleship:Math.round(.7*kk)},...raidLoot(kk)};
     if(!PLANETS[pid])PLANETS[pid]={pid,sys:sys.i,slot:9,name:`Armada des Écumeurs · ${sys.name}`,type:'raid',raid:true}})}}
 // depuis quand une meute grossit sans être dérangée
-function packBorn(ev){let t=EPOCH;if(ev){if(ev.done)t=Math.max(t,(ev.doneAt||0)+RESPAWN);else t=Math.max(t,(ev.at||0)+RESPAWN)}return t}
+const GROW_EPOCH=Date.UTC(2026,9,17,15,50); // remise à zéro de la croissance des Écumeurs
+function packBorn(ev){let t=Math.max(EPOCH,GROW_EPOCH);if(ev){if(ev.done)t=Math.max(t,(ev.doneAt||0)+RESPAWN);else t=Math.max(t,(ev.at||0)+RESPAWN)}return t}
 const lairDelay=s=>(LAIR_DELAY+(hash('lair'+s.i)%6)*HR)*(inFog(s.i)?.5:1);
 // repaire actif d'un système : {lid, pid de la planète occupée, founded} ou null
 function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
@@ -584,8 +585,8 @@ function lairInfoAt(s,now=Date.now()){const le=S.events[s.lair];let founded;
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:R.ships;
   if(R.boss){if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;return R.ships}
   if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;
-  const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-L.founded)/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3.5:2.5,1+(fz?.12:.05)*h))}
-  const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.07:.025)*h)*(lairInfoAt(s,now)?1.3:1))}
+  const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-Math.max(L.founded,GROW_EPOCH))/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.06:.03)*h))}
+  const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.04:.015)*h)*(lairInfoAt(s,now)?1.3:1))}
 function raidState(pid){const R=RAIDS[pid],ev=S.events[pid],now=Date.now();if(!R)return{garrison:{},done:true};
   if(R.lair){if(!lairInfoAt(SYSTEMS[R.sys],now))return{garrison:{},done:true,absent:true};return{garrison:raidGarrison(pid,ev&&ev.done?null:ev,now),done:false}}
   if(ev&&ev.done){if(!R.local)return{garrison:{},done:true,back:null};if(now-(ev.doneAt||0)<=RESPAWN)return{garrison:{},done:true,back:(ev.doneAt||0)+RESPAWN}}
@@ -2792,7 +2793,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='84';
+const APP_VERSION='85';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

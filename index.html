@@ -2250,7 +2250,7 @@ document.addEventListener('click',e=>{
   else if(a==='frag2t')fragToChest(b.dataset.t);
   else if(a==='cmdheal')healCmd(b.dataset.c);
   else if(a==='mapsys'){const si=+b.dataset.s;if(S.tab!=='galaxy'){S.tab='galaxy';render()}setTimeout(()=>{try{mpGoSystem(si)}catch(e){}const el=document.getElementById('mp');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},60)}
-  else if(a==='pmap'){const si=+b.dataset.s,pk=b.dataset.p;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok){mpGoSystem(si);if(pk&&PLANETS[pk]&&!(RAIDS[pk]&&(RAIDS[pk].mid||!RAIDS[pk].local))){S.pickP=pk;render()}}const el=document.getElementById('mp');if(el)el.scrollIntoView({block:'start'})},80)}
+  else if(a==='pmap'){const si=+b.dataset.s,pk=b.dataset.p;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok){const R=pk&&RAIDS[pk];if(R&&(R.mid||!R.local)){mpGoGalaxy(R.gal,raidPos(pk),14)}else{mpGoSystem(si);if(pk&&PLANETS[pk]){S.pickP=pk;render()}}}const el=document.getElementById('mp');if(el)el.scrollIntoView({block:'start'})},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
   else if(a==='mappl'){S.mpPl=!S.mpPl;mpNav()}
   else if(a==='mapplgo'){S.mpPl=false;const pm=PLANETS[b.dataset.p];if(pm){mpGoSystem(pm.sys);S.pickP=b.dataset.p;render()}}
@@ -3095,7 +3095,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='121';
+const APP_VERSION='122';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

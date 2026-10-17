@@ -2558,8 +2558,8 @@ function btInit(){if(BT.tried)return BT.ok;BT.tried=true;if(!window.THREE)return
   }catch(e){BT.ok=false}return BT.ok}
 function btSize(){if(!BT.ok)return;const w=btc.clientWidth,h=btc.clientHeight;if(!w||!h)return;BT.r.setSize(w,h,false);BT.cam.aspect=w/h;BT.cam.updateProjectionMatrix();if(BT.comp){BT.comp.setPixelRatio(BT.r.getPixelRatio());BT.comp.setSize(w,h)}}
 function btOpen(id){const r=S.reports.find(x=>x.id===id);if(!r||!r.battle)return toast('Cette bataille n’est plus disponible.','bad');if(!btInit())return toast('L’animation 3D n’est pas disponible sur cet appareil.','bad');
-  BT.rep=r;btel.hidden=false;document.body.style.overflow='hidden';if(S.btNew&&S.btNew.id===id)S.btNew=null;btBuild();BT.t0=performance.now();btStart()}
-function btClose(){btel.hidden=true;document.body.style.overflow='';btStop()}
+  BT.rep=r;btel.hidden=false;document.body.style.overflow='hidden';if(S.btNew&&S.btNew.id===id)S.btNew=null;btBuild();BT.t0=performance.now();btStart();battleMusic(true)}
+function btClose(){btel.hidden=true;document.body.style.overflow='';btStop();battleMusic(false)}
 function btAlloc(total,shown,owners){// owners: [{uid,n}] -> nombre de maquettes par propriétaire
   const out=owners.map(o=>({...o,m:Math.floor(shown*o.n/(total||1))}));let rem=shown-out.reduce((a,b)=>a+b.m,0);out.sort((a,b)=>b.n-a.n);for(let i=0;rem>0&&i<out.length*3;i++){const o=out[i%out.length];if(o.m<o.n){o.m++;rem--}}return out}
 // vaisseau amiral du bon commandant dans le rejeu (sinon le meilleur commandant du joueur)
@@ -2587,7 +2587,7 @@ function btHud(i){const D=BT.rep.battle,c=btCounts(i),R=D.rounds.length;const en
 function btBoom(pos,big){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:0xffa040,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.position.copy(pos);BT.g.add(s);
   const n=24,pg=new THREE.BufferGeometry(),pp=new Float32Array(n*3),vel=[];for(let i=0;i<n;i++){pp.set([pos.x,pos.y,pos.z],i*3);vel.push(new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(2+Math.random()*4))}
   pg.setAttribute('position',new THREE.BufferAttribute(pp,3));const pts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xffc070,size:.25,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));BT.g.add(pts);
-  BT.fx.push({boom:s,pts,vel,t:0,big});const now=performance.now();if(now-BT.lastBoom>90||!BT.lastBoom){BT.lastBoom=now;noise(big?.9:.5,{f:big?160:260,f2:60,vol:big?.32:.2})}}
+  BT.fx.push({boom:s,pts,vel,t:0,big});const now=performance.now();if(now-BT.lastBoom>90||!BT.lastBoom){BT.lastBoom=now;btThump(big);noise(big?.9:.5,{f:big?160:260,f2:60,vol:big?.32:.2})}}
 function btBeam(a,b,col){const geo=new THREE.BufferGeometry().setFromPoints([a,b]);const l=new THREE.Line(geo,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false}));BT.g.add(l);
   const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(b);fl.scale.setScalar(1.2);BT.g.add(fl);BT.fx.push({beam:l,flash:fl,t:0});
   const now=performance.now();if(now-BT.lastBeep>110){BT.lastBeep=now;tone(col===0xff5a5a?520:900,.08,{type:'sawtooth',vol:.025,slide:.5})}}
@@ -2610,7 +2610,7 @@ function btProj(a,b,col,o){const s=new THREE.Sprite(new THREE.SpriteMaterial({ma
 function btHeavy(a,b,col,w){const d=b.clone().sub(a),len=d.length(),m=new THREE.Mesh(new THREE.CylinderGeometry(w,w,len,8,1,true),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));
   m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());BT.g.add(m);
   const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(b);fl.scale.setScalar(2.4);BT.g.add(fl);BT.fx.push({heavy:m,flash:fl,t:0,dur:.45})}
-function btShot(s,tg,col){const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));
+function btShot(s,tg,col){btSound(s.k==='probe'||s.k==='colony'?'fighter':s.k);const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));
   if(s.k==='fighter'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2,col,{size:.45,dur:.28})},i*90);return}
   if(s.k==='cruiser'){for(let i=0;i<2;i++)setTimeout(()=>{if(BT.running)btProj(p1.clone().add(new THREE.Vector3(0,(i-.5)*.6,0)),p2,0xffb060,{size:.6,dur:.75,arc:1.6*(i?1:-1),trail:true})},i*140);return}
   if(s.k==='battleship'){btHeavy(p1,p2,col,.09);return}
@@ -2618,17 +2618,44 @@ function btShot(s,tg,col){const p1=s.m.position.clone().add(new THREE.Vector3((s
   if(s.k==='turret'){for(let i=0;i<3;i++)setTimeout(()=>{if(BT.running)btProj(p1,p2.clone().add(new THREE.Vector3(0,(Math.random()-.5),0)),0xff7050,{size:.35,dur:.22})},i*60);return}
   btBeam(p1,p2,col)}
 function btFxStep(f,dt){if(f.proj){const k=Math.min(1,f.t/f.dur),p=f.a.clone().lerp(f.b,k);p.y+=Math.sin(k*Math.PI)*f.arc;f.proj.position.copy(p);if(f.trail){const k2=Math.max(0,k-.08),q=f.a.clone().lerp(f.b,k2);q.y+=Math.sin(k2*Math.PI)*f.arc;f.trail.position.copy(q)}
-    if(k>=1){BT.g.remove(f.proj);f.proj.material.dispose();if(f.trail){BT.g.remove(f.trail);f.trail.material.dispose()}const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:f.col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(f.b);fl.scale.setScalar(f.arc?1.6:.9);BT.g.add(fl);BT.fx.push({beam:null,flash:fl,t:0,flashOnly:true});return false}return true}
+    if(k>=1){if(f.arc)btSound('hit');BT.g.remove(f.proj);f.proj.material.dispose();if(f.trail){BT.g.remove(f.trail);f.trail.material.dispose()}const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:f.col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.copy(f.b);fl.scale.setScalar(f.arc?1.6:.9);BT.g.add(fl);BT.fx.push({beam:null,flash:fl,t:0,flashOnly:true});return false}return true}
   if(f.heavy){const o=Math.max(0,1-f.t/f.dur);f.heavy.material.opacity=.9*o;f.heavy.scale.x=f.heavy.scale.z=1+Math.sin(f.t*40)*.25;f.flash.material.opacity=o;if(f.t>f.dur){BT.g.remove(f.heavy);BT.g.remove(f.flash);f.heavy.geometry.dispose();f.heavy.material.dispose();f.flash.material.dispose();return false}return true}
   if(f.flashOnly){const o=Math.max(0,1-f.t/.2);f.flash.material.opacity=o;if(f.t>.2){BT.g.remove(f.flash);f.flash.material.dispose();return false}return true}
   return null}
+// ---------- sons de bataille et musique de combat ----------
+const BSND={};const bsOk=(k,ms)=>{const n=performance.now();if(n-(BSND[k]||0)<ms)return false;BSND[k]=n;return true};
+function btSound(kind){if(!SFX.on)return;
+  if(kind==='fighter'&&bsOk('f',70)){tone(1500+Math.random()*300,.09,{type:'square',vol:.022,slide:.35})}
+  else if(kind==='cruiser'&&bsOk('c',160)){noise(.35,{f:1400,f2:300,vol:.08,q:.8});tone(300,.3,{type:'sawtooth',vol:.018,slide:1.8})}
+  else if(kind==='battleship'&&bsOk('b',260)){tone(95,.6,{type:'sawtooth',vol:.05,slide:.55});tone(190,.5,{type:'square',vol:.02,slide:.6});noise(.5,{f:500,f2:120,vol:.08})}
+  else if(kind==='flag'&&bsOk('g',300)){tone(660,.7,{type:'sawtooth',vol:.03,slide:.5});tone(330,.8,{type:'triangle',vol:.05,slide:.5})}
+  else if(kind==='turret'&&bsOk('t',120)){for(let i=0;i<3;i++)noise(.06,{f:2200,vol:.07,delay:i*.06})}
+  else if(kind==='hit'&&bsOk('h',90)){noise(.18,{f:900,f2:300,vol:.08})}}
+function btThump(big){if(!SFX.on)return;tone(big?55:80,big?.9:.5,{type:'sine',vol:big?.22:.12,slide:.5});noise(big?1.1:.6,{f:big?220:400,f2:50,vol:big?.3:.18,q:.7})}
+// musique de combat : percussions, basse martelée et cuivres en ostinato (mineur)
+const BMUS={on:false,timer:0,next:0,step:0,gain:null,resumeAmb:false};
+function bmNote(c,f,t,d,type,v,cut){const o=c.createOscillator(),g=c.createGain(),fl=c.createBiquadFilter();o.type=type;o.frequency.setValueAtTime(f,t);fl.type='lowpass';fl.frequency.value=cut||2400;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(fl).connect(g).connect(BMUS.gain);o.start(t);o.stop(t+d+.05)}
+function bmDrum(c,t,kick){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(kick?150:220,t);o.frequency.exponentialRampToValueAtTime(kick?42:110,t+(kick?.18:.08));g.gain.setValueAtTime(kick?.55:.18,t);g.gain.exponentialRampToValueAtTime(.0001,t+(kick?.3:.12));o.connect(g).connect(BMUS.gain);o.start(t);o.stop(t+.35);
+  if(!kick){const b=c.createBuffer(1,Math.ceil(c.sampleRate*.15),c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=c.createBufferSource(),gn=c.createGain(),f=c.createBiquadFilter();s.buffer=b;f.type='highpass';f.frequency.value=1500;gn.gain.setValueAtTime(.16,t);gn.gain.exponentialRampToValueAtTime(.0001,t+.14);s.connect(f).connect(gn).connect(BMUS.gain);s.start(t)}}
+const BM_ROOT=[55,55,43.65,49];// la, la, fa, sol (graves)
+function bmSchedule(){const c=SFX.ctx;if(!c||!BMUS.on)return;const sp=60/138/2;
+  while(BMUS.next<c.currentTime+.6){const t=BMUS.next,st=BMUS.step,bar=Math.floor(st/16)%4,r=BM_ROOT[bar],s16=st%16;
+    if(s16%4===0)bmDrum(c,t,true);if(s16===4||s16===12)bmDrum(c,t,false);if(s16===14)bmDrum(c,t,true);
+    bmNote(c,r*(s16%8===6?1.5:1),t,sp*.9,'sawtooth',.13,700);
+    if(s16===0||s16===10){const ch=[r*4,r*4*1.189,r*4*1.498];for(const f of ch)bmNote(c,f,t,s16?sp*2.2:sp*3.6,'square',.028,1800)}
+    if(bar===3&&s16>=8&&s16%2===0)bmNote(c,r*8*[1,1.189,1.335,1.498][(s16-8)/2],t,sp*1.6,'triangle',.05,3000);
+    BMUS.next+=sp;BMUS.step++}}
+function battleMusic(on){const c=audio();if(!c)return;
+  if(on&&!BMUS.on){if(!SFX.on)return;BMUS.resumeAmb=!!MUS.playing;if(MUS.playing)ambient(false);BMUS.gain=c.createGain();BMUS.gain.gain.setValueAtTime(0,c.currentTime);BMUS.gain.gain.linearRampToValueAtTime(.5,c.currentTime+1.2);BMUS.gain.connect(c.destination);
+    BMUS.on=true;BMUS.next=c.currentTime+.1;BMUS.step=0;BMUS.timer=setInterval(bmSchedule,150);bmSchedule()}
+  else if(!on&&BMUS.on){BMUS.on=false;clearInterval(BMUS.timer);const g=BMUS.gain;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(g.gain.value,c.currentTime);g.gain.linearRampToValueAtTime(0,c.currentTime+1);setTimeout(()=>{try{g.disconnect()}catch(e){}},1300);if(BMUS.resumeAmb&&SFX.ambOn)setTimeout(()=>ambient(true),900)}}
 function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const dt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;const D=BT.rep.battle,R=D.rounds.length,e=(t-BT.t0)/1000-1.2;
   if(!BT.drag)BT.yaw+=dt*.06;BT.cam.position.set(Math.sin(BT.yaw)*34,11,Math.cos(BT.yaw)*34);BT.cam.lookAt(2,0,0);
   for(const u of BT.units){if(u.dot){u.dot.visible=u.alive;if(u.alive)u.dot.position.set(u.m.position.x,u.m.position.y+(u.k==='battleship'||u.k==='flag'?2.2:1.4),u.m.position.z)}if(u.alive){const b=u.m.userData.base;u.m.position.y=b.y+Math.sin(t/700+u.m.userData.ph)*.25;if(u.k!=='turret')u.m.position.x=b.x+(u.side==='a'?1:-1)*Math.min(3,Math.max(0,e)*.4)}}
-  const ri=e<0?-1:Math.floor(e/RD);
-  if(ri>=0&&ri<R){const u=e-ri*RD;
-    if(u<2.3){const A=BT.units.filter(x=>x.side==='a'&&btShooter(x)),Dd=BT.units.filter(x=>x.side==='d'&&btShooter(x)),ta=BT.units.filter(x=>x.side==='d'&&x.alive),tdd=BT.units.filter(x=>x.side==='a'&&x.alive);
-      const rate=Math.min(26,(A.length+Dd.length)*1.1);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)],tg=T1[Math.floor(Math.random()*T1.length)];
+  const RDv=Math.max(6.5,Math.min(10,28/Math.max(1,R))),ri=e<0?-1:Math.floor(e/RDv);
+  if(ri>=0&&ri<R){const u=e-ri*RDv;
+    if(u<RDv-1){const A=BT.units.filter(x=>x.side==='a'&&btShooter(x)),Dd=BT.units.filter(x=>x.side==='d'&&btShooter(x)),ta=BT.units.filter(x=>x.side==='d'&&x.alive),tdd=BT.units.filter(x=>x.side==='a'&&x.alive);
+      const rate=Math.min(18,(A.length+Dd.length)*.7);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)],tg=T1[Math.floor(Math.random()*T1.length)];
         const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btShot(s,tg,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}
     else if(BT.done<ri){BT.done=ri;const before=btCounts(ri-1),after=D.rounds[ri];
       for(const side of['a','d'])for(const k of Object.keys(side==='a'?D.ia:D.id)){const init=(side==='a'?D.ia:D.id)[k]||0,aft=(after[side][k]||0);const units=BT.units.filter(x=>x.side===side&&x.k===k),alive=units.filter(x=>x.alive);const want=aft>0?Math.max(1,Math.round(units.length*aft/init)):0;
@@ -2739,7 +2766,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='80';
+const APP_VERSION='81';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

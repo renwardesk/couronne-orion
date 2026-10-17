@@ -1436,7 +1436,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     await finish(G.surv);const sh=shares(forces);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i]})));
     reps.push({to:atkUids,tone:'info',title:`Assaut contre la Ruche à ${tn}`,lines:[...fightLines(G.B),`Points de combat gagnés : ${Math.round(val)}.`],battle:rec(G.B,'hive')});
     if(done){const tot=Object.values(done).reduce((a,b)=>a+b,0)||1;for(const[u,v]of Object.entries(done)){const s=v/tot;await withPlayer(u,d=>{for(const k in HIVE_POOL)d.rare[k]+=HIVE_POOL[k]*s}).catch(()=>{})}
-      reps.push({to:allPlayers(),tone:'info',title:`La Ruche de ${tn} est anéantie`,lines:[`Butin partagé selon les dégâts : ${Object.entries(done).map(([u,v])=>`${pname(u)} ${Math.round(v/tot*100)} %`).join(', ')}.`]})}
+      reps.push({feat:true,to:allPlayers(),tone:'info',title:`🏆 La Ruche de ${tn} est anéantie`,lines:[`Butin partagé selon les dégâts : ${Object.entries(done).map(([u,v])=>`${pname(u)} ${Math.round(v/tot*100)} %`).join(', ')}.`]})}
     for(const r of reps)await report(r);return}
   // Écumeurs du Vide
   if(meta.raid){const R=RAIDS[f.to],s0=R&&SYSTEMS[R.sys],active=R&&(R.lair?!!lairInfoAt(s0,f.arrive):f.arrive<=R.end);
@@ -1455,6 +1455,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({news:'battle',newsBy:atkUids,to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
     const insK=isEmpty(G.B.d)?insDrop(R):0,chK=isEmpty(G.B.d)?chestDrop(R):null;if(chK)for(const u of atkUids)await giveChest(u,chK);if(insK)for(const u of atkUids)await withPlayer(u,d=>{d.ins=(d.ins||0)+insK}).catch(()=>{});
     const won=isEmpty(G.B.d),ind=!won&&!isEmpty(G.B.a);reps.push({news:(R.boss||R.lair||R.guard||!R.local||R.tier>=1)?'battle':null,to:atkUids,tone:won?'win':ind?'info':'loss',loser:won||ind?null:f.owner,title:won?(R.boss?`${HOLES[R.gate].boss} vaincu`:`${tn} anéantis`):ind?`${tn} : combat indécis, il reste ${unitLine(G.B.d)}`:`${tn} : assaut repoussé`,lines:[...fightLines(G.B),`Butin : ${lootTxt(sumLoot(loots))} · ${frag} Éclats du Vide · ${Math.round(val)} points de combat${insK?` · ${insK} insigne${insK>1?'s':''} de commandement pour chaque participant`:''}${chK?` · un ${chestTxt(chK)} pour chaque participant`:''}.`],battle:rec(G.B,'raid'),intel:{pid:f.to,at:Date.now()+1000,owner:null,ships:{...G.B.d},after:true}});
+    if(won&&((R.mid&&!R.esc)||!R.local||R.boss||R.lair)){const kind=R.mid?'le Léviathan':R.boss?'le gardien':R.lair?'le repaire des Écumeurs':'l’Armada des Écumeurs';reps.push({feat:true,to:allPlayers(),tone:'info',title:`🏆 ${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ont':'a'} abattu ${kind}`,lines:[`${tn} : ${unitLine(G.B.id||{})} détruits${count(G.B.id||{})?'':''}.`,`Butin : ${lootTxt(sumLoot(loots))} et ${frag} Éclats du Vide. Bravo aux vainqueurs !`]})}
     for(const r of reps)await report(r);return}
   await locked('planets/'+f.to,async(d,ref)=>{
     const p=d&&d.owner?settle(d,Math.max(d.at,f.arrive)):null;
@@ -2305,7 +2306,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
   for(const[t,k,msg]of keys){if(EV.seen.has(k))continue;EV.seen.add(k);if(t==='a'){sfx.alert();toast(msg,'alert')}else{sfx.done();toast(msg)}}}
 function reportSounds(){if(!EV.repInit){S.reports.forEach(r=>EV.reps.add(r.id));EV.repInit=true;return}
-  for(const r of S.reports){if(EV.reps.has(r.id))continue;EV.reps.add(r.id);if(r.battle)S.btNew={id:r.id,title:r.title,until:Date.now()+180000};if(r.tone==='info')continue;if(r.loser===ME)sfx.loss();else sfx.win()}}
+  for(const r of S.reports){if(EV.reps.has(r.id))continue;EV.reps.add(r.id);if(r.feat){toast(r.title,'alert');sfx.win();try{if(document.hidden&&typeof Notification!=='undefined'&&Notification.permission==='granted')new Notification('Couronne d’Orion',{body:r.title.replace(/^🏆 /,''),tag:'feat'})}catch(e){}continue}if(r.battle)S.btNew={id:r.id,title:r.title,until:Date.now()+180000};if(r.tone==='info')continue;if(r.loser===ME)sfx.loss();else sfx.win()}}
 
 // ---------- vue 3D de la planète ----------
 const V3={on:pref('orion-3d',true),ok:false,tried:false,r:null,comp:null,bloom:null,scene:null,cam:null,world:null,planetG:null,dyn:null,clouds:null,moonG:null,
@@ -2986,7 +2987,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='108';
+const APP_VERSION='109';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

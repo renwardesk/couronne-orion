@@ -1163,7 +1163,7 @@ function mpMiniComet(i){if(!sysVisible(i)||!MP.sysG)return;const s=SYSTEMS[i],c=
 // ---------- difficulté d'espionnage (seulement contre les PNJ : les joueurs, il faut tester) ----------
 const SPYLV=[['néant','var(--good)'],['faible','var(--good)'],['moyen','var(--warn)'],['difficile','var(--bad)']];
 // sondes nécessaires contre les Écumeurs d'élite : leurs éclaireurs abattent les petites missions
-const raidSpyNeed=pid=>{const R=RAIDS[pid];if(!R)return 1;return R.boss?12:R.mid&&!R.esc?9:!R.local?6:R.esc?(R.big?5:4):R.lair?4:1};
+const raidSpyNeed=pid=>{const R=RAIDS[pid];if(!R)return 1;return R.emp?16:R.boss?12:R.mid&&!R.esc?9:!R.local?6:R.esc?(R.big?5:4):R.lair?4:1};
 function spyNeedPid(pid){const m=PLANETS[pid];if(!m)return null;const raw=S.planets[pid];
   if(raw&&raw.owner&&!isNpc(raw.owner))return null; // un autre joueur : inconnu
   if(m.raid){const n=raidSpyNeed(pid);return{lv:n<=1?0:n<=3?1:n<=6?2:3,n}}
@@ -1417,7 +1417,9 @@ async function goBack(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref
   await fref.set({...f,...extra,ships,cargo,phase:'back',back:f.arrive+(f.arrive-f.depart)})}
 async function settleRare(uid){if(uid&&S.players[uid])try{await withPlayer(uid,()=>{})}catch(e){}}
 // ---------- combats groupés, butin, points de combat ----------
-const plName=pid=>(PLANETS[pid]&&PLANETS[pid].name)||'Cible disparue';
+// le Cœur d'Orion reste un mystère tant qu'on n'y a pas réussi un espionnage
+const coreKnown=()=>(S.reports||[]).some(r=>r.intel&&PLANETS[r.intel.pid]&&(PLANETS[r.intel.pid].core||PLANETS[r.intel.pid].emp));
+const plName=pid=>PLANETS[pid]&&PLANETS[pid].core&&!coreKnown()?'?':(PLANETS[pid]&&PLANETS[pid].name)||'Cible disparue';
 async function gatherJoiners(f){const out=[];for(const j of Object.values(S.fleets)){if(j.group!==f.fid||j.phase!=='out'||j.fid===f.fid)continue;
   try{await locked('fleets/'+j.fid,async(jd,jref)=>{if(jd&&jd.phase==='out'&&jd.group===f.fid&&jd.to===f.to)out.push({f:jd,ref:jref})})}catch(e){}}return out}
 function avgMods(list){const acc={};for(const x of list){const m=forceMods(x.owner,x.cmd||(x.f&&x.f.cmd)),sh=x.ships||{},rb=(x.f&&x.f.rb)||0;
@@ -1522,8 +1524,9 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(p&&own&&sur<=0){const lostD=Math.min(dp,Math.floor(probes/2));if(lostD){p.ships.probe-=lostD;await ref.set(p)}await fref.delete();
         reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage brouillé au-dessus de ${tn}`,lines:[`${dp} sonde${dp>1?'s':''} de défense ${dp>1?'protègent':'protège'} la planète : tes ${probes} sonde${probes>1?'s':''} ${probes>1?'ont été neutralisées':'a été neutralisée'} sans rien voir.`,`Il faut envoyer plus de sondes que la cible n’en a en orbite : ${dp+1} pour les stocks, ${dp+3} pour la flotte, ${dp+5} pour les bâtiments et l’armement.`]});
         reps.push({to:[own],tone:'win',title:`Tes sondes ont bloqué un espionnage sur ${tn}`,lines:[`${probes} sonde${probes>1?'s':''} de ${pname(f.owner)} neutralisée${probes>1?'s':''}${lostD?` · tu en perds ${lostD}`:''}.`]});return}
-      const str=p?(p.lv.def*4+count(p.ships)*.3+(p.lv.cspy||0)*10):count(gar)*.3,det=Math.min(p&&p.lv.cspy?.93:.85,str/(str+probes*6+1));
-      if(Math.random()<det){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus de ${tn}`,lines:[`${probes} sonde${probes>1?'s':''} repérée${probes>1?'s':''} et détruite${probes>1?'s':''}. Envoie-en davantage pour brouiller la détection.`]});if(own)reps.push({to:[own],tone:'info',title:`Sonde de ${pname(f.owner)} abattue au-dessus de ${tn}`,lines:['Quelqu’un s’intéresse à tes défenses.']});return}
+      if(meta.core&&!own&&probes<14){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus du Cœur d’Orion`,lines:[`Les défenses de l’Empereur ont détruit tes ${probes} sonde${probes>1?'s':''}.`,'Il faut au moins 14 sondes pour percer l’écran du Cœur d’Orion.']});return}
+      const str=p?(p.lv.def*4+count(p.ships)*.3+(p.lv.cspy||0)*10):count(gar)*.3,det=Math.min(p&&p.lv.cspy?.93:.85,str/(str+probes*6+1));const det2=meta.core&&!own?Math.max(0,(20-probes)/40):det;
+      if(Math.random()<det2){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus de ${plName(f.to)}`,lines:[`${probes} sonde${probes>1?'s':''} repérée${probes>1?'s':''} et détruite${probes>1?'s':''}. Envoie-en davantage pour brouiller la détection.`]});if(own)reps.push({to:[own],tone:'info',title:`Sonde de ${pname(f.owner)} abattue au-dessus de ${tn}`,lines:['Quelqu’un s’intéresse à tes défenses.']});return}
       const T1=!own||sur>=1,T2=!own||sur>=3,T3=!own||sur>=5,lo=own&&T3?loadoutOf(S.players[own]):null;
       const intel={pid:f.to,at:f.arrive,owner:own||null,ships:T2?(p?p.ships:gar):null,turrets:T2?(p?p.lv.def*4:0):null,lv:p&&T3?p.lv:null,res:p&&T1?{m:Math.floor(p.res.m),c:Math.floor(p.res.c),f:Math.floor(p.res.f)}:null,loadout:lo,partial:!T3};
       const lines=[T2?`Flotte : ${unitLine(intel.ships)}${intel.turrets?` · ${intel.turrets} tourelles`:''}.`:`Flotte : inconnue (il faut ${dp+3} sondes ou plus).`];if(intel.res)lines.push(`Stocks : ${lootTxt(intel.res)}.`);
@@ -2117,13 +2120,13 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
     const sub=[S.players[ME]&&g>unlockedOf(ME)?'<span style="color:#ff7070">verrouillée</span>':'',mine?`<span style="color:${esc(pcolor(ME))}">● toi ×${mine}</span>`:'',riv?`${riv} rival${riv>1?'s':''}`:'',ev.length?`<span style="color:#ffcf6b">${ev.join(', ')}</span>`:''].filter(Boolean).join(' · ');
     L.push({w:G.c,cls:'big',pr:0,h:`${esc(G.name)}${sub?`<i>${sub}</i>`:''}`})})}
   else if(MP.level==='galaxy'){const shown=new Set();for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si))continue;shown.add(+si);const mine=os.has(ME),capP=s.planets.map(q=>S.planets[q]).find(q=>q&&q.capital&&q.owner);const OL=[...os].sort((x,y)=>(y===ME)-(x===ME));const LD=sysLord(+si);L.push({w:s.w,cls:mine?'me':'',h:`${LD?`<b style="color:${esc(pcolor(LD))}">👑</b>`:OL.map(o=>`<b style="color:${esc(pcolor(o))}">●</b>`).join('')} ${esc(s.name)}${LD?`<i class="sub">Seigneur ${esc(pname(LD))} · ${s.planets.length}/${s.planets.length}</i>`:capP||OL.length>1?`<i class="sub">${OL.map(o=>esc(pname(o))).join(' · ')}</i>`:''}${capP?`${cmdsOf(capP.owner).length?`<i class="sub2">${cmdsOf(capP.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,2).map(c=>cmdBadge(c,13)+esc(cmdInfo(c).n)).join(' ')}${cmdsOf(capP.owner).length>2?` +${cmdsOf(capP.owner).length-2}`:''}</i>`:''}`:''}`})}
-    if(cm)evLab(cm.pid,'Comète','ev');if(MP.gal===CORE.gal){const st=raidState('emp0');L.push({w:CORE.w,cls:'ev bad',pr:0,h:`☠ Repaire d’Orion<i class="sub">${st.done?'Empereur abattu · retour dans '+fmtDur(Math.max(0,(st.back-Date.now())/1000)):'Empereur Vorgath le Dévoreur · menace '+threat(worth(st.garrison))}</i>`})}if(hv)evLab(hv.pid,'Ruche','ev bad');
+    if(cm)evLab(cm.pid,'Comète','ev');if(MP.gal===CORE.gal){const st=raidState('emp0');L.push({w:CORE.w,cls:'ev bad',pr:0,h:`☠ Repaire d’Orion<i class="sub">${st.done?'Empereur abattu · retour dans '+fmtDur(Math.max(0,(st.back-Date.now())/1000)):(coreKnown()?'Empereur Vorgath le Dévoreur · menace '+threat(worth(st.garrison)):'flotte inconnue · espionne le Cœur')}</i>`})}if(hv)evLab(hv.pid,'Ruche','ev bad');
     if(MP.dist<70)for(const r of activeRaids())if(r.gal===MP.gal)L.push({w:raidPos(r.pid),cls:'mini',h:'Armada'});
     if(MP.dist<95)for(const r of leviathans(MP.gal)){if(r.esc){if(MP.dist<38)L.push({w:raidPos(r.pid),cls:'mini',h:`${r.big?'Horde':'Meute'} d’élite<i class="sub">Écumeurs</i>${spyTag(r.pid)}`});continue}L.push({w:(w=>[w[0],w[1]+.7,w[2]])(raidPos(r.pid)),cls:'ev bad',pr:2,h:`◆ Léviathan<i class="sub">Repaire des Écumeurs · menace ${threat(worth(view(r.pid).garrison))}</i>${spyTag(r.pid)}`})}
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     if(MP.dist<75)mpFleetLabels(L,'short',null);
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
-  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${PLANETS[o.pid].core&&!v.owner?'tenue par les Écumeurs · production +25 %, vaisseaux 2× plus vite':PLANETS[o.pid].comet?'comète libre · à récolter':isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>${spyTag(o.pid)}`:'?'})});if(MP.dist<1.8)mpFleetLabels(L,true,MP.sys)}
+  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(plName(o.pid))}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${PLANETS[o.pid].core&&!v.owner?(coreKnown()?'tenue par les Écumeurs · production +25 %, vaisseaux 2× plus vite':'inconnue · espionne-la (beaucoup de sondes)'):PLANETS[o.pid].comet?'comète libre · à récolter':isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>${spyTag(o.pid)}`:'?'})});if(MP.dist<1.8)mpFleetLabels(L,true,MP.sys)}
   L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
@@ -2211,7 +2214,7 @@ function mpPopHtml(pid){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type],joined
   {const mc=mcAt(pid);if(mc){const l=mcLeft(mc);if(l.m+l.c+l.f>0){acts.unshift(B('harvest','☄ Récolter'));who+=` · <b style="color:#8fe6ff">☄ petite comète (${lootTxt(l)})</b>`}}}
   if(m.comet){acts=acts.filter(a=>a.includes('data-m="harvest"'));if(!acts.length)who='☄ La comète est partie ou a déjà été récoltée';else who=who.replace(/^Orbite libre · /,'☄ Comète libre dans le système · ').replace(/^Orbite libre$/,'☄ Comète libre dans le système');}
   const eta=joined&&S.sel&&pid!==S.sel?`<span class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</span>`:'';
-  return`<div class="mppop" role="dialog" aria-label="${esc(m.name)}"><div class="ihead"><b>${esc(m.name)}</b><span class="lv">${T.n}${body?` · ${RARE[T.rare]}`:''}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
+  return`<div class="mppop" role="dialog" aria-label="${esc(plName(pid))}"><div class="ihead"><b>${esc(plName(pid))}</b><span class="lv">${T.n}${body?` · ${RARE[T.rare]}`:''}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
     <span class="eff mpwho">${who}</span>${v.owner&&v.owner!==ME?intelBox(pid):''}${eta}${fleetsToHtml(pid)}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}${v.owner!==ME&&!m.comet?spyHintHtml(spyNeedPid(pid)):''}</div>`}
 function mpPopSync(){const el=document.getElementById('mppop');if(!el)return;const pid=MP.level==='system'&&S.pickP&&PLANETS[S.pickP]?S.pickP:null;el.innerHTML=pid?mpPopHtml(pid):'';el.hidden=!pid}
 function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpel.hidden=!show;
@@ -3092,7 +3095,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='120';
+const APP_VERSION='121';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

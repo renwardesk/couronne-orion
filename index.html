@@ -137,6 +137,8 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 #v3{padding-top:16px}
 .v3box{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#1c2552 0%,#0a0f20 70%)}
 #v3c{display:block;width:100%;height:clamp(300px,92vw,480px);touch-action:pan-y;cursor:grab}
+.bgrp{display:grid;gap:8px}.bgh{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gc)}.bgh::after{content:'';flex:1;height:1px;background:color-mix(in srgb,var(--gc) 35%,transparent)}.bgrp>.item{border-left:3px solid var(--gc);background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 7%,transparent),transparent 40%)}
+.v3atk{position:absolute;top:10px;left:10px;z-index:3;width:44px;height:44px;border-radius:50%;border:2px solid #ff3b4a;background:rgba(40,4,10,.75);color:#ff3b4a;font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;animation:v3atk 1s ease-in-out infinite}.v3atk[hidden]{display:none}@keyframes v3atk{0%,100%{opacity:1;box-shadow:0 0 14px #ff3b4a}50%{opacity:.25;box-shadow:0 0 0 #ff3b4a}}
 .v3btn{position:absolute;top:10px;right:10px;background:color-mix(in srgb,var(--void) 70%,transparent);backdrop-filter:blur(6px)}
 #v3.v3full{position:fixed;inset:0;z-index:40;padding:0;max-width:none;background:#04060f}
 #v3.v3full .v3box{height:100%;border:0;border-radius:0}
@@ -222,7 +224,7 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <body>
 
 <header class="top" id="top" hidden></header>
-<section class="wrap" id="v3" hidden><div class="v3box"><canvas id="v3c" aria-label="Vue 3D de ta planète : glisse pour tourner, pince pour zoomer"></canvas><div class="v3cap" id="v3cap"></div><button class="tgl v3btn" id="v3full" type="button">Plein écran</button></div></section>
+<section class="wrap" id="v3" hidden><div class="v3box"><canvas id="v3c" aria-label="Vue 3D de ta planète : glisse pour tourner, pince pour zoomer"></canvas><div class="v3cap" id="v3cap"></div><button class="v3atk" id="v3atk" data-act="tab" data-t="fleets" hidden>⚔</button><button class="tgl v3btn" id="v3full" type="button">Plein écran</button></div></section>
 <section class="wrap" id="hg" hidden><div class="v3box"><canvas id="hgc" aria-label="Hangar 3D : glisse pour tourner, pince pour zoomer"></canvas><div class="v3cap" id="hgcap"></div></div></section>
 <section class="wrap" id="mp" hidden><div class="v3box mpbox"><canvas id="mpc" aria-label="Carte 3D de l’univers : glisse pour tourner, pince pour zoomer, touche pour entrer"></canvas><div id="mplab" class="mplab"></div><div id="mppop" hidden></div><div class="mpnav" id="mpnav"></div><button class="tgl v3btn" id="mpfull" type="button">Plein écran</button></div></section>
 <main class="wrap" id="main"><div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">Connexion à la galaxie…</p></div></main>
@@ -1363,8 +1365,8 @@ function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/3</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span class="cd" data-cd="${it.until}"></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
   <section style="display:grid;gap:10px"><h2>${body?'Installations':'Bâtiments'}</h2>${body?'<p class="meta" style="margin:0">Les travaux d’un avant-poste sont payés par ta capitale.</p>':''}<div class="list">
-  ${Object.keys(B).map(k=>{if(body&&k==='drill')return drillRows(p,payer,full,qn(k));const L0=p.lv[k]||0,L=L0+qn(k),c=bCost(k,L),rc=bRare(k,L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);return`<div class="item"><div class="ihead"><b>${B[k].n}</b><span class="lv">niv. ${L0}${qn(k)?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,k)}</div>
-    <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime(k,L))}</span></div><button class="btn sm" data-act="up" data-k="${k}" ${full||!ok?'disabled':''}>${full?'File pleine':bq.length?'Ajouter à la file':'Améliorer'}</button></div></div>`}).join('')}
+  ${[...BGROUPS,{n:'Autres',i:'•',c:'#9aa3b5',k:Object.keys(B).filter(k=>!BGROUPS.some(g=>g.k.includes(k)))}].map(g=>{const ks=g.k.filter(k=>B[k]);return ks.length?`<div class="bgrp" style="--gc:${g.c}"><h3 class="bgh"><span>${g.i}</span>${g.n}</h3>${ks.map(k=>{if(body&&k==='drill')return drillRows(p,payer,full,qn(k));const L0=p.lv[k]||0,L=L0+qn(k),c=bCost(k,L),rc=bRare(k,L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);return`<div class="item"><div class="ihead"><b>${B[k].n}</b><span class="lv">niv. ${L0}${qn(k)?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,k)}</div>
+    <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime(k,L))}</span></div><button class="btn sm" data-act="up" data-k="${k}" ${full||!ok?'disabled':''}>${full?'File pleine':bq.length?'Ajouter à la file':'Améliorer'}</button></div></div>`}).join('')}</div>`:''}).join('')}
   </div></section>
   ${sendResHtml(p)}<section style="display:grid;gap:10px"><h2>${body?'Flotte stationnée':'En orbite'}</h2>${bayHtml(p)}<div class="card stats" style="font-size:13px">${SK.map(k=>`<span>${SHIPS[k].n} <b>${p.ships[k]||0}</b></span>`).join('')}<span>Tourelles <b>${(p.lv.def||0)*4}</b></span></div>
   ${body&&p.lv.dock<1?'<p class="eff" style="margin:0">Sans base de flotte, les vaisseaux envoyés ici repartent vers ta capitale.</p>':''}</section>`}
@@ -1464,11 +1466,31 @@ function renderGalaxy0(){const joined=!!S.players[ME]&&S.sel&&S.planets[S.sel];c
 const MIS={attack:'Attaque',colonize:'Installation',transfer:'Transfert',spy:'Espionnage',harvest:'Récolte',salvage:'Récupération',reinforce:'Renfort',intercept:'Interception',convoy:'Convoi'};
 function fleetRow(f,hostile){if(f.phase==='hold')return holdRow(f);if(f.phase==='battle')return battleFleetRow(f);if(f.phase==='wait')return waitRow(f);const now=Date.now();const out=f.phase==='out';const a=out?f.depart:f.arrive,b=out?f.arrive:f.back;const lbl=f.group?'Attaque groupée':MIS[f.mission];const mates=Object.values(S.fleets).filter(x=>x.group===f.fid&&x.phase==='out').length;
   return`<div class="item ${hostile?'hostile':''}"><div class="ihead"><b>${hostile?`${esc(pname(f.owner))} attaque ${esc(plName(f.to))}`:`${lbl} · ${esc(plName(f.from))} → ${esc(plName(f.to))}`}</b>${f.cmd&&!isNpc(f.owner)?`<span class="eff" style="flex-basis:100%">${cmdTag(f.owner,f.cmd)}</span>`:''}<span class="cd" data-cd="${b}"></span></div>
-    <span class="prog"><b data-a="${a}" data-b="${b}"></b></span><div class="eff">${hostile?`Arrivée à ${clock(b)}. ${isNpc(f.owner)&&(f.spied||[]).includes(ME)?`Composition : ${unitLine(f.ships)}.`:'Composition inconnue.'}${isNpc(f.owner)&&!(f.spied||[]).includes(ME)?` <button class="btn ghost sm" data-act="spyin" data-f="${f.fid}">Espionner (${pillSpyNeed(f)} sondes)</button>`:''}${isNpc(f.owner)?' Tes alliés peuvent t’envoyer une flotte en « Renfort ».':''}`:`${out?'Aller':f.recalled?'Rappelée':'Retour'} · ${f.mission==='convoy'?(f.sender==='market'?'du Comptoir · ':f.sender&&f.sender!==ME?`de ${esc(pname(f.sender))} · `:'')+lootLine(goodsOf(f)):unitLine(f.ships)}${!out&&count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}`}${out&&mates?` · ${mates} renfort${mates>1?'s':''} en route`:''}${b<=now?' · résolution en cours…':''}</div>
+    <span class="prog"><b data-a="${a}" data-b="${b}"></b></span><div class="eff">${hostile?`Arrivée à ${clock(b)}. ${isNpc(f.owner)&&(f.spied||[]).includes(ME)?`Composition : ${unitLine(f.ships)}.`:'Composition inconnue.'}${isNpc(f.owner)&&!(f.spied||[]).includes(ME)?` <button class="btn ghost sm" data-act="spyin" data-f="${f.fid}">Espionner (${pillSpyNeed(f)} sondes)</button>`:''}${isNpc(f.owner)?' Tes alliés peuvent t’envoyer une flotte en « Renfort ».':''}<div class="foot" style="justify-content:flex-end;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="defsend" data-f="${f.fid}">Envoyer ma flotte</button>${(S.players[ME]||{}).help&&S.players[ME].help.fid===f.fid?'<span class="lv">Aide demandée ✓</span>':`<button class="btn ghost sm" data-act="callhelp" data-f="${f.fid}">🆘 Demander de l’aide</button>`}</div>`:`${out?'Aller':f.recalled?'Rappelée':'Retour'} · ${f.mission==='convoy'?(f.sender==='market'?'du Comptoir · ':f.sender&&f.sender!==ME?`de ${esc(pname(f.sender))} · `:'')+lootLine(goodsOf(f)):unitLine(f.ships)}${!out&&count(f.cargo)?` · cargaison ${fmt(f.cargo.m)}/${fmt(f.cargo.c)}/${fmt(f.cargo.f)}`:''}`}${out&&mates?` · ${mates} renfort${mates>1?'s':''} en route`:''}${b<=now?' · résolution en cours…':''}</div>
     ${!hostile&&out&&f.arrive>now&&!f.group&&!f.home&&f.mission!=='convoy'?`<div class="foot"><span></span><button class="btn ghost sm" data-act="recall" data-f="${f.fid}">Rappeler</button></div>`:''}</div>`}
+// ---------- défense : renforts depuis ses autres planètes et appels à l'aide ----------
+const BGROUPS=[{n:'Ressources',i:'⛏',c:'#7fae8f',k:['mine','crys','fuel','store','drill','silo']},{n:'Recherche',i:'🔬',c:'#7f9fcf',k:['acad','arsenal']},{n:'Guerre',i:'⚔',c:'#c48474',k:['yard','bay','dock','def','shld','mines','cspy']}];
+function defSend(fid){const f=S.fleets[fid];if(!f||f.phase!=='out')return toast('Cette attaque n’est plus en approche.','bad');
+  const src=Object.values(S.planets).filter(p=>p.owner===ME&&p.pid!==f.to).map(p=>({pid:p.pid,w:worth(view(p.pid).ships||{}),eta:etaOf(p.pid,f.to,{fighter:1})*1000})).filter(x=>x.w>0);const inT=x=>Date.now()+x.eta<f.arrive?1:0;src.sort((a,b)=>inT(b)-inT(a)||b.w-a.w);
+  if(!src.length)return toast('Aucune autre planète avec des vaisseaux pour envoyer des renforts.','bad');
+  const s0=S.sel;S.sel=src[0].pid;openSend(f.to,'transfer');S.sel=s0;if(S.modal){S.modal.from=src[0].pid;S.modal.ships=zeroShips();renderModal()}
+  toast(`Départ depuis ${plName(src[0].pid)} : ta flotte doit arriver avant ${clock(f.arrive)}.`)}
+async function callHelp(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.phase!=='out')throw err('Cette attaque n’est plus en approche.');
+  await withPlayer(ME,d=>{d.help={pid:f.to,fid,arrive:f.arrive,at:Date.now()}});
+  const who=isNpc(f.owner)?`les ${NPC_NAME}`:pname(f.owner);
+  try{await db.collection('chat').doc(newId()).set({kind:'chat',uid:ME,name:(S.players[ME]||{}).name||'',text:`🆘 À l’aide ! ${who} attaque ${plName(f.to)}, impact à ${clock(f.arrive)}. Envoyez un renfort (onglet Flottes).`,at:Date.now()})}catch(e){}
+  const others=Object.keys(S.players).filter(u=>u!==ME&&!isNpc(u));if(others.length)await report({to:others,tone:'info',title:`${pname(ME)} demande de l’aide`,lines:[`${who} attaque ${plName(f.to)} (impact à ${clock(f.arrive)}).`,'Envoie une flotte en mission « Renfort » depuis l’onglet Flottes : elle défendra la planète à ses côtés.']});
+  sfx.done();toast('Appel à l’aide envoyé à tous les empires.')})}
+function helpCalls(){const now=Date.now();return Object.values(S.players).filter(p=>p&&p.uid!==ME&&p.help&&p.help.arrive>now&&S.fleets[p.help.fid]&&S.fleets[p.help.fid].phase==='out'&&S.planets[p.help.pid]&&S.planets[p.help.pid].owner===p.uid)}
+function helpHtml(){const L=helpCalls();if(!L.length||!S.players[ME])return'';
+  return`<section style="display:grid;gap:10px"><h2>🆘 Appels à l’aide</h2><div class="list">${L.map(p=>`<div class="item hostile"><div class="ihead"><b>${esc(p.name)} · ${esc(plName(p.help.pid))}</b><span class="cd" data-cd="${p.help.arrive}"></span></div>
+    <div class="eff">Attaque attendue à ${clock(p.help.arrive)}. Ton trajet : ${S.sel?fmtDur(etaOf(S.sel,p.help.pid,{fighter:1})):'?'} en chasseurs${S.sel&&Date.now()+etaOf(S.sel,p.help.pid,{fighter:1})*1000>p.help.arrive?' <b style="color:var(--warn)">(trop tard depuis ta planète actuelle)</b>':''}.</div>
+    <div class="foot"><span></span><button class="btn sm" data-act="mpsend" data-p="${p.help.pid}" data-m="reinforce">🛡 Envoyer un renfort</button></div></div>`).join('')}</div></section>`}
+function v3AtkSync(){const el=document.getElementById('v3atk');if(!el)return;const inc=S.players[ME]?incoming():[],here=inc.filter(f=>f.to===S.sel);el.hidden=!inc.length;
+  if(inc.length){const f=(here.length?here:inc).sort((a,b)=>a.arrive-b.arrive)[0];el.title=`Attaque sur ${plName(f.to)} à ${clock(f.arrive)}`;el.setAttribute('aria-label',el.title)}}
 function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter(f=>f.owner===ME).sort((a,b)=>a.arrive-b.arrive),inc=incoming().sort((a,b)=>a.arrive-b.arrive);
   const joinable=Object.values(S.fleets).filter(f=>f.phase==='out'&&f.mission==='attack'&&!f.group&&PLANETS[f.to]&&f.arrive>now+15000&&!(S.planets[f.to]&&S.planets[f.to].owner===ME)).sort((a,b)=>a.arrive-b.arrive);
-  return`<h1>Flottes</h1>${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${battlesHtml()}${convoysHtml()}
+  return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${battlesHtml()}${convoysHtml()}
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   <section style="display:grid;gap:10px"><h2>Tes flottes</h2>${mine.length?`<div class="list">${mine.map(f=>fleetRow(f,false)).join('')}</div>`:`<p class="empty">Aucune flotte en vol. Ouvre la Carte, choisis une cible et envoie tes vaisseaux.</p>`}</section>${cmdsHtml()}`}
 function renderQuests(){return`<section style="display:grid;gap:4px"><h1>Quêtes</h1><p class="meta" style="margin:0">Chaque quête t’apprend une mécanique du jeu et rapporte des ressources.</p></section><div class="foot" style="justify-content:flex-end"><button class="btn ghost sm" data-act="welshow">Revoir le guide du débutant</button></div>${questsHtml()}`}
@@ -1783,6 +1805,8 @@ document.addEventListener('click',e=>{
   else if(a==='selp'){S.sel=b.dataset.p;S.tab='planet';render();window.scrollTo(0,0)}
   else if(a==='send')openSend(b.dataset.p);
   else if(a==='mpsend'){if(!S.sel)return toast('Choisis d’abord une planète de départ.','bad');openSend(b.dataset.p,b.dataset.m)}
+  else if(a==='defsend')defSend(b.dataset.f);
+  else if(a==='callhelp')callHelp(b.dataset.f);
   else if(a==='mppopx'){S.pickP=null;render()}
   else if(a==='mmis'){S.modal.mission=b.dataset.m;renderModal()}
   else if(a==='mq'){const t=b.dataset.t,have=view(S.modal.from).ships[t]||0;S.modal.ships[t]=b.dataset.d==='max'?have:Math.max(0,Math.min(have,S.modal.ships[t]+Number(b.dataset.d)));renderModal()}
@@ -2335,7 +2359,7 @@ function v3Loop(t){V3.raf=requestAnimationFrame(v3Loop);const dt=Math.min(.05,(t
   if(V3.comp)V3.comp.render();else V3.r.render(V3.scene,V3.cam)}
 function v3Start(){if(!V3.ok||V3.running)return;V3.running=true;v3Size();V3.last=performance.now();V3.raf=requestAnimationFrame(v3Loop)}
 function v3Stop(){if(!V3.running)return;V3.running=false;cancelAnimationFrame(V3.raf)}
-function v3Sync(joined){const show=joined&&S.tab==='planet'&&V3.on&&v3Init();v3el.hidden=!show;
+function v3Sync(joined){const show=joined&&S.tab==='planet'&&V3.on&&v3Init();v3el.hidden=!show;v3AtkSync();
   if(!show&&V3.full){V3.full=false;v3el.classList.remove('v3full');document.body.style.overflow='';document.getElementById('v3full').textContent='Plein écran'}
   if(show){v3Start();v3Update(view(S.sel))}else v3Stop()}
 
@@ -2511,7 +2535,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='66';
+const APP_VERSION='67';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -32,6 +32,7 @@ button{font:inherit;color:inherit}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--void) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .top .wrap{padding-block:10px;display:grid;gap:8px}
 .row1{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand .onl{display:flex;width:fit-content;color:var(--ink)}.onl{display:inline-flex;align-items:center;gap:4px;margin:5px 0 0;padding:2px 8px;border:1px solid var(--line);border-radius:99px;font-family:var(--f-body,inherit);font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink);vertical-align:middle}.onl small{color:var(--dim);font-weight:400;margin-right:4px}.onl .d{width:7px;height:7px;border-radius:50%;background:#5c6478}.onl .d.on{background:#4ade80;box-shadow:0 0 6px #4ade80}
 .brand{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.06em;text-transform:uppercase}
 .brand span{color:var(--brass)}
 .who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim);min-width:0}
@@ -1142,6 +1143,14 @@ async function locked(path,fn){const ref=db.doc(path);
     await sleep(250+Math.random()*600)}
   throw err('Cible occupée, réessaie dans un instant.')}
 // doc joueur : règle les minerais rares accumulés avant toute modification
+// présence : chaque joueur signale qu'il est là toutes les minutes tant que l'appli est ouverte
+const ONLINE_MS=3*60000;
+const isOnline=uid=>{const pl=S.players[uid];return!!(pl&&pl.seen&&Date.now()-pl.seen<ONLINE_MS)};
+function onlinePill(){const L=Object.values(S.players).filter(p=>p&&p.uid&&!isNpc(p.uid));if(!L.length)return'';const on=L.filter(p=>isOnline(p.uid)),off=L.length-on.length;
+  return`<span class="onl" title="En ligne : ${esc(on.map(p=>p.name).join(', ')||'personne')}"><i class="d on"></i>${on.length} <small>en ligne</small><i class="d"></i>${off} <small>hors ligne</small></span>`}
+let HB_T=0;async function heartbeat(force){if(!db||!ME||!S.players[ME]||S.spectator||document.visibilityState!=='visible')return;const now=Date.now();if(!force&&now-HB_T<60000)return;HB_T=now;
+  try{await locked('players/'+ME,async(d,ref)=>{if(!d)return;d.seen=Date.now();await ref.set(d)})}catch(e){}}
+setInterval(()=>heartbeat(),20000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')heartbeat(true)});
 async function withPlayer(uid,fn){return locked('players/'+uid,async(d,ref)=>{if(!d)throw err('Empire introuvable.');const now=Date.now(),rt=rareRates(uid),dt=Math.max(0,(now-(d.rareAt||now))/60000);
   d.rare=d.rare||{};const rcap=rareCap(uid);for(const k in RARE)d.rare[k]=rareFill(d.rare[k]||0,rt[k]*dt,rcap);d.culture=(d.culture??50)+cultureRate(uid)*dt;d.rareAt=now;const r0={...d.rare};
   if(d.research&&d.research.until<=now){d.tech=d.tech||{};d.tech[d.research.k]=(d.tech[d.research.k]||0)+1;d.research=null}
@@ -1426,7 +1435,7 @@ function renderJoin(){
 }
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
-  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span></div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
+  let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span>${onlinePill()}</div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
@@ -2649,7 +2658,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='72';
+const APP_VERSION='73';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

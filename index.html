@@ -287,7 +287,7 @@ const freeColor=()=>{const t=takenColors(),f=COLORS.find(c=>!t.has(c));if(f)retu
 const RES={m:'Métal',c:'Cristal',f:'Hélium-3'};
 const RARE={ir:'Iridium',xe:'Xénite',am:'Antimatière'};
 const PT4=['tel','vol','gla','gaz'];
-const PTYPES={tel:{n:'Tellurique',m:1,c:1,f:1,col:'#6f9d77'},vol:{n:'Volcanique',m:1.3,c:.9,f:1,col:'#d0714a'},gla:{n:'Glaciaire',m:.9,c:1.3,f:1,col:'#8fd0ea'},gaz:{n:'Gazeuse',m:.85,c:1,f:1.4,col:'#c9a0e8'},
+const PTYPES={comet:{n:'Comète',m:0,c:0,f:0,col:'#8fe6ff'},tel:{n:'Tellurique',m:1,c:1,f:1,col:'#6f9d77'},vol:{n:'Volcanique',m:1.3,c:.9,f:1,col:'#d0714a'},gla:{n:'Glaciaire',m:.9,c:1.3,f:1,col:'#8fd0ea'},gaz:{n:'Gazeuse',m:.85,c:1,f:1.4,col:'#c9a0e8'},
   ast:{n:'Ceinture d’astéroïdes',m:0,c:0,f:0,col:'#a39684',rare:'ir'},moon:{n:'Lune morte',m:0,c:0,f:0,col:'#b9c2cf',rare:'xe'},anom:{n:'Anomalie',m:0,c:0,f:0,col:'#6ff0d0',rare:'am'},raid:{n:'Écumeurs du Vide',m:0,c:0,f:0,col:'#ff4d6d'},station:{n:'Station du Vide',m:0,c:0,f:0,col:'#7fd6ff',rare:'am'},wreck:{n:'Épave ancienne',m:0,c:0,f:0,col:'#c9a36b',rare:'am'}};
 const SHIPS={
   fighter:{n:'Chasseur',cost:{m:40,c:15,f:0},t:12,att:6,hp:22,spd:1.6,cap:15,fuel:1,yard:1},
@@ -467,7 +467,7 @@ const ASTS=Object.values(PLANETS).filter(p=>p.type==='ast'&&SYSTEMS[p.sys].gal<=
 const HIVES=Object.values(PLANETS).filter(p=>!p.body&&SYSTEMS[p.sys].gal===0&&SYSTEMS[p.sys].rad<330).map(p=>p.pid);
 const HIVE0={fighter:150,cruiser:50,battleship:14};
 const COMET_BOUNTY={m:6000,c:4500,f:2500},COMET_RARE={ir:120,xe:80,am:25},HIVE_POOL={ir:500,xe:320,am:110};
-function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR)return null;return{id:'c'+w,pid:ASTS[hash('comet'+w)%ASTS.length],start:s,end:s+3*HR}}
+function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR)return null;return{id:'c'+w,pid:'K'+PLANETS[ASTS[hash('comet'+w)%ASTS.length]].sys,start:s,end:s+3*HR}}
 function hiveAt(t=Date.now()){const w=Math.floor((t+HR)/(6*HR)),s=w*6*HR-HR;if(t<s||t>s+4*HR)return null;return{id:'h'+w,pid:HIVES[hash('hive'+w)%HIVES.length],start:s,end:s+4*HR}}
 function stormAt(t=Date.now()){const w=Math.floor((t+2*HR)/(6*HR)),s=w*6*HR-2*HR;if(t<s||t>s+2*HR)return null;return{id:'s'+w,gal:hash('storm'+w)%GALS.length,start:s,end:s+2*HR}}
 const TRAVEL=37.5; // multiplicateur global des temps de trajet
@@ -529,7 +529,7 @@ const myPlanets=()=>Object.values(S.planets).filter(p=>p.owner===ME).sort((a,b)=
 const planetsOf=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&!isBody(p.pid)).length;
 const outpostsOf=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid)).length;
 const capitalOf=uid=>Object.values(S.planets).find(p=>p.owner===uid&&p.capital);
-function view(pid){if(PLANETS[pid]&&PLANETS[pid].raid){const st=raidState(pid);return{pid,owner:null,raid:true,garrison:st.garrison,done:st.done}}const d=S.planets[pid];if(d&&d.owner)return settle(d,Date.now());return{pid,owner:null,garrison:d&&d.garrison?d.garrison:seedGarrison(pid)}}
+function view(pid){if(PLANETS[pid]&&PLANETS[pid].comet)return{pid,owner:null,garrison:{},comet:true};if(PLANETS[pid]&&PLANETS[pid].raid){const st=raidState(pid);return{pid,owner:null,raid:true,garrison:st.garrison,done:st.done}}const d=S.planets[pid];if(d&&d.owner)return settle(d,Date.now());return{pid,owner:null,garrison:d&&d.garrison?d.garrison:seedGarrison(pid)}}
 function rareRates(uid){const r={ir:0,xe:0,am:0};const now=Date.now();for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid)){const x=rareRate(settle(p,now));for(const k in r)r[k]+=x[k]}return r}
 const RARE_BASE=50,siloCapL=L=>L?Math.round(100*1.6**(L-1)):0;
 function rareCap(uid){let c=RARE_BASE;for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid))c+=siloCapL((p.lv&&p.lv.silo)||0);return c}
@@ -549,7 +549,9 @@ const RESPAWN=3*HR,RAIDW=3*HR,RAID_GALS=[0,0,1,2,3,4,5,6],EPOCH=Date.UTC(2026,9,
 const SYS_BY_GAL=GALS.map((G,g)=>SYSTEMS.filter(s=>s.gal===g));
 const raidLoot=kk=>({treasure:{m:Math.round(1500*kk),c:Math.round(1100*kk),f:Math.round(600*kk)},frag:Math.round(5*kk)});
 const scaleShips=(s,f)=>{const o={};for(const k in s)o[k]=Math.round((s[k]||0)*f);return o};
-(function registerPacks(){for(const s of SYSTEMS){if(s.deep)continue;const r=rng(hash('pack'+s.i)),n=r()<.35?2:3,lvl=GALS[s.gal].rich*(1+(500-Math.min(s.rad,500))/400);s.packs=[];let hk=1;
+(function registerPacks(){for(const s of SYSTEMS){if(s.deep)continue;
+  // comètes libres dans le système (petite et grande), sans planète d'attache
+  PLANETS['k'+s.i]={pid:'k'+s.i,sys:s.i,slot:13,name:`Comète de ${s.name}`,type:'comet',comet:true};PLANETS['K'+s.i]={pid:'K'+s.i,sys:s.i,slot:14,name:`Grande comète de ${s.name}`,type:'comet',comet:true,big:true};const r=rng(hash('pack'+s.i)),n=r()<.35?2:3,lvl=GALS[s.gal].rich*(1+(500-Math.min(s.rad,500))/400);s.packs=[];let hk=1;
   for(let k=0;k<n;k++){const big=k===0,kk=(big?3:1.2)*lvl*(.85+r()*.3)*.6,pid=`e${s.i}-${k}`;if(big)hk=kk;
     RAIDS[pid]={pid,sys:s.i,gal:s.gal,tier:big?1:0,local:true,start:0,end:Infinity,ships:{fighter:Math.round(10*kk+r()*5),cruiser:Math.round(3.5*kk),battleship:Math.round((big?.5:.15)*kk)},...raidLoot(kk)};
     PLANETS[pid]={pid,sys:s.i,slot:8+k,name:`${big?'Horde':'Meute'} des Écumeurs · ${s.name}`,type:'raid',raid:true,local:true};s.packs.push(pid)}
@@ -1120,23 +1122,25 @@ function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='o
 const MC_PERIOD=10*HR,MC_LIFE=4*HR;
 function miniComet(i,t=Date.now()){const s=SYSTEMS[i];if(!s||s.deep)return null;const hosts=[...s.planets,...s.bodies];if(!hosts.length)return null;
   const off=hash('mcoff'+i)%MC_PERIOD,w=Math.floor((t+off)/MC_PERIOD),start=w*MC_PERIOD-off;if(t<start||t>start+MC_LIFE)return null;
-  const g=s.gal||0,k=1+g*.3;return{id:'mc-'+i+'-'+w,sys:i,pid:hosts[hash('mch'+i+'-'+w)%hosts.length],start,end:start+MC_LIFE,stock:{m:Math.round(2500*k),c:Math.round(1800*k),f:Math.round(900*k)}}}
+  const g=s.gal||0,k=1+g*.3;return{id:'mc-'+i+'-'+w,sys:i,pid:'k'+i,start,end:start+MC_LIFE,stock:{m:Math.round(2500*k),c:Math.round(1800*k),f:Math.round(900*k)}}}
 const mcAt=(pid,t)=>{const m=PLANETS[pid];if(!m)return null;const c=miniComet(m.sys,t);return c&&c.pid===pid?c:null};
 const mcLeft=c=>{const e=S.events[c.id];return e&&e.left?e.left:c.stock};
 async function miniHarvest(f,fref,tn){const c=mcAt(f.to,f.arrive);let got=null;
   if(c)await locked('events/'+c.id,async(ev,eref)=>{const left={...((ev&&ev.left)||c.stock)},tot=left.m+left.c+left.f;if(tot<=0)return;const ratio=Math.min(1,cargoCap(f.ships)/tot);
     got={m:Math.floor(left.m*ratio),c:Math.floor(left.c*ratio),f:Math.floor(left.f*ratio)};for(const k in got)left[k]-=got[k];await eref.set({kind:'event',id:c.id,mini:true,left,at:Date.now(),by:[...new Set([...((ev&&ev.by)||[]),f.owner])]})});
-  if(got&&got.m+got.c+got.f>0){await goBack(f,fref,f.ships,got);await report({to:[f.owner],tone:'win',title:`Petite comète récoltée près de ${tn}`,lines:[`Cargaison : ${lootTxt(got)}. Ta flotte rentre avec le butin.`]})}
-  else{await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Plus de comète près de ${tn}`,lines:['Elle a disparu ou a déjà été entièrement récoltée. La flotte rentre à vide.']})}}
+  if(got&&got.m+got.c+got.f>0){await goBack(f,fref,f.ships,got);await report({to:[f.owner],tone:'win',title:`Petite comète récoltée · ${SYSTEMS[PLANETS[f.to].sys].name}`,lines:[`Cargaison : ${lootTxt(got)}. Ta flotte rentre avec le butin.`]})}
+  else{await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Plus de comète dans ${SYSTEMS[PLANETS[f.to].sys].name}`,lines:['Elle a disparu ou a déjà été entièrement récoltée. La flotte rentre à vide.']})}}
 function myMiniComets(){if(!S.players[ME])return[];const sys=new Set(myPlanets().map(p=>PLANETS[p.pid].sys)),out=[];for(const i of sys){const c=miniComet(i);if(c){const l=mcLeft(c);if(l.m+l.c+l.f>0)out.push(c)}}return out}
-function miniCometCards(){return myMiniComets().map(c=>{const l=mcLeft(c);return`<div class="card mccard"><div class="ihead"><b>☄ Petite comète près de ${esc(PLANETS[c.pid].name)}</b><span class="cd" data-cd="${c.end}"></span></div>
+function miniCometCards(){return myMiniComets().map(c=>{const l=mcLeft(c);return`<div class="card mccard"><div class="ihead"><b>☄ Petite comète dans ${esc(SYSTEMS[c.sys].name)}</b><span class="cd" data-cd="${c.end}"></span></div>
   <span class="eff">Ressources gratuites, sans combat : ${lootTxt(l)} encore à prendre. Envoie des vaisseaux avec de la soute (mission « Récolter ») avant qu’elle ne disparaisse. Premier arrivé, premier servi.</span>
   <div class="mpacts"><button class="btn sm" data-act="mpsend" data-p="${c.pid}" data-m="harvest">☄ Récolter</button>${S.sel?`<span class="lv" style="align-self:center">Trajet : ${fmtDur(etaOf(S.sel,c.pid,{cruiser:1}))} en croiseurs</span>`:''}</div></div>`}).join('')}
-function mpMiniComet(i){const c=miniComet(i);if(!c||!sysVisible(i))return;const o=MP.orbs.find(o=>o.pid===c.pid);if(!o)return;const g=new THREE.Group();g.position.set(.075,.02,0);
-  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.012,0),new THREE.MeshStandardMaterial({color:0xdff6ff,emissive:0x7fe0ff,emissiveIntensity:.8,flatShading:true})));
-  const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0x8fe6ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.9}));gl.scale.set(.07,.07,1);g.add(gl);
-  for(let k=1;k<=5;k++){const t=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:0x7fd0ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.5-k*.08}));t.scale.set(.05-k*.006,.05-k*.006,1);t.position.set(-k*.018,0,0);g.add(t)}
-  o.mesh.add(g)}
+function mpMiniComet(i){if(!sysVisible(i)||!MP.sysG)return;const s=SYSTEMS[i],c=miniComet(i),cb=cometAt(),nO=s.planets.length+s.bodies.length+(s.packs||[]).length;
+  const list=[...(c&&(()=>{const l=mcLeft(c);return l.m+l.c+l.f>0})()?[{pid:c.pid,big:false}]:[]),...(cb&&PLANETS[cb.pid].sys===i&&!(S.events[cb.id]&&S.events[cb.id].claimedBy)?[{pid:cb.pid,big:true}]:[])];
+  list.forEach((x,j)=>{if(MP.orbs.some(o=>o.pid===x.pid))return;const piv=new THREE.Group();piv.rotation.y=(hash(x.pid+'o')%628)/100;piv.rotation.z=.12;const g=new THREE.Group();g.position.x=.5+(hash(x.pid+'r')%60)/100+j*.15;
+    const sz=x.big?1.8:1;g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.014*sz,0),new THREE.MeshStandardMaterial({color:x.big?0xfff0c0:0xdff6ff,emissive:x.big?0xffc060:0x7fe0ff,emissiveIntensity:.9,flatShading:true})));
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:x.big?0xffd27a:0x8fe6ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.9}));gl.scale.set(.08*sz,.08*sz,1);g.add(gl);
+    for(let k=1;k<=6;k++){const t=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:x.big?0xffc070:0x7fd0ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.5-k*.07}));t.scale.set((.055-k*.006)*sz,(.055-k*.006)*sz,1);t.position.set(0,0,k*.02*sz);g.add(t)}
+    piv.add(g);MP.sysG.add(piv);MP.orbs.push({piv,mesh:g,pid:x.pid,sp:.03})});mpLabels()}
 // ---------- difficulté d'espionnage (seulement contre les PNJ : les joueurs, il faut tester) ----------
 const SPYLV=[['néant','var(--good)'],['faible','var(--good)'],['moyen','var(--warn)'],['difficile','var(--bad)']];
 // sondes nécessaires contre les Écumeurs d'élite : leurs éclaireurs abattent les petites missions
@@ -1340,11 +1344,11 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
   if(S.joinColor&&takenColors().has(S.joinColor.toLowerCase()))return toast('Cette couleur est déjà prise par un autre empire.','bad');
   const color=(S.joinColor||freeColor()).toLowerCase();
   const used=new Set(Object.keys(S.planets));const ownedSys=new Set(Object.values(S.planets).filter(p=>p.owner).map(p=>PLANETS[p.pid].sys));
-  const free=p=>!p.body&&!p.raid&&!used.has(p.pid)&&!ownedSys.has(p.sys)&&(lairInfoAt(SYSTEMS[p.sys])||{}).pid!==p.pid;
+  const free=p=>!p.body&&!p.raid&&!p.comet&&!used.has(p.pid)&&!ownedSys.has(p.sys)&&(lairInfoAt(SYSTEMS[p.sys])||{}).pid!==p.pid;
   // on démarre près du premier empire fondé (l'hôte), dans un système voisin libre
   const anchor=Object.values(S.players).sort((a,b)=>(a.joined||0)-(b.joined||0)).map(p=>capitalOf(p.uid)).find(Boolean);let c=[];
   if(anchor){const A=SYSTEMS[PLANETS[anchor.pid].sys];c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].gal===A.gal).map(p=>({p,d:Math.hypot(SYSTEMS[p.sys].x-A.x,SYSTEMS[p.sys].y-A.y,SYSTEMS[p.sys].z-A.z)})).filter(x=>x.d>=30).sort((a,b)=>a.d-b.d);const near=[...new Set(c.map(x=>x.p.sys))].slice(0,4);c=c.filter(x=>near.includes(x.p.sys)).map(x=>x.p)}
-  if(!c.length)c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].rad>250&&SYSTEMS[p.sys].gal===0);if(!c.length)c=Object.values(PLANETS).filter(p=>!p.body&&!p.raid&&!used.has(p.pid));
+  if(!c.length)c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].rad>250&&SYSTEMS[p.sys].gal===0);if(!c.length)c=Object.values(PLANETS).filter(p=>!p.body&&!p.raid&&!p.comet&&!used.has(p.pid));
   c.sort(()=>Math.random()-.5);
   // un double appui ne doit pas fonder deux capitales
   if(S.joining)return;if(Object.values(S.planets).some(p=>p.owner===ME&&p.capital))return toast('Tu as déjà une capitale.','bad');S.joining=true;
@@ -1410,6 +1414,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   if(PLANETS[f.from]&&galOf(f.from)!==galOf(f.to)&&!f.beltDone){const lost={};for(const k of['fighter','probe']){const n=Math.floor((f.ships[k]||0)*.05);if(n>0){lost[k]=n;f.ships={...f.ships,[k]:f.ships[k]-n}}}f.beltDone=true;if(count(lost))await report({to:[f.owner],tone:'info',title:'Traversée des ceintures d’astéroïdes',lines:[`Entre les galaxies, ta flotte a perdu ${unitLine(lost)} dans les champs d’astéroïdes.`]})}
   await exploreMark([f.owner,...Object.values(S.fleets).filter(j=>j.group===f.fid).map(j=>j.owner)],meta.sys);
   // récolte de comète
+  if(f.mission==='harvest'&&!meta.comet){const c=miniComet(meta.sys,f.arrive),cb=cometAt(f.arrive);if(cb&&PLANETS[cb.pid].sys===meta.sys)f={...f,to:cb.pid};else if(c)f={...f,to:c.pid}}
   if(f.mission==='harvest'&&mcAt(f.to,f.arrive)&&!(cometAt(f.arrive)&&cometAt(f.arrive).pid===f.to)){await miniHarvest(f,fref,tn);return}
   if(f.mission==='harvest'){const cm=cometAt(f.arrive);let got=null;
     if(cm&&cm.pid===f.to)await locked('events/'+cm.id,async(ev,eref)=>{if(ev&&ev.claimedBy)return;const capT=cargoCap(f.ships),tot=COMET_BOUNTY.m+COMET_BOUNTY.c+COMET_BOUNTY.f,ratio=Math.min(1,capT/tot);got={m:Math.floor(COMET_BOUNTY.m*ratio),c:Math.floor(COMET_BOUNTY.c*ratio),f:Math.floor(COMET_BOUNTY.f*ratio)};await eref.set({kind:'event',id:cm.id,claimedBy:f.owner,at:Date.now()})});
@@ -1717,7 +1722,7 @@ function planetRow(pid,joined){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type]
   if(joined){if(v.owner===ME)btn=pid===S.sel?'<span class="lv">sélectionnée</span>':`<button class="btn ghost sm" data-act="selp" data-p="${pid}">Gérer</button>`;btn+=pid!==S.sel?` <button class="btn sm" data-act="send" data-p="${pid}">Envoyer</button>`:''}
   return`<div class="item" ${pid===S.pickP?'style="box-shadow:inset 3px 0 0 var(--brass)"':''}><div class="ihead"><b>${esc(m.name)}</b><span class="lv">${T.n}${isBody(pid)?` · ${RARE[T.rare]}`:''}</span></div>${joined&&pid!==S.sel?`<div class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</div>`:''}<div class="foot">${who}<div>${btn}</div></div>${joined&&v.owner!==ME?spyHintHtml(spyNeedPid(pid)):''}</div>`}
 function eventsHtml(){const out=[],cm=cometAt(),hv=hiveAt(),st=stormAt();
-  if(cm){const taken=S.events[cm.id]&&S.events[cm.id].claimedBy;out.push(`<div class="item"><div class="ihead"><b>Comète : ${esc(PLANETS[cm.pid].name)}</b><span class="cd" data-cd="${cm.end}"></span></div><div class="eff">${taken?`Récoltée par ${esc(pname(taken))}.`:`La première flotte arrivée en mission « Récolter » emporte un gisement exceptionnel et des minerais rares · ${esc(GALS[galOf(cm.pid)].name)}`}</div>${taken?'':`<div class="foot"><span></span><button class="btn sm" data-act="mapsys" data-s="${PLANETS[cm.pid].sys}">Localiser</button></div>`}</div>`)}
+  if(cm){const taken=S.events[cm.id]&&S.events[cm.id].claimedBy;out.push(`<div class="item"><div class="ihead"><b>☄ ${esc(PLANETS[cm.pid].name)}</b><span class="cd" data-cd="${cm.end}"></span></div><div class="eff">${taken?`Récoltée par ${esc(pname(taken))}.`:`La première flotte arrivée en mission « Récolter » emporte un gisement exceptionnel et des minerais rares · ${esc(GALS[galOf(cm.pid)].name)}`}</div>${taken?'':`<div class="foot"><span></span><button class="btn sm" data-act="mapsys" data-s="${PLANETS[cm.pid].sys}">Localiser</button></div>`}</div>`)}
   if(hv){const ev=S.events[hv.id],rem=ev?ev.remaining:HIVE0;out.push(`<div class="item hostile"><div class="ihead"><b>La Ruche : ${esc(PLANETS[hv.pid].name)}</b><span class="cd" data-cd="${hv.end}"></span></div><div class="eff">${ev&&ev.done?'Anéantie. Le butin a été partagé.':`Armada commune à abattre ensemble · reste ${unitLine(rem)} · le butin rare est partagé selon les dégâts infligés.`}</div>${ev&&ev.done?'':`<div class="foot"><span></span><button class="btn sm" data-act="mapsys" data-s="${PLANETS[hv.pid].sys}">Localiser</button></div>`}</div>`)}
   if(st)out.push(`<div class="item"><div class="ihead"><b>Tempête ionique : ${esc(GALS[st.gal].name)}</b><span class="cd" data-cd="${st.end}"></span></div><div class="eff">Les trajets qui partent de cette galaxie ou y arrivent durent 50 % plus longtemps.</div></div>`);
   return out.length?`<section style="display:grid;gap:10px"><h2>Événements en cours</h2><div class="list">${out.join('')}</div></section>`:''}
@@ -1817,7 +1822,7 @@ function renderModal(){fixMis(S.modal);const el=document.getElementById('modal')
   const src=view(M.from),tv=view(M.to),FLT=M.fleet&&S.fleets[M.fleet];const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   const IPc=M.mission==='intercept'&&S.fleets[M.intercept]&&S.fleets[M.intercept].mission==='attack'?S.fleets[M.intercept]:null,IP=IPc&&!FLT&&count(ships)?interceptPlan(M.from,IPc,ships,cmdSpeed(ME,M.cmd)):null,
     eta=IPc&&!FLT?(IP?Math.round((IP.t-Date.now())/1000):0):Math.round(etaOf(M.from,M.to,ships)/cmdSpeed(ME,M.cmd||(FLT&&FLT.cmd))),fuel=fuelOf(M.from,M.to,ships),own=tv.owner===ME,body=isBody(M.to),cm=cometAt(),fuelHave=(FLT||isBody(M.from))?view(capitalOf(ME).pid).res.f:src.res.f;
-  const missions=M.join?[]:M.rally?[['rallysup','Soutien au ralliement',true]]:M.intercept?[['intercept','Interception',true]]:[...(PLANETS[M.to]&&PLANETS[M.to].type==='wreck'&&!tv.owner?[['salvage','Récupérer',true]]:[]),['attack','Attaque',!own],['rally','⚑ Ralliement',M.to!==M.from&&!body&&!(PLANETS[M.to]&&PLANETS[M.to].type==='wreck'&&!tv.owner)&&(!own||!isBody(M.to))],['colonize','Coloniser',!tv.owner&&!tv.raid],['spy','Espionner',!own],['transfer','Transfert',own],['reinforce','Renfort',!own&&(!!activeBattle(M.to)||!!(S.planets[M.to]&&S.planets[M.to].owner&&!isBody(M.to)))],...((cm&&cm.pid===M.to)||mcAt(M.to)?[['harvest','Récolter',true]]:[])];
+  const missions=PLANETS[M.to]&&PLANETS[M.to].comet?[['harvest','Récolter',true]]:M.join?[]:M.rally?[['rallysup','Soutien au ralliement',true]]:M.intercept?[['intercept','Interception',true]]:[...(PLANETS[M.to]&&PLANETS[M.to].type==='wreck'&&!tv.owner?[['salvage','Récupérer',true]]:[]),['attack','Attaque',!own],['rally','⚑ Ralliement',M.to!==M.from&&!body&&!(PLANETS[M.to]&&PLANETS[M.to].type==='wreck'&&!tv.owner)&&(!own||!isBody(M.to))],['colonize','Coloniser',!tv.owner&&!tv.raid],['spy','Espionner',!own],['transfer','Transfert',own],['reinforce','Renfort',!own&&(!!activeBattle(M.to)||!!(S.planets[M.to]&&S.planets[M.to].owner&&!isBody(M.to)))],...((cm&&cm.pid===M.to)||mcAt(M.to)?[['harvest','Récolter',true]]:[])];
   const st=stormAt();
   setTimeout(()=>{const t=document.getElementById('mfrom');if(t)t.onchange=()=>{const M0=S.modal;if(!M0||t.value===M0.from)return;M0.from=t.value;M0.ships=zeroShips();M0.cmd=null;if(M0.mission==='spy')M0.ships.probe=Math.min(10,(view(M0.from).ships||{}).probe||0);renderModal()}},0);
   el.innerHTML=`<div class="scrim" data-act="mclose"><div class="sheet" role="dialog" aria-modal="true" aria-label="Envoyer une flotte" data-stop="1">
@@ -2029,7 +2034,7 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
     for(const e of Object.values(S.events))if(e.battle&&!e.done&&PLANETS[e.pid]){const bs=SYSTEMS[PLANETS[e.pid].sys];if(bs.gal===MP.gal&&sysVisible(bs.i))L.push({w:bs.w,cls:'ev bad',pr:0,h:'⚔ Bataille en cours'})}
     mpFleetLabels(L,false,null);
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
-  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>${spyTag(o.pid)}`:'?'})});if(MP.dist<1.8)mpFleetLabels(L,true,MP.sys)}
+  else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(PLANETS[o.pid].name)}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${PLANETS[o.pid].comet?'comète libre · à récolter':isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}</i>${spyTag(o.pid)}`:'?'})});if(MP.dist<1.8)mpFleetLabels(L,true,MP.sys)}
   L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
   MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
@@ -2115,9 +2120,10 @@ function mpPopHtml(pid){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type],joined
     if(!n&&wreck)acts.push(B('salvage','Récupérer'));else if(!n&&vis)acts.push(B('colonize','🪐 Coloniser'));
     if(cm&&cm.pid===pid)acts.push(B('harvest','☄ Récolter'))}
   {const mc=mcAt(pid);if(mc){const l=mcLeft(mc);if(l.m+l.c+l.f>0){acts.unshift(B('harvest','☄ Récolter'));who+=` · <b style="color:#8fe6ff">☄ petite comète (${lootTxt(l)})</b>`}}}
+  if(m.comet){acts=acts.filter(a=>a.includes('data-m="harvest"'));if(!acts.length)who='☄ La comète est partie ou a déjà été récoltée';else who=who.replace(/^Orbite libre · /,'☄ Comète libre dans le système · ').replace(/^Orbite libre$/,'☄ Comète libre dans le système');}
   const eta=joined&&S.sel&&pid!==S.sel?`<span class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</span>`:'';
   return`<div class="mppop" role="dialog" aria-label="${esc(m.name)}"><div class="ihead"><b>${esc(m.name)}</b><span class="lv">${T.n}${body?` · ${RARE[T.rare]}`:''}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
-    <span class="eff mpwho">${who}</span>${v.owner&&v.owner!==ME?intelBox(pid):''}${eta}${fleetsToHtml(pid)}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}${v.owner!==ME?spyHintHtml(spyNeedPid(pid)):''}</div>`}
+    <span class="eff mpwho">${who}</span>${v.owner&&v.owner!==ME?intelBox(pid):''}${eta}${fleetsToHtml(pid)}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}${v.owner!==ME&&!m.comet?spyHintHtml(spyNeedPid(pid)):''}</div>`}
 function mpPopSync(){const el=document.getElementById('mppop');if(!el)return;const pid=MP.level==='system'&&S.pickP&&PLANETS[S.pickP]?S.pickP:null;el.innerHTML=pid?mpPopHtml(pid):'';el.hidden=!pid}
 function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpel.hidden=!show;
   if(!show&&MP.full){MP.full=false;mpel.classList.remove('v3full');document.body.style.overflow='';document.getElementById('mpfull').textContent='Plein écran'}
@@ -2303,7 +2309,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
     for(const it of[...(p.build?[p.build]:[]),...(p.bq||[])])if(it.until<=now)keys.push(['d','b'+p.pid+it.until+it.k,`${lvBase(it.k).n} : amélioration terminée sur ${nm}.`]);
     for(const it of p.shipQ||[]){const end=it.start+it.n*it.per*1000;if(end<=now)keys.push(['d','s'+p.pid+end+it.t,`${SHIPS[it.t].n} : production terminée sur ${nm}.`])}}
   for(const it of Object.values(S.planets).filter(p=>p.owner===ME).flatMap(p=>(p.armQ||[]).map(x=>[p,x]))){const[p,x]=it,end=x.start+x.n*x.per*1000;if(end<=now)keys.push(['d','m'+p.pid+end+x.t,`Modules « ${WEAP[x.t].n} » prêts sur ${PLANETS[p.pid].name}.`])}
-  {const rs=S.players[ME].research;if(rs&&rs.until<=now)keys.push(['d','r'+rs.until,`Recherche terminée : ${WEAP[rs.k].n}.`]);const cm=cometAt(),hv=hiveAt();if(cm)keys.push(['d','cm'+cm.id,`Une comète traverse ${PLANETS[cm.pid].name} (${GALS[galOf(cm.pid)].name}). Le premier qui la récolte gagne gros.`]);for(const c of myMiniComets())keys.push(['d','mc'+c.id,`☄ Une petite comète est apparue près de ${PLANETS[c.pid].name}, dans ton système. Récolte-la avant qu’elle ne disparaisse !`]);if(hv)keys.push(['a','hv'+hv.id,`La Ruche a surgi à ${PLANETS[hv.pid].name}. Unissez vos flottes pour l’abattre.`])}
+  {const rs=S.players[ME].research;if(rs&&rs.until<=now)keys.push(['d','r'+rs.until,`Recherche terminée : ${WEAP[rs.k].n}.`]);const cm=cometAt(),hv=hiveAt();if(cm)keys.push(['d','cm'+cm.id,`Une grande comète traverse le système ${SYSTEMS[PLANETS[cm.pid].sys].name} (${GALS[galOf(cm.pid)].name}). Le premier qui la récolte gagne gros.`]);for(const c of myMiniComets())keys.push(['d','mc'+c.id,`☄ Une petite comète traverse ton système ${SYSTEMS[c.sys].name}. Récolte-la avant qu’elle ne disparaisse !`]);if(hv)keys.push(['a','hv'+hv.id,`La Ruche a surgi à ${PLANETS[hv.pid].name}. Unissez vos flottes pour l’abattre.`])}
   musicTension(incoming().length>0);appBadge(incoming().length);for(const f of incoming())keys.push(['a','a'+f.fid,`Alerte : ${pname(f.owner)} attaque ${PLANETS[f.to].name}, arrivée à ${clock(f.arrive)}.`]);
   {const B={planet:[],yard:[],lab:[],news:[]};const j0=(S.players[ME]||{}).joined||0;for(const e of Object.values(S.events))if(e.news&&e.at>j0&&!(e.uids&&e.uids.length===1&&e.uids[0]===ME))B.news.push('n'+e.id);B.log=S.reports.filter(r=>(r.at||0)>Math.max(j0,LOG_EPOCH)).map(r=>'L'+r.id);if(!EV.newsInit){EV.newsInit=true;try{if(!localStorage.getItem('orion-ninit-'+ME)){const S0=bseen();B.news.forEach(k=>S0.add(k));localStorage.setItem('orion-bseen-'+ME,JSON.stringify([...S0].slice(-300)));localStorage.setItem('orion-ninit-'+ME,'1')}}catch(e){}}for(const[t,k]of keys){if(t!=='d')continue;const c=k[0];if(c==='b')B.planet.push(k);else if(c==='s')B.yard.push(k);else if(c==='m'||(c==='r'&&/^r\d/.test(k)))B.lab.push(k)}EV.badge=B}
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
@@ -2990,7 +2996,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='111';
+const APP_VERSION='112';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

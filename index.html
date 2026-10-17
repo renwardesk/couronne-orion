@@ -145,6 +145,7 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .spyh{display:block;font-size:12px;color:var(--dim);margin-top:2px}
 .tipcard{display:grid;gap:6px;border-color:color-mix(in srgb,var(--brass,#e3ac55) 60%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--brass,#e3ac55) 9%,transparent),transparent 70%)}.tipcard .ihead b{color:var(--brass,#e3ac55)}
 .xbtn{border:1px solid color-mix(in srgb,var(--bad) 55%,transparent);background:none;color:var(--bad);border-radius:8px;font-size:11.5px;padding:3px 7px;cursor:pointer}
+.rarebar{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 8px;font-size:12px;color:#b9a6ee}.rarebar b{color:#e2d8ff;font-variant-numeric:tabular-nums}
 .atkcard{display:grid;gap:6px;border-color:var(--bad);background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 8%,transparent),transparent 60%)}.atkrow{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:baseline;font-size:13px;padding-left:8px;border-left:3px solid var(--c)}.atkrow span{color:var(--dim);font-size:12px}.atkrow b{color:var(--c);font-weight:600}
 .bgrp{display:grid;gap:8px}.bgh{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gc)}.bgh::after{content:'';flex:1;height:1px;background:color-mix(in srgb,var(--gc) 35%,transparent)}.bgrp>.item{border-left:3px solid var(--gc);background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 7%,transparent),transparent 40%)}
 .v3atk{position:absolute;top:10px;left:10px;z-index:3;width:44px;height:44px;border-radius:50%;border:2px solid #ff3b4a;background:rgba(40,4,10,.75);color:#ff3b4a;font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;animation:v3atk 1s ease-in-out infinite}.v3atk[hidden]{display:none}@keyframes v3atk{0%,100%{opacity:1;box-shadow:0 0 14px #ff3b4a}50%{opacity:.25;box-shadow:0 0 0 #ff3b4a}}
@@ -357,7 +358,7 @@ function bayUse(p,uid){let n=placesOf(p.ships);for(const it of p.shipQ||[]){cons
   for(const f of Object.values(S.fleets)){if(f.owner!==uid)continue;const tr=f.phase==='out'&&f.mission==='transfer';if(tr?f.to===p.pid:fleetBase(f)===p.pid)n+=placesOf(f.ships)}return n}
 // ---------- minerais rares exigés pour les hauts niveaux de bâtiments ----------
 const bRare=(k,L)=>{const t=L+1,o={};if(t>=5)o.ir=Math.round(30*1.45**(t-5));if(t>=8)o.xe=Math.round(20*1.45**(t-8));if(t>=11)o.am=Math.round(12*1.45**(t-11));return o};
-const rareCostHtml=(r,c)=>Object.keys(c).map(k=>`<span class="${(r[k]||0)<c[k]?'no':''}" style="color:#c9b6ff">${fmt(c[k])} ${RARE[k].toLowerCase()}</span>`).join('');
+const rareCostHtml=(r,c)=>Object.keys(c).map(k=>`<span class="${(r[k]||0)<c[k]?'no':''}" ${(r[k]||0)<c[k]?'':'style="color:#c9b6ff"'}>${fmt(c[k])} ${RARE[k].toLowerCase()}</span>`).join('');
 const shipTime=(k,yard)=>Math.max(3,Math.round(SHIPS[k].t*4/(1+.2*(Math.max(1,yard)-1))));
 const afford=(r,c,n=1)=>r.m>=c.m*n&&r.c>=c.c*n&&r.f>=c.f*n;
 const pay=(r,c,n=1)=>{r.m-=c.m*n;r.c-=c.c*n;r.f-=c.f*n};
@@ -1473,7 +1474,7 @@ function renderJoin(){
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
   let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span>${onlinePill()}</div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
-  if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>
+  if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>${!body?(()=>{const r=rareNow(ME);return Object.keys(RARE).some(k=>r[k]>0)?`<div class="rarebar">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b></span>`).join('')}</div>`:''})():''}
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
@@ -1522,7 +1523,7 @@ function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],
   ${bq.length?`<div class="card" style="display:grid;gap:10px"><div class="ihead"><b>File de construction</b><span class="lv">${bq.length}/${BQ_MAX}</span></div>${bq.map((it,i)=>`<div style="display:grid;gap:5px"><div class="ihead"><span>${i+1}. ${lvBase(it.k).n} → niv. ${(p.lv[it.k]||0)+bq.slice(0,i+1).filter(x=>x.k===it.k).length}</span><span style="display:flex;gap:8px;align-items:center"><span class="cd" data-cd="${it.until}"></span><button class="xbtn" data-act="bcancel" data-i="${i}" aria-label="Annuler">✕</button></span></div>${i===0?`<span class="prog"><b data-a="${it.start}" data-b="${it.until}"></b></span>`:''}</div>`).join('')}</div>`:''}
   <section style="display:grid;gap:10px"><h2>${body?'Installations':'Bâtiments'}</h2>${body?'<p class="meta" style="margin:0">Les travaux d’un avant-poste sont payés par ta capitale.</p>':''}<div class="list">
   ${[...BGROUPS,{n:'Autres',i:'•',c:'#9aa3b5',k:Object.keys(B).filter(k=>!BGROUPS.some(g=>g.k.includes(k)))}].map(g=>{const ks=g.k.filter(k=>B[k]);return ks.length?`<div class="bgrp" style="--gc:${g.c}"><h3 class="bgh"><span>${g.i}</span>${g.n}</h3>${ks.map(k=>{if(body&&k==='drill')return drillRows(p,payer,full,qn(k));const L0=p.lv[k]||0,L=L0+qn(k),c=bCost(k,L),rc=bRare(k,L),rn=rareNow(ME),ok=afford(payer,c)&&affordR(rn,rc);return`<div class="item"><div class="ihead"><b>${B[k].n}</b><span class="lv">niv. ${L0}${qn(k)?` → ${L} en file`:''}</span></div><div class="eff">${effect(p,k)}</div>
-    <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime(k,L))}</span></div><button class="btn sm" data-act="up" data-k="${k}" ${full||!ok?'disabled':''}>${full?'File pleine':bq.length?'Ajouter à la file':'Améliorer'}</button></div></div>`}).join('')}</div>`:''}).join('')}
+    <div class="foot"><div class="costs">${costHtml(payer,c)}${rareCostHtml(rn,rc)}<span class="t">${fmtDur(bTime(k,L))}</span></div><button class="btn sm" data-act="up" data-k="${k}" ${full||!ok?'disabled':''}>${full?'File pleine':!ok?'Pas assez':bq.length?'Ajouter à la file':'Améliorer'}</button></div></div>`}).join('')}</div>`:''}).join('')}
   </div></section>
   ${sendResHtml(p)}<section style="display:grid;gap:10px"><h2>${body?'Flotte stationnée':'En orbite'}</h2>${bayHtml(p)}<div class="card stats" style="font-size:13px">${SK.map(k=>`<span>${SHIPS[k].n} <b>${p.ships[k]||0}</b></span>`).join('')}<span>Tourelles <b>${(p.lv.def||0)*4}</b></span></div>
   ${body&&p.lv.dock<1?'<p class="eff" style="margin:0">Sans base de flotte, les vaisseaux envoyés ici repartent vers ta capitale.</p>':''}</section>`}
@@ -2567,7 +2568,7 @@ function btAlloc(total,shown,owners){// owners: [{uid,n}] -> nombre de maquettes
   const out=owners.map(o=>({...o,m:Math.floor(shown*o.n/(total||1))}));let rem=shown-out.reduce((a,b)=>a+b.m,0);out.sort((a,b)=>b.n-a.n);for(let i=0;rem>0&&i<out.length*3;i++){const o=out[i%out.length];if(o.m<o.n){o.m++;rem--}}return out}
 // vaisseau amiral du bon commandant dans le rejeu (sinon le meilleur commandant du joueur)
 function btFlag(uid,pt){const a=(BT.rep.battle.att||[]).find(x=>x.uid===uid&&x.ck);let k=a&&a.ck;if(!k){const L=cmdsOf(uid).filter(c=>c.key&&CMDK[c.key]).sort((x,y)=>'lerc'.indexOf(CMDK[x.key].r)-'lerc'.indexOf(CMDK[y.key].r));k=L[0]&&L[0].key}return k?buildFlag(k,pt):null}
-function btBuild(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(BT.g)}const g=new THREE.Group();BT.g=g;BT.scene.add(g);BT.units=[];BT.fx=[];BT.done=-1;
+function btBuild(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(BT.g)}const g=new THREE.Group();BT.g=g;BT.scene.add(g);BT.units=[];BT.fx=[];BT.done=-1;BT.planR=-1;BT.plan=[];
   const defUid=S.players[D.def]?D.def:null,defPaint=defUid?paintOf(defUid):D.def==='hive'?HIVE_PAINT:D.def==='raid'?RAID_PAINT:PIRATE_PAINT,defLo=defUid?loadoutOf(S.players[defUid]):{};
   BT.planet=null;if(D.planet&&PLANETS[D.pid]){const T=PTYPES[PLANETS[D.pid].type];const pm=new THREE.Mesh(new THREE.SphereGeometry(9,48,32),new THREE.MeshStandardMaterial({color:T.col,roughness:.9,flatShading:true}));pm.position.set(30,-4,-6);g.add(pm);
     const at=new THREE.Mesh(new THREE.SphereGeometry(10,48,32),atmMat(new THREE.Color(T.col).getHex(),2.6,1.3));at.position.copy(pm.position);g.add(at);BT.planet=pm}
@@ -2668,18 +2669,23 @@ function battleMusic(on){const c=audio();if(!c)return;
     BMUS.rev=bmReverb(c);const rg=c.createGain();rg.gain.value=.35;BMUS.rev.connect(rg).connect(BMUS.gain);
     BMUS.on=true;BMUS.next=c.currentTime+.15;BMUS.step=0;BMUS.timer=setInterval(bmSchedule,150);bmSchedule()}
   else if(!on&&BMUS.on){BMUS.on=false;clearInterval(BMUS.timer);const g=BMUS.gain;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(g.gain.value,c.currentTime);g.gain.linearRampToValueAtTime(0,c.currentTime+1.2);setTimeout(()=>{try{g.disconnect()}catch(e){}},1500);if(BMUS.resumeAmb&&SFX.ambOn)setTimeout(()=>ambient(true),1000)}}
+// destructions d'une manche : chaque vaisseau perdu explose à un moment différent pendant les tirs
+function btPlan(ri,RDv){const D=BT.rep.battle,after=D.rounds[ri],out=[];
+  for(const side of['a','d'])for(const k of Object.keys(side==='a'?D.ia:D.id)){const init=(side==='a'?D.ia:D.id)[k]||0,aft=(after[side][k]||0);const units=BT.units.filter(x=>x.side===side&&x.k===k),alive=units.filter(x=>x.alive);const want=aft>0?Math.max(1,Math.round(units.length*aft/init)):0;
+    let kill=alive.length-want;alive.sort(()=>Math.random()-.5);for(const x of alive){if(kill<=0)break;kill--;out.push({x})}}
+  out.sort(()=>Math.random()-.5);const span=Math.max(1,RDv-1.8);out.forEach((q,i)=>{q.at=.5+span*(i+.3+Math.random()*.5)/Math.max(1,out.length)});return out}
+function btKill(x){if(!x.alive)return;x.alive=false;const pos=x.m.position.clone();setTimeout(()=>{x.m.visible=false},120+Math.random()*300);btBoom(pos,x.k==='battleship'||x.k==='cruiser'||x.k==='flag')}
 function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const dt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;const D=BT.rep.battle,R=D.rounds.length,e=(t-BT.t0)/1000-1.2;
   if(!BT.drag)BT.yaw+=dt*.06;BT.dist+=((BT.distT||34)-(BT.dist||34))*Math.min(1,dt*4);const dd=BT.dist||34;BT.cam.position.set(Math.sin(BT.yaw)*dd,11*dd/34,Math.cos(BT.yaw)*dd);BT.cam.lookAt(2,0,0);
   for(const u of BT.units){if(u.dot){u.dot.visible=u.alive;if(u.alive)u.dot.position.set(u.m.position.x,u.m.position.y+(u.k==='battleship'||u.k==='flag'?2.2:1.4),u.m.position.z)}if(u.alive){const b=u.m.userData.base;u.m.position.y=b.y+Math.sin(t/700+u.m.userData.ph)*.25;if(u.k!=='turret')u.m.position.x=b.x+(u.side==='a'?1:-1)*Math.min(3,Math.max(0,e)*.4)}}
   const RDv=Math.max(6.5,Math.min(10,28/Math.max(1,R))),ri=e<0?-1:Math.floor(e/RDv);
+  if(ri>=0&&ri<R&&BT.planR!==ri){BT.planR=ri;BT.plan=btPlan(ri,RDv)}
   if(ri>=0&&ri<R){const u=e-ri*RDv;
     if(u<RDv-1){const A=BT.units.filter(x=>x.side==='a'&&btShooter(x)),Dd=BT.units.filter(x=>x.side==='d'&&btShooter(x)),ta=BT.units.filter(x=>x.side==='d'&&x.alive),tdd=BT.units.filter(x=>x.side==='a'&&x.alive);
       const rate=Math.min(18,(A.length+Dd.length)*.7);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)],tg=T1[Math.floor(Math.random()*T1.length)];
         const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btShot(s,tg,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}
-    else if(BT.done<ri){BT.done=ri;const before=btCounts(ri-1),after=D.rounds[ri];
-      for(const side of['a','d'])for(const k of Object.keys(side==='a'?D.ia:D.id)){const init=(side==='a'?D.ia:D.id)[k]||0,aft=(after[side][k]||0);const units=BT.units.filter(x=>x.side===side&&x.k===k),alive=units.filter(x=>x.alive);const want=aft>0?Math.max(1,Math.round(units.length*aft/init)):0;
-        let kill=alive.length-want;alive.sort(()=>Math.random()-.5);for(const x of alive){if(kill<=0)break;x.alive=false;kill--;const pos=x.m.position.clone();setTimeout(()=>{x.m.visible=false},120+Math.random()*500);btBoom(pos,x.k==='battleship'||x.k==='cruiser')}}
-      btHud(ri)}}
+    for(const q of BT.plan||[])if(!q.done&&u>=q.at){q.done=true;btKill(q.x)}
+    if(u>=RDv-1&&BT.done<ri){BT.done=ri;for(const q of BT.plan||[])if(!q.done){q.done=true;btKill(q.x)}btHud(ri)}}
   else if(ri>=R&&BT.done<R){BT.done=R;btHud(R-1)}
   BT.fx=BT.fx.filter(f=>{if(f.spin){f.spin.o.rotation[f.spin.ax]+=dt*f.spin.sp;return true}f.t+=dt;{const r=btFxStep(f,dt);if(r!==null)return r}
     if(f.beam){f.beam.material.opacity=Math.max(0,1-f.t/.22);f.flash.material.opacity=f.beam.material.opacity;if(f.t>.22){BT.g.remove(f.beam);BT.g.remove(f.flash);f.beam.geometry.dispose();f.beam.material.dispose();f.flash.material.dispose();return false}return true}
@@ -2786,7 +2792,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='83';
+const APP_VERSION='84';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

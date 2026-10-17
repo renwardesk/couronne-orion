@@ -1,5 +1,6 @@
-// Couronne d'Orion : rappelle aux joueurs, sur leur téléphone, qu'une file de construction ou un chantier spatial est à l'arrêt.
-// Appelée toutes les 15 minutes par pg_cron. Au plus un rappel par joueur toutes les 8 heures (table push_sent), jamais la nuit.
+// Couronne d'Orion : rappelle aux joueurs, sur leur téléphone, qu'une file de construction ou un chantier spatial est à l'arrêt,
+// et annonce les grands exploits (Léviathan, Armada, Ruche…).
+// Appelée toutes les 5 minutes par pg_cron. Au plus un rappel par joueur toutes les 8 heures (table push_sent), jamais la nuit.
 import { createClient } from "npm:@supabase/supabase-js@2.75.0";
 import webpush from "npm:web-push@3.6.7";
 
@@ -18,6 +19,23 @@ Deno.serve(async () => {
     const byUid = new Map<string, { endpoint: string; sub: unknown }[]>();
     for (const s of subs ?? []) { const l = byUid.get(s.uid) ?? []; l.push(s); byUid.set(s.uid, l); }
     if (!byUid.size) return new Response(JSON.stringify({ ok: true, sent: 0 }), { headers: J });
+    // exploits annoncés à tous (Léviathan, Armada, Ruche, gardien…) et colonisations : envoyés aux joueurs, même appli fermée
+    let feats = 0;
+    const { data: frs } = await db.from("docs").select("path, data").eq("col", "reports").gte("data->>at", String(Date.now() - 20 * MIN)).or("data->>feat.eq.true,data->>push.eq.true");
+    for (const r of frs ?? []) {
+      const d = r.data as Record<string, any>;
+      for (const uid of (d.to ?? []) as string[]) {
+        if (!byUid.has(uid)) continue;
+        const { error: dupF } = await db.from("push_sent").insert({ k: `feat:${r.path}:${uid}` });
+        if (dupF) continue;
+        const payload = d.feat ? JSON.stringify({ title: "🏆 Exploit dans la galaxie", body: String(d.title ?? "").replace(/^🏆 /, ""), tag: "feat" })
+          : JSON.stringify({ title: "🪐 Colonisation réussie", body: String(d.title ?? "").replace(/^🪐 /, ""), tag: "push" });
+        for (const s2 of byUid.get(uid) ?? []) {
+          try { await webpush.sendNotification(s2.sub as webpush.PushSubscription, payload, { TTL: 3 * 3600, urgency: "normal" }); feats++; }
+          catch (e) { const c = (e as { statusCode?: number }).statusCode; if (c === 404 || c === 410) await db.from("push_subs").delete().eq("endpoint", s2.endpoint); }
+        }
+      }
+    }
     const { data: rows } = await db.from("docs").select("path, data").eq("col", "planets").not("data", "is", null);
     const now = Date.now(), todo = new Map<string, { b: string[]; s: string[]; keys: string[] }>();
     for (const r of rows ?? []) {
@@ -50,7 +68,7 @@ Deno.serve(async () => {
         catch (e) { const c = (e as { statusCode?: number }).statusCode; if (c === 404 || c === 410) await db.from("push_subs").delete().eq("endpoint", s2.endpoint); }
       }
     }
-    return new Response(JSON.stringify({ ok: true, sent }), { headers: J });
+    return new Response(JSON.stringify({ ok: true, sent, feats }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: J });
   }

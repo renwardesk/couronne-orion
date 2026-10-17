@@ -1487,7 +1487,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const lrH=!body&&lairInfoAt(SYSTEMS[meta.sys]);if(f.mission==='colonize'&&lrH&&lrH.pid===f.to){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Repaire des Écumeurs sur ${tn}`,lines:['Les Écumeurs ont colonisé cette planète. Détruis leur repaire avant de t’y installer.']});return}
     if(f.mission==='colonize'){
       if(!p&&isEmpty(gar)&&limitOk){if(!(await cultureOk())){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Pas d’emplacement libre pour ${tn}`,lines:[`Tes ${slotsOf(f.owner)} emplacements de planètes sont occupés. Débloque-en un autre avec ta culture (flèche à côté de la barre de culture, en haut).`]});return}
-        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner);const s={...f.ships};s.colony--;await ref.set(n);await holdAt(f,fref,s,f.cargo);reps.push({news:'conquest',to:[f.owner],tone:'win',title:body?`Avant-poste installé : ${tn}`:`Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
+        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner);const s={...f.ships};s.colony--;await ref.set(n);await holdAt(f,fref,s,f.cargo);reps.push({news:'conquest',push:true,to:[f.owner],tone:'win',title:body?`🪐 Satellite colonisé : ${tn}`:`🪐 Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
       if(!limitOk||(p&&p.owner===f.owner)||(p&&p.capital)){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Installation impossible sur ${tn}`,lines:[p&&p.capital?'On ne peut pas annexer une capitale.':p?'La cible est déjà occupée.':limTxt]});return}
       // gardée par des pirates ou tenue par un ennemi : il faut gagner la bataille, le colon s'installe ensuite
     }
@@ -2309,7 +2309,7 @@ function events(){if(S.ready<3||!S.players[ME])return;const now=Date.now(),keys=
   if(!EV.init){keys.forEach(k=>EV.seen.add(k[1]));EV.init=true;return}
   for(const[t,k,msg]of keys){if(EV.seen.has(k))continue;EV.seen.add(k);if(t==='a'){sfx.alert();toast(msg,'alert')}else{sfx.done();toast(msg)}}}
 function reportSounds(){if(!EV.repInit){S.reports.forEach(r=>EV.reps.add(r.id));EV.repInit=true;return}
-  for(const r of S.reports){if(EV.reps.has(r.id))continue;EV.reps.add(r.id);if(r.feat){toast(r.title,'alert');sfx.win();try{if(document.hidden&&typeof Notification!=='undefined'&&Notification.permission==='granted')new Notification('Couronne d’Orion',{body:r.title.replace(/^🏆 /,''),tag:'feat'})}catch(e){}continue}if(r.battle)S.btNew={id:r.id,title:r.title,until:Date.now()+180000};if(r.tone==='info')continue;if(r.loser===ME)sfx.loss();else sfx.win()}}
+  for(const r of S.reports){if(EV.reps.has(r.id))continue;EV.reps.add(r.id);if(r.push&&!r.feat){toast(r.title);sfx.win();continue}if(r.feat){toast(r.title,'alert');sfx.win();try{if(document.hidden&&typeof Notification!=='undefined'&&Notification.permission==='granted')new Notification('Couronne d’Orion',{body:r.title.replace(/^🏆 /,''),tag:'feat'})}catch(e){}continue}if(r.battle)S.btNew={id:r.id,title:r.title,until:Date.now()+180000};if(r.tone==='info')continue;if(r.loser===ME)sfx.loss();else sfx.win()}}
 
 // ---------- vue 3D de la planète ----------
 const V3={on:pref('orion-3d',true),ok:false,tried:false,r:null,comp:null,bloom:null,scene:null,cam:null,world:null,planetG:null,dyn:null,clouds:null,moonG:null,
@@ -2990,7 +2990,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='110';
+const APP_VERSION='111';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

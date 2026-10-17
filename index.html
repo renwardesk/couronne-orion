@@ -1220,11 +1220,15 @@ setInterval(()=>heartbeat(),20000);document.addEventListener('visibilitychange',
 async function withPlayer(uid,fn){return locked('players/'+uid,async(d,ref)=>{if(!d)throw err('Empire introuvable.');const now=Date.now(),rt=rareRates(uid),dt=Math.max(0,(now-(d.rareAt||now))/60000);
   d.rare=d.rare||{};d.rareBy=d.rareBy||{};const rcap=rareCap(uid),bodies=Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid));
   for(const p of bodies){const x=rareRate(settle(p,now)),b=d.rareBy[p.pid]=d.rareBy[p.pid]||{},cp=bodyRareCap(p);for(const k in RARE)b[k]=rareFill(b[k]||0,x[k]*dt,cp)}for(const pid in d.rareBy)if(!bodies.some(p=>p.pid===pid))delete d.rareBy[pid];
+  // migration : l'ancienne réserve commune venait des satellites → on la reverse dans leurs stocks
+  if(!d.rareMig&&bodies.length){const w=bodies.map(p=>{const x=rareRate(settle(p,now));return Object.values(x).reduce((a,b)=>a+b,0)||1}),W=w.reduce((a,b)=>a+b,0);for(const k in RARE){const v=d.rare[k]||0;if(v>0){bodies.forEach((p,i)=>{d.rareBy[p.pid][k]=(d.rareBy[p.pid][k]||0)+v*w[i]/W});d.rare[k]=0}}d.rareMig=1}
   const central={...d.rare};for(const k in RARE){central[k]=central[k]||0;d.rare[k]=central[k]+bodies.reduce((t,p)=>t+(d.rareBy[p.pid][k]||0),0)} // pendant l'action, d.rare = total disponible
   d.culture=(d.culture??50)+cultureRate(uid)*dt;d.rareAt=now;const r0={...d.rare};
   if(d.research&&d.research.until<=now){d.tech=d.tech||{};d.tech[d.research.k]=(d.tech[d.research.k]||0)+1;d.research=null}
   const res=await fn(d);for(const k in RARE){const delta=(d.rare[k]||0)-r0[k];let c=central[k];
-    if(delta>0)c=Math.max(c,Math.min(c+delta,rcap)); // gains : réserve centrale (le surplus au-delà des réserves est perdu)
+    if(delta>0){let g=delta;if(bodies.length){// gains (butin, coffres…) : rangés dans les stocks des satellites qui ont de la place
+      for(const p of bodies.slice().sort((a,b)=>(bodyRareCap(b)-(d.rareBy[b.pid][k]||0))-(bodyRareCap(a)-(d.rareBy[a.pid][k]||0)))){if(g<=0)break;const bb=d.rareBy[p.pid],room=Math.max(0,bodyRareCap(p)-(bb[k]||0)),u=Math.min(room,g);bb[k]=(bb[k]||0)+u;g-=u}}
+      else c=Math.max(c,Math.min(c+g,rcap))} // sans satellite : réserve de l'empire ; sinon le surplus au-delà des stocks est perdu
     else if(delta<0){let need=-delta;const t=Math.min(c,need);c-=t;need-=t;for(const p of bodies.slice().sort((a,b)=>(d.rareBy[b.pid][k]||0)-(d.rareBy[a.pid][k]||0))){if(need<=0)break;const bb=d.rareBy[p.pid],u=Math.min(bb[k]||0,need);bb[k]=(bb[k]||0)-u;need-=u}}
     d.rare[k]=c}
   await ref.set(d);return res})}
@@ -1570,7 +1574,7 @@ function renderJoin(){
 function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
   let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span>${onlinePill()}</div><div class="tools"><button class="tgl" data-act="snd" aria-pressed="${SFX.on}">Son</button><button class="tgl" data-act="amb" aria-pressed="${SFX.ambOn}">Musique</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl" data-act="notif" aria-pressed="${notifOk()&&pushOn()}">Alertes</button>`:''}<button class="tgl" data-act="logout">Quitter</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
-  if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>${!body?(()=>{const r=rareNow(ME);const rt=rareRates(ME),c=(S.players[ME]||{}).rare||{};return Object.keys(RARE).some(k=>r[k]>0||rt[k]>0)?`<div class="rarebar">${Object.keys(RARE).map(k=>`<span title="Réserve centrale ${fmt(c[k]||0)} · satellites ${fmt(Math.max(0,r[k]-(c[k]||0)))}">${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b>${rt[k]>0?` <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small>`:''}</span>`).join('')}</div><div class="rarebar" style="font-size:11px;opacity:.75;margin-top:-4px">dont réserve centrale ${Object.keys(RARE).filter(k=>(c[k]||0)>=1).map(k=>`${fmt(c[k])} ${RARE[k].toLowerCase()}`).join(', ')||'vide'} · le reste est stocké sur tes satellites</div>`:''})():''}
+  if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>${!body?(()=>{const r=rareNow(ME);const rt=rareRates(ME),c=(S.players[ME]||{}).rare||{};return Object.keys(RARE).some(k=>r[k]>0||rt[k]>0)?`<div class="rarebar">${Object.keys(RARE).map(k=>`<span title="Somme des stocks de tes satellites">${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b>${rt[k]>0?` <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small>`:''}</span>`).join('')}</div>`:''})():''}
     <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
@@ -2982,7 +2986,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='106';
+const APP_VERSION='107';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

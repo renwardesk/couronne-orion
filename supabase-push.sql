@@ -19,3 +19,7 @@ begin
   return new;
 end $$;
 create or replace trigger docs_notify_attack after insert or update on public.docs for each row execute function public.notify_attack();
+
+-- Rappels « file vide » (déjà appliqué) : fonction supabase/functions/push-idle, appelée toutes les 15 min
+-- create extension if not exists pg_cron;
+-- select cron.schedule('orion-push-idle', '*/15 * * * *', $$select net.http_post(url := 'https://sbymnsyjnbkdvdjrohza.supabase.co/functions/v1/push-idle', body := '{}'::jsonb, headers := '{"Content-Type":"application/json"}'::jsonb)$$);

@@ -1786,9 +1786,9 @@ function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   ${armyHtml()}<section style="display:grid;gap:10px"><h2>Tes flottes</h2>${myFleetsHtml(mine)}</section>`}
 // ---------- gestion d'empire : tout voir et lancer les mêmes ordres partout ----------
-const EMP_MIN=4;const empireOn=()=>!!S.players[ME]&&myPlanets().length>=EMP_MIN;
+const EMP_MIN=4;const empireOn=()=>!!S.players[ME]&&myPlanets().filter(p=>!isBody(p.pid)).length>=EMP_MIN; // planètes seulement, satellites non comptés
 function empireWelcome(){if(!empireOn())return'';try{if(localStorage.getItem('orion-emp-'+ME))return''}catch(e){return''}
-  return`<div class="card" style="display:grid;gap:8px;border-color:var(--brass)"><b style="font-size:16px">🌌 Gestion d’empire débloquée</b><span class="eff">Ton empire compte maintenant ${myPlanets().length} planètes et satellites. Le nouvel onglet <b>Empire</b> montre tout d’un coup d’œil (constructions, chantiers, vaisseaux, ressources) et permet de lancer la même amélioration ou la même production de vaisseaux sur plusieurs planètes en une seule fois.</span><div class="foot"><button class="btn ghost sm" data-act="empx">Plus tard</button><button class="btn sm" data-act="empgo">Ouvrir l’Empire</button></div></div>`}
+  return`<div class="card" style="display:grid;gap:8px;border-color:var(--brass)"><b style="font-size:16px">🌌 Gestion d’empire débloquée</b><span class="eff">Ton empire compte maintenant ${myPlanets().filter(p=>!isBody(p.pid)).length} planètes. Le nouvel onglet <b>Empire</b> montre tout d’un coup d’œil (constructions, chantiers, vaisseaux, ressources) et permet de lancer la même amélioration ou la même production de vaisseaux sur plusieurs planètes en une seule fois.</span><div class="foot"><button class="btn ghost sm" data-act="empx">Plus tard</button><button class="btn sm" data-act="empgo">Ouvrir l’Empire</button></div></div>`}
 const EMPB=()=>({...(NOTECH?Object.fromEntries(Object.entries(BUILD).filter(([k])=>k!=='acad'&&k!=='arsenal')):BUILD)});
 function empBuildPlan(){const out=(S.empB||'').startsWith('o:'),k=(S.empB||'mine').replace(/^o:/,''),now=Date.now(),cap=capitalOf(ME),capRes=cap?{...view(cap.pid).res}:{m:0,c:0,f:0},rn={...rareNow(ME)};
   return myPlanets().filter(p=>isBody(p.pid)===out).map(p=>{const v=view(p.pid),bq=v.bq||[],L=(v.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L),res=out?capRes:v.res;let why=null;
@@ -1801,7 +1801,7 @@ async function empBuildAll(){const k=(S.empB||'mine').replace(/^o:/,''),L=empBui
   for(const x of L){const e=await quietly(()=>upgrade(x.pid,k));if(e)ko.push(`${plName(x.pid)} (${e})`);else ok++}sfx.build();toast(`${lvBase(k).n} : ${ok} amélioration${ok>1?'s':''} lancée${ok>1?'s':''}${ko.length?` · échec : ${ko.join(', ')}`:''}.`,ko.length?'bad':'');render()}
 async function empShipAll(){const t=S.empT||'fighter',n=Math.max(1,S.empN||10),L=empShipPlan().filter(x=>!x.why);if(!L.length)return toast('Aucun chantier ne peut lancer cette production maintenant.','bad');let ok=0,ko=[];
   for(const x of L){const e=await quietly(()=>buildShips(x.pid,t,n));if(e)ko.push(`${plName(x.pid)} (${e})`);else ok++}sfx.build();toast(`${n} ${SHIPS[t].n.toLowerCase()}${n>1?'s':''} lancés sur ${ok} chantier${ok>1?'s':''}${ko.length?` · échec : ${ko.join(', ')}`:''}.`,ko.length?'bad':'');render()}
-function renderEmpire(){if(!empireOn())return`<h1>Empire</h1><p class="empty">L’onglet Empire se débloque à ${EMP_MIN} planètes et satellites.</p>`;
+function renderEmpire(){if(!empireOn())return`<h1>Empire</h1><p class="empty">L’onglet Empire se débloque à ${EMP_MIN} planètes (les satellites ne comptent pas).</p>`;
   const P=myPlanets(),pl=P.filter(p=>!isBody(p.pid)),sat=P.filter(p=>isBody(p.pid)),bad=t=>`<b style="color:var(--bad)">${t}</b>`;
   const qTxt=v=>{const bq=v.bq||[];return bq.length?`🔨 ${bq.length}/${BQ_MAX} · ${lvBase(bq[0].k).n} <span class="cd" data-cd="${bq[0].until}"></span>`:`🔨 ${bad('file vide')}`};
   const yTxt=v=>{const q=v.shipQ||[];if(!(v.lv.yard>=1))return'🚀 pas de chantier';if(!q.length)return`🚀 ${bad('chantier à l’arrêt')}`;const end=Math.max(...q.map(x=>x.start+x.n*x.per*1000));return`🚀 ${q.length} lot${q.length>1?'s':''} · fin <span class="cd" data-cd="${end}"></span>`};
@@ -3037,7 +3037,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='113';
+const APP_VERSION='114';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -1529,8 +1529,10 @@ function renderYard(){const p=view(S.sel);
     ${k==='colony'?'<div class="eff">Colonise une planète libre (demande aussi de la culture), installe un avant-poste sur un astéroïde, une lune, une épave ou une station (sans culture), ou annexe une cible ennemie après une victoire. Le vaisseau est consommé.</div>':''}
     ${k==='probe'?'<div class="eff">Révèle la flotte, les stocks et l’armement d’une cible. Plus tu en envoies, moins elles se font repérer.</div>':''}
     <div class="foot"><div class="costs">${lock?`<span class="no">Chantier niv. ${s.yard} requis</span>`:`${costHtml(p.res,s.cost,n)}<span class="t">${fmtDur(shipTime(k,p.lv.yard)*n)}</span><span class="t">conso ${s.fuel} hél./trajet</span>`}</div>
-    ${lock?'':`<div style="display:flex;gap:8px;align-items:center"><span class="step"><button data-act="qty" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${n}</span><button data-act="qty" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="qty" data-t="${k}" data-d="10">+10</button></span><button class="btn sm" data-act="ship" data-t="${k}" ${ok?'':'disabled'}>${room?'Construire':'Hangars pleins'}</button></div>`}</div></div>`}).join('')}
+    ${lock?'':`<div style="display:flex;gap:8px;align-items:center"><span class="step"><button data-act="qty" data-t="${k}" data-d="-1" aria-label="Moins">−</button><span>${n}</span><button data-act="qty" data-t="${k}" data-d="1" aria-label="Plus">+</button><button class="w" data-act="qty" data-t="${k}" data-d="10">+10</button><button class="w" data-act="qmax" data-t="${k}" title="Autant que possible (ressources et place dans les Hangars)">Max${maxBuild(p,k)>0?` ${maxBuild(p,k)}`:''}</button></span><button class="btn sm" data-act="ship" data-t="${k}" ${ok?'':'disabled'}>${room?'Construire':'Hangars pleins'}</button></div>`}</div></div>`}).join('')}
   </div></section>`}
+// nombre maximal constructible : limité par les ressources et la place dans les Hangars
+function maxBuild(p,k){const c=SHIPS[k].cost;let n=999;for(const r in c)if(c[r]>0)n=Math.min(n,Math.floor((p.res[r]||0)/c[r]));n=Math.min(n,Math.floor((bayCap(p)-bayUse(p,ME))/(PLACES[k]||1)));return Math.max(0,n)}
 function rareCard(){const r=rareNow(ME),rt=rareRates(ME),pl=S.players[ME]||{},rc=rareCap(ME);return`<div class="card stats" style="font-size:13px">${Object.keys(RARE).map(k=>`<span>${RARE[k]} <b data-rare="${k}" style="${r[k]>=rc?'color:var(--bad)':''}">${fmt(r[k])}</b> <small>/ ${fmt(rc)}</small> <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small></span>`).join('')}<span>Éclats du Vide <b>${fmt(pl.frag||0)}</b></span><span>Insignes de commandement <b>${fmt(pl.ins||0)}</b></span><span>Points de combat <b>${fmt(pl.cp||0)}</b></span><span>Culture <b>${fmt(cultureNow(ME))}</b> <small style="color:var(--good)">+${cultureRate(ME).toFixed(2)}/min</small> · prochaine colonie : ${cultureCost(ME)}</span></div>`}
 function renderLab(){const p=view(S.sel),pl=S.players[ME]||{},tech=techOf(pl),rs=pl.research&&pl.research.until>Date.now()?pl.research:null,r=rareNow(ME);
   if(isBody(p.pid))return`<h1>Labo</h1>${rareCard()}<p class="empty">L’Académie et l’Arsenal se construisent sur tes planètes. Choisis une planète dans le sélecteur « Lieu ».</p>`;
@@ -1931,6 +1933,7 @@ document.addEventListener('click',e=>{
   if(a==='mclose'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;S.modal=null;renderModal();return}
   if(a==='tab'){S.tab=b.dataset.t;render();window.scrollTo(0,0)}
   else if(a==='up')upgrade(S.sel,b.dataset.k);
+  else if(a==='qmax'){const t=b.dataset.t,n=maxBuild(view(S.sel),t);if(n<1)toast(bayUse(view(S.sel),ME)+(PLACES[t]||1)>bayCap(view(S.sel))?'Hangars pleins : agrandis-les pour construire plus.':'Ressources insuffisantes.','bad');else{S.qty[t]=n;render()}}
   else if(a==='qty'){const t=b.dataset.t;S.qty[t]=Math.max(1,Math.min(999,S.qty[t]+Number(b.dataset.d)));render()}
   else if(a==='ship')buildShips(S.sel,b.dataset.t,S.qty[b.dataset.t]);
   else if(a==='mapuni')mpGoUniverse();
@@ -2708,7 +2711,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='76';
+const APP_VERSION='77';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

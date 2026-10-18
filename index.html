@@ -1193,8 +1193,12 @@ const SEND_FEE=.03;
 function sendResHtml(p){if(isBody(p.pid))return'';const mine=myPlanets().filter(q=>q.pid!==p.pid&&!isBody(q.pid)),oth=Object.values(S.planets).filter(q=>q.owner&&q.owner!==ME&&!isBody(q.pid)&&PLANETS[q.pid]&&sysVisible(PLANETS[q.pid].sys)).sort((a,b)=>pname(a.owner).localeCompare(pname(b.owner)));
   if(!mine.length&&!oth.length)return'';
   return`<section style="display:grid;gap:10px"><h2>Envoyer des ressources</h2><div class="card" style="display:grid;gap:8px"><select id="srto" class="srsel">${mine.length?`<optgroup label="Mes planètes">${mine.map(q=>`<option value="${q.pid}">${esc(PLANETS[q.pid].name)}${q.capital?' (capitale)':''}</option>`).join('')}</optgroup>`:''}${oth.length?`<optgroup label="Autres empires">${oth.map(q=>`<option value="${q.pid}">${esc(pname(q.owner))} · ${esc(PLANETS[q.pid].name)}</option>`).join('')}</optgroup>`:''}</select>
-    <div class="srrow">${Object.keys(RES).map(k=>`<label><span>${RES[k]}</span><input id="sr${k}" type="number" min="0" inputmode="numeric" placeholder="0"></label>`).join('')}</div>
+    <div class="srrow">${Object.keys(RES).map(k=>`<label><span>${RES[k]}</span><input id="sr${k}" type="number" min="0" inputmode="numeric" placeholder="0"><small class="eff" style="font-size:11px">dispo : <b>${fmt(view(p.pid).res[k]||0)}</b> <button type="button" class="tgl" style="padding:0 6px" data-act="srmax" data-k="${k}">max</button></small></label>`).join('')}</div>
     <div class="foot"><span class="eff">Un convoi part (frais : ${Math.round(SEND_FEE*100)} % du total en hélium-3). Il peut être intercepté en route.</span><button class="btn sm" data-act="srsend">Envoyer</button></div></div></section>`}
+// remplit le champ avec tout le stock disponible (l'hélium-3 garde de quoi payer les frais du convoi)
+function srMax(k){const p=S.sel&&view(S.sel);if(!p||!p.res)return;const v=x=>Math.max(0,Math.floor(+((document.getElementById('sr'+x)||{}).value)||0));let n=Math.floor(p.res[k]||0);
+  if(k==='f'){const o=v('m')+v('c');n=Math.max(0,Math.floor(((p.res.f||0)-Math.ceil(o*SEND_FEE))/(1+SEND_FEE)))}else{const tot=v('m')+v('c')+v('f')-v(k)+n,fee=Math.ceil(tot*SEND_FEE),left=(p.res.f||0)-v('f');if(fee>left)n=Math.max(0,n-Math.ceil((fee-left)/SEND_FEE))}
+  const el=document.getElementById('sr'+k);if(el)el.value=n}
 async function sendRes(){await act(async()=>{const from=S.sel,to=(document.getElementById('srto')||{}).value;if(!to||to===from)throw err('Choisis une destination.');if(isBody(from)||isBody(to))throw err('Les convois relient des planètes, pas des avant-postes.');
   const amt={};let tot=0;for(const k in RES){const n=Math.max(0,Math.floor(+((document.getElementById('sr'+k)||{}).value)||0));amt[k]=n;tot+=n}if(tot<1)throw err('Indique au moins une quantité.');
   const dst=S.planets[to];if(!dst||!dst.owner)throw err('Destination introuvable.');const fee=Math.ceil(tot*SEND_FEE);
@@ -1675,7 +1679,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   const forces=[{f,ref:fref,owner:f.owner,ships:f.ships},...joiners.map(j=>({f:j.f,ref:j.ref,owner:j.f.owner,ships:j.f.ships}))];
   const atkUids=[...new Set(forces.map(x=>x.owner))],grp=forces.length>1;
   const atkName=grp?`L’attaque groupée de ${atkUids.map(pname).join(', ')}`:pname(f.owner);
-  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++){if(isNpc(forces[i].owner)){await forces[i].ref.delete();continue}await holdAt(forces[i].f,forces[i].ref,surv[i],loots&&loots[i]?scaleShips(loots[i],cmdLootMul(forces[i].owner,forces[i].f&&forces[i].f.cmd)):{m:0,c:0,f:0})}};
+  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++){if(isNpc(forces[i].owner)){await forces[i].ref.delete();continue}if(loots&&loots[i])loots[i]=scaleShips(loots[i],cmdLootMul(forces[i].owner,forces[i].f&&forces[i].f.cmd));await holdAt(forces[i].f,forces[i].ref,surv[i],loots&&loots[i]?loots[i]:{m:0,c:0,f:0})}}; // bonus Pillard appliqué avant le rapport
   const rec=(B,def,extra={})=>({ia:B.ia,id:B.id,rounds:B.snaps,att:forces.map(x=>({uid:x.owner,ships:x.ships})),def,pid:f.to,...extra});
   const cmdLn=(won)=>{const L=forces.filter(x=>x.f&&x.f.cmd).map(x=>{const c=cmdById(x.owner,x.f.cmd);return c?`${cmdInfo(c).n} (${pname(x.owner)})`:null}).filter(Boolean);return L.length?[`🎖 ${L.length>1?'Commandants':'Commandant'} : ${L.join(', ')}${won?' — victorieux':''}.`]:[]};
   const fightLines=B=>[...cmdLn(isEmpty(B.d)&&!isEmpty(B.a)),`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,...(isEmpty(B.a)?[]:[isEmpty(B.d)?'Les survivants restent en position : depuis l’onglet Flottes, rentre gratuitement ou lance une nouvelle mission.':'Ta flotte reste sur place : depuis l’onglet Flottes, « Nouvelle mission » sur la même cible pour relancer l’assaut aussitôt.'])];
@@ -2476,6 +2480,7 @@ document.addEventListener('click',e=>{
   else if(a==='mapgal')mpGoGalaxy(+b.dataset.g);
   else if(a==='cmdguard')cmdGuard(b.dataset.c);
   else if(a==='cmdcancel')cmdCancel(b.dataset.c);
+  else if(a==='srmax'){e.preventDefault();srMax(b.dataset.k)}
   else if(a==='sigsend'){if(S.sel)openSend(b.dataset.p,'spy')}
   else if(a==='convx')cancelConvoy(b.dataset.f);
   else if(a==='cmdmove'){const sl=document.getElementById('cmv-'+b.dataset.c);if(sl)cmdMove(b.dataset.c,sl.value)}

@@ -674,7 +674,7 @@ function sigAt(i,t=Date.now()){const s=SYSTEMS[i];if(!s||s.deep||s.core||!PLANET
 const activeSigs=g=>SYS_BY_GAL[g].map(s=>sigAt(s.i)).filter(Boolean);
 async function sigScan(f,fref){const tn=plName(f.to),i=PLANETS[f.to].sys,sg=sigAt(i,f.arrive)||sigAt(i);const probes=f.ships.probe||0;
   if(!sg){await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Signal éteint : ${tn}`,lines:['Le signal s’est tu, ou un autre capitaine l’a analysé avant toi. Les sondes rentrent.']});return}
-  if(probes<SIG_NEED){await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Signal trop faible : ${tn}`,lines:[`Il faut au moins ${SIG_NEED} sondes pour trianguler le signal.`]});return}
+  if(probes<spyNeedFor(SIG_NEED,f)){await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Signal trop faible : ${tn}`,lines:[`Il faut au moins ${SIG_NEED} sondes pour trianguler le signal.`]});return}
   let ok=false;await locked('events/'+sg.id,async(ev,eref)=>{if(ev&&ev.by)return;await eref.set({kind:'event',id:sg.id,by:f.owner,at:Date.now(),k:sg.kind});ok=true}).catch(()=>{});
   if(!ok){await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Signal déjà analysé : ${tn}`,lines:['Un autre capitaine est passé avant toi. Les sondes rentrent.']});return}
   const cap=capPidOf(f.owner)||(capitalOf(f.owner)||{}).pid,km=(1+Math.min(2,cap?dist(cap,f.to)/250:0))*GALS[SYSTEMS[i].gal].rich,lines=[],tit=`📡 ${SIGN[sg.kind]} · ${SYSTEMS[i].name}`;let ships=f.ships;
@@ -916,7 +916,7 @@ async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)sh
 const RAR={c:{n:'Commun',col:'#a9b4c8',sp:.04,inj:2},r:{n:'Rare',col:'#5ec8ff',sp:.07,inj:4},e:{n:'Épique',col:'#b98cff',sp:.11,inj:6},l:{n:'Légendaire',col:'#ffcf6b',sp:.16,inj:8}};
 const SPEC={att:{n:'Assaut',d:v=>`+${v} % attaque de toute la flotte`},hp:{n:'Blindage',d:v=>`+${v} % PV de toute la flotte`},
   fighter:{n:'As des chasseurs',d:v=>`+${v*2} % attaque des chasseurs`},cruiser:{n:'Tacticien',d:v=>`+${v*2} % attaque des croiseurs`},battleship:{n:'Amiral de ligne',d:v=>`+${v*2} % attaque des cuirassés`},
-  pirates:{n:'Chasseur de pirates',d:v=>`+${v*2} % attaque contre Écumeurs et Pillards`},spd:{n:'Éclaireur',d:v=>`+${v} % vitesse de la flotte`},amb:{n:'Prudent',d:v=>`embuscades ${v*4} % plus rares`},xp:{n:'Mentor',d:v=>`+${v*4} % d’expérience gagnée`}};
+  pirates:{n:'Chasseur de pirates',d:v=>`+${v*2} % attaque contre Écumeurs et Pillards`},spd:{n:'Éclaireur',d:v=>`+${v} % vitesse de la flotte`},amb:{n:'Fantôme',d:v=>`−${Math.min(70,v*4)} % de sondes pour espionner les ennemis du jeu · embuscades ${v*8} % plus rares`},gard:{n:'Gardien',d:v=>`en défense de sa planète : tourelles et mines +${v*5} %`},loot:{n:'Pillard',d:v=>`+${v*3} % de butin et d’Éclats du Vide`},xp:{n:'Mentor',d:v=>`+${v*4} % d’expérience gagnée`}};
 const CMDDB=[
   ['c1','Sergent Brann','c','att'],['c2','Lieutenant Orsk','c','hp'],['c3','Pilote Talia','c','fighter'],['c4','Vigie Kade','c','spd'],['c5','Canonnière Mirelle','c','cruiser'],['c6','Garde Doran','c','hp'],
   ['c7','Éclaireuse Ilka','c','amb'],['c8','Instructeur Torvin','c','xp'],['c9','Traqueur Varek','c','pirates'],['c10','Pilote Nyra','c','fighter'],['c11','Officier Lioré','c','att'],['c12','Maître Roderic','c','battleship'],
@@ -925,7 +925,8 @@ const CMDDB=[
   ['r7','Pisteuse Kael','r','spd'],['r8','Veilleur Ombral','r','amb'],['r9','Professeur Iriel','r','xp'],['r10','Capitaine Draven','r','att'],['r11','Corsaire Lyse','r','pirates'],['r12','Major Tessia','r','hp'],
   ['e1','Amirale Séraphine Vaux','e','att'],['e2','Le Spectre de Carina','e','spd'],['e3','Grand Veneur Thorne','e','pirates'],['e4','Bastion Aldric','e','hp'],['e5','Marteau d’Hélios','e','battleship'],['e6','Ombre de Vela','e','amb'],
   ['e7','Lame de Rigel','e','fighter'],['e8','Stratège Olric','e','cruiser'],
-  ['l1','L’Héritière de la Couronne','l','att'],['l2','Kaelor Brise-Étoiles','l','battleship'],['l3','La Voix du Néant','l','pirates'],['l4','Orion l’Ancien','l','hp'],
+  ['c17','Garde-côte Brenn','c','gard'],['c18','Ferrailleuse Dax','c','loot'],['r13','Capitaine Ysmé','r','gard'],['r14','Corsaire Malo','r','loot'],['e9','La Muraille d’Ostra','e','gard'],['e10','Baronne Sabre-d’Or','e','loot'],
+  ['l1','L’Héritière de la Couronne','l','att'],['l2','Kaelor Brise-Étoiles','l','battleship'],['l3','La Voix du Néant','l','pirates'],['l4','Orion l’Ancien','l','hp'],['l8','Le Bastion Éternel','l','gard'],['l9','Calyx, Reine des Pillards','l','loot'],
   ['l5','Morvak Cœur-Noir','l','pirates','x'],['l6','Sanna Mille-Lames','l','fighter','x'],['l7','Vex l’Écorcheur','l','att','x']];
 const CMDK=Object.fromEntries(CMDDB.map(([k,n,r,sp])=>[k,{k,n,r,sp}]));
 const CMD_LMAX=10;
@@ -949,9 +950,13 @@ function planetCmd(uid,pid){if(!uid||!pid)return null;const L=cmdsOf(uid).filter
 let CMDCTX={vs:null};
 function applyCmd(m,L){if(!L)return m;const o={};for(const k in m)o[k]={...m[k],att:m[k].att*(1+.05*L),hp:m[k].hp*(1+.04*L)};return o}
 function forceMods(owner,cmd){const m=modsOf(owner),c=cmdById(owner,cmd);if(!c)return m;const L=cmdLvl(c.xp),i=cmdInfo(c),v=cmdSpecVal(c)/100,o={};
-  const FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1;for(const k in m){let a=m[k].att*(1+.02*L),h=m[k].hp*(1+.015*L);if(k==='flag'){a*=FM;h*=FM}if(i.sp==='att')a*=1+v;if(i.sp==='hp')h*=1+v;if(i.sp===k)a*=1+2*v;if(i.sp==='pirates'&&CMDCTX.vs==='raid')a*=1+2*v;o[k]={...m[k],att:a,hp:h}}return o}
+  const FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1;for(const k in m){let a=m[k].att*(1+.02*L),h=m[k].hp*(1+.015*L);if(k==='flag'){a*=FM;h*=FM}if(i.sp==='att')a*=1+v;if(i.sp==='hp')h*=1+v;if(i.sp===k)a*=1+2*v;if(i.sp==='pirates'&&CMDCTX.vs==='raid')a*=1+2*v;if(i.sp==='gard'&&k==='turret')a*=1+5*v;o[k]={...m[k],att:a,hp:h}}return o}
 const cmdSpeed=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='spd'?1+cmdSpecVal(c)/100:1};
-const cmdAmb=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='amb'?1+cmdSpecVal(c)*4/100:1};
+const cmdAmb=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='amb'?1+cmdSpecVal(c)*8/100:1};
+const cmdSpyRed=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='amb'?Math.min(.7,cmdSpecVal(c)*4/100):0};
+const cmdLootMul=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='loot'?1+cmdSpecVal(c)*3/100:1};
+const cmdGardMul=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='gard'?1+cmdSpecVal(c)*5/100:1};
+const spyNeedFor=(n,f)=>Math.max(1,Math.ceil(n*(1-cmdSpyRed(f.owner,f.cmd))));
 const cmdXpMul=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='xp'?1+cmdSpecVal(c)*4/100:1};
 // flotte anéantie : le commandant est blessé, pas tué
 async function killCmd(uid,id){if(!uid||!id||!S.players[uid])return;let nm=null,h=0;try{await withPlayer(uid,d=>{const c=(d.cmds||[]).find(x=>x.id===id);if(c){const i=cmdInfo(c);h=RAR[i.r].inj;nm=i.n;c.inj=Date.now()+h*HR}})}catch(e){}
@@ -985,7 +990,9 @@ const BADGE_EMB={att:'M20 6L23 24H17Z M13.5 24H26.5V27H13.5Z M18.6 27H21.4V33H18
   pirates:'M20 7A12 12 0 1 1 19.99 7Z M20 11A8 8 0 1 0 20.01 11Z M18.6 4H21.4V34H18.6Z M5 17.6H35V20.4H5Z',
   spd:'M9 18L20 7L31 18L27 21L20 14L13 21Z M9 29L20 18L31 29L27 32L20 25L13 32Z',
   amb:'M6 19Q20 4 34 19Q20 34 6 19Z M20 13.5A5.5 5.5 0 1 0 20.01 13.5Z',
-  xp:'M20 4L24.2 14.2L35 14.8L26.6 21.6L29.4 32.2L20 26.2L10.6 32.2L13.4 21.6L5 14.8L15.8 14.2Z'};
+  xp:'M20 4L24.2 14.2L35 14.8L26.6 21.6L29.4 32.2L20 26.2L10.6 32.2L13.4 21.6L5 14.8L15.8 14.2Z',
+  gard:'M8 30V12L14 8V14L20 9L26 14V8L32 12V30Z M17 30V22H23V30Z',
+  loot:'M11 15H29L32 31H8Z M15 15V11A5 5 0 0 1 25 11V15H22.4V11A2.4 2.4 0 0 0 17.6 11V15Z'};
 function cmdBadge(c,sz=20){const i=typeof c==='string'?CMDK[c]:cmdInfo(c);if(!i||!i.r)return'';const k=i.k||'x',col=RAR[i.r].col,h=hash('badge'+k),id='cb'+k,R=i.r,gem=`hsl(${h%360},85%,62%)`;
   const feat=(n,side,len)=>{let o='';for(let j=0;j<n;j++){const y=13+j*4.2,l=len-j*2.4,x0=side<0?9:31;o+=`<path d="M${x0} ${y}L${x0+side*l} ${y-3.2}L${x0+side*(l-2)} ${y+1.6}Z"/>`}return o};
   const nf=R==='c'?0:R==='r'?2+h%2:R==='e'?3+h%2:4;const len=R==='r'?8:R==='e'?11:12;
@@ -1042,7 +1049,7 @@ const minePct=L=>Math.min(30,3*(L||0));
 function applyShield(m,L){const r=shieldRed(L);if(!r)return m;const o={};for(const k in m)o[k]={...m[k],red:1-(1-m[k].red)*(1-r)};return o}
 const planetMods=p=>{const m=applyShield(p.owner&&!isNpc(p.owner)?forceMods(p.owner,(planetCmd(p.owner,p.pid)||{}).id):modsOf(p.owner),p.lv&&p.lv.shld);if(!p.owner||!PLANETS[p.pid]||sysLord(PLANETS[p.pid].sys)!==p.owner)return m;const o={};for(const k in m)o[k]={...m[k],hp:m[k].hp*1.1};return o}; // seigneur du système : +10 % de résistance
 // les mines frappent chaque flotte qui entre en orbite d’une planète ennemie
-function hitMines(ships,L){const pc=minePct(L)/100,lost={};if(!pc)return lost;for(const k of['fighter','cruiser','battleship']){const n=Math.floor((ships[k]||0)*(k==='battleship'?pc/2:pc));if(n>0){lost[k]=n;ships[k]-=n}}return lost}
+function hitMines(ships,L,mul=1){const pc=Math.min(.9,minePct(L)/100*mul),lost={};if(!pc)return lost;for(const k of['fighter','cruiser','battleship']){const n=Math.floor((ships[k]||0)*(k==='battleship'?pc/2:pc));if(n>0){lost[k]=n;ships[k]-=n}}return lost}
 
 // ---------- batailles longues ----------
 const LB_MIN=120,LB_TICK=20000,LB_MAXR=24,LB_DMG=.45;
@@ -1639,7 +1646,7 @@ async function unlockSlot(){await act(async()=>{await withPlayer(ME,d=>{const n=
   if(cu<c)throw err(`Il faut ${fmt(c)} points de combat (tu en as ${fmt(cu)}). Gagne-en en combattant.`);d.culture=cu-c;d.slots=n+1});sfx.win();toast(`Nouvel emplacement débloqué : tu peux avoir ${slotsOf(ME)} planètes.`)})}
 async function payCulture(uid){return planetsOf(uid)<slotsOf(uid)}
 async function award(list){const by={};const wc=list.filter(x=>x.cmd&&x.uid&&S.players[x.uid]),eq=wc.length>1?wc.reduce((t,x)=>t+(x.v||0)*cmdXpMul(x.uid,x.cmd),0)/wc.length:null; // plusieurs commandants : l'expérience est commune, à parts égales
-  for(const{uid,v,frag,cmd}of list){if(!uid||!S.players[uid])continue;const b=by[uid]=by[uid]||{v:0,frag:0,cx:{}};b.v+=v||0;b.frag+=(frag||0)*(inVend(uid)?1.5:1)*(hasRelic(uid,'sceau')?1.3:1);if(cmd)b.cx[cmd]=(b.cx[cmd]||0)+(eq!=null?eq:(v||0)*cmdXpMul(uid,cmd))}
+  for(const{uid,v,frag,cmd}of list){if(!uid||!S.players[uid])continue;const b=by[uid]=by[uid]||{v:0,frag:0,cx:{}};b.v+=v||0;b.frag+=(frag||0)*(inVend(uid)?1.5:1)*(hasRelic(uid,'sceau')?1.3:1)*(cmd?cmdLootMul(uid,cmd):1);if(cmd)b.cx[cmd]=(b.cx[cmd]||0)+(eq!=null?eq:(v||0)*cmdXpMul(uid,cmd))}
   for(const[uid,b]of Object.entries(by)){const v=Math.round(b.v);if(v<=0&&!b.frag)continue;try{await withPlayer(uid,d=>{d.cp=(d.cp||0)+v;d.culture+=v;if(b.frag)d.frag=(d.frag||0)+b.frag;for(const id in b.cx){const c=(d.cmds||[]).find(x=>x.id===id);if(c)c.xp=(c.xp||0)+Math.round(b.cx[id])}})}catch(e){}}}
 // part de chaque attaquant (selon la valeur engagée)
 const shares=forces=>{const ws=forces.map(x=>{const m=forceMods(x.owner,x.cmd||(x.f&&x.f.cmd)),rb=(x.f&&x.f.rb)||0;let w=0;for(const k in x.ships||{})w+=(x.ships[k]||0)*((SHIPS[k]||{}).att||0)*((m[k]||{}).att||1)*(1+rb);return w||worth(x.ships)}),W=ws.reduce((a,b)=>a+b,0)||1;return ws.map(w=>w/W)}; // part de chacun selon ses dégâts (puissance de feu engagée)
@@ -1668,7 +1675,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   const forces=[{f,ref:fref,owner:f.owner,ships:f.ships},...joiners.map(j=>({f:j.f,ref:j.ref,owner:j.f.owner,ships:j.f.ships}))];
   const atkUids=[...new Set(forces.map(x=>x.owner))],grp=forces.length>1;
   const atkName=grp?`L’attaque groupée de ${atkUids.map(pname).join(', ')}`:pname(f.owner);
-  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++){if(isNpc(forces[i].owner)){await forces[i].ref.delete();continue}await holdAt(forces[i].f,forces[i].ref,surv[i],loots?loots[i]:{m:0,c:0,f:0})}};
+  const finish=async(surv,loots)=>{for(let i=0;i<forces.length;i++){if(isNpc(forces[i].owner)){await forces[i].ref.delete();continue}await holdAt(forces[i].f,forces[i].ref,surv[i],loots&&loots[i]?scaleShips(loots[i],cmdLootMul(forces[i].owner,forces[i].f&&forces[i].f.cmd)):{m:0,c:0,f:0})}};
   const rec=(B,def,extra={})=>({ia:B.ia,id:B.id,rounds:B.snaps,att:forces.map(x=>({uid:x.owner,ships:x.ships})),def,pid:f.to,...extra});
   const cmdLn=(won)=>{const L=forces.filter(x=>x.f&&x.f.cmd).map(x=>{const c=cmdById(x.owner,x.f.cmd);return c?`${cmdInfo(c).n} (${pname(x.owner)})`:null}).filter(Boolean);return L.length?[`🎖 ${L.length>1?'Commandants':'Commandant'} : ${L.join(', ')}${won?' — victorieux':''}.`]:[]};
   const fightLines=B=>[...cmdLn(isEmpty(B.d)&&!isEmpty(B.a)),`${grp?'Attaquants':'Attaquant'} : ${unitLine(B.ia)} — pertes : ${lossLine(B.ia,B.a)}.`,`Défense : ${unitLine(B.id)} — pertes : ${lossLine(B.id,B.d)}.`,...(isEmpty(B.a)?[]:[isEmpty(B.d)?'Les survivants restent en position : depuis l’onglet Flottes, rentre gratuitement ou lance une nouvelle mission.':'Ta flotte reste sur place : depuis l’onglet Flottes, « Nouvelle mission » sur la même cible pour relancer l’assaut aussitôt.'])];
@@ -1693,10 +1700,10 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     await locked('events/'+f.to,async(ev,eref)=>{const nw=Date.now(),fresh=!ev||(R.lair?!!ev.done:(R.local&&((ev.done&&nw-(ev.doneAt||0)>respawnOf(R))||(!ev.done&&nw-(ev.at||0)>respawnOf(R)))));
       if(fresh){const L=R.lair?lairInfoAt(s0,nw):null,og=ev;ev={kind:'event',id:f.to,remaining:raidGarrison(f.to,R.lair?null:ev,nw),...(L?{founded:L.founded}:{}),...(R.bounty?{gen:((og&&og.gen)||0)+(og&&og.done?1:0)}:{})}}
       if(!ev.remaining)ev.remaining=raidGarrison(f.to,null,nw);if(ev.done||isEmpty(ev.remaining)){gone=true;return}
-      if(f.mission==='spy'){if((f.ships.probe||0)<raidSpyNeed(f.to)){spy='fail';return}spy=ev.remaining;return}
+      if(f.mission==='spy'){if((f.ships.probe||0)<spyNeedFor(raidSpyNeed(f.to),f)){spy='fail';return}spy=ev.remaining;return}
       CMDCTX.vs='raid';G=groupFight(forces,ev.remaining,raidMods(f.to));CMDCTX.vs=null;val=worth(ev.remaining)-worth(G.B.d);frac=val/(worth(R.ships)||1);ev.remaining=G.B.d;ev.at=Date.now();if(isEmpty(G.B.d)){ev.done=true;ev.doneAt=Date.now()}await eref.set(ev)});
     if(gone){await finish(forces.map(x=>x.ships));reps.push({to:atkUids,tone:'info',title:`${tn} : groupe déjà dispersé`,lines:[R.local?'D’autres capitaines sont passés avant toi. Ils reviendront bientôt.':'D’autres capitaines sont passés avant toi.']});for(const r of reps)await report(r);return}
-    if(spy==='fail'){const need=raidSpyNeed(f.to),lost=Math.ceil((f.ships.probe||0)*.7),left={...f.ships,probe:(f.ships.probe||0)-lost};if(left.probe>0)await goBack(f,fref,left,f.cargo);else await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage raté : ${tn}`,lines:[`Les éclaireurs des Écumeurs ont repéré tes sondes : ${lost} détruite${lost>1?'s':''}.`,`Il faut au moins ${need} sondes pour percer leur écran.`]});for(const r of reps)await report(r);return}
+    if(spy==='fail'){const need=spyNeedFor(raidSpyNeed(f.to),f),lost=Math.ceil((f.ships.probe||0)*.7),left={...f.ships,probe:(f.ships.probe||0)-lost};if(left.probe>0)await goBack(f,fref,left,f.cargo);else await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage raté : ${tn}`,lines:[`Les éclaireurs des Écumeurs ont repéré tes sondes : ${lost} détruite${lost>1?'s':''}.`,`Il faut au moins ${need} sondes pour percer leur écran.`]});for(const r of reps)await report(r);return}
     if(spy){await goBack(f,fref,f.ships,f.cargo);markExplored(f.owner,R.sys).catch(()=>{});reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[`Flotte : ${unitLine(spy)}.`,`Butin estimé si anéantis : ${lootTxt(scaleShips(R.treasure,lootMul(R)))} et ${Math.round(R.frag*lootMul(R))} Éclats du Vide.`],intel:{pid:f.to,at:f.arrive,owner:null,ships:spy,turrets:0}});for(const r of reps)await report(r);return}
     const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv,shares(forces)),frag=Math.round(R.frag*frac),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
@@ -1717,8 +1724,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(p&&own&&sur<=0){const lostD=Math.min(dp,Math.floor(probes/2));if(lostD){p.ships.probe-=lostD;await ref.set(p)}await fref.delete();
         reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage brouillé au-dessus de ${tn}`,lines:[`${dp} sonde${dp>1?'s':''} de défense ${dp>1?'protègent':'protège'} la planète : tes ${probes} sonde${probes>1?'s':''} ${probes>1?'ont été neutralisées':'a été neutralisée'} sans rien voir.`,`Il faut envoyer plus de sondes que la cible n’en a en orbite : ${dp+1} pour les stocks, ${dp+3} pour la flotte, ${dp+5} pour les bâtiments et l’armement.`]});
         reps.push({to:[own],tone:'win',title:`Tes sondes ont bloqué un espionnage sur ${tn}`,lines:[`${probes} sonde${probes>1?'s':''} de ${pname(f.owner)} neutralisée${probes>1?'s':''}${lostD?` · tu en perds ${lostD}`:''}.`]});return}
-      if(meta.core&&!own&&probes<14){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus du Cœur d’Orion`,lines:[`Les défenses de l’Empereur ont détruit tes ${probes} sonde${probes>1?'s':''}.`,'Il faut au moins 14 sondes pour percer l’écran du Cœur d’Orion.']});return}
-      const str=p?(p.lv.def*4+count(p.ships)*.3+(p.lv.cspy||0)*10):Math.min(spyCapOf(f.to),count(gar)*.3),det=Math.min(p&&p.lv.cspy?.93:.85,str/(str+probes*6+1));const det2=meta.core&&!own?Math.max(0,(20-probes)/40):det;
+      if(meta.core&&!own&&probes<spyNeedFor(14,f)){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus du Cœur d’Orion`,lines:[`Les défenses de l’Empereur ont détruit tes ${probes} sonde${probes>1?'s':''}.`,'Il faut au moins 14 sondes pour percer l’écran du Cœur d’Orion.']});return}
+      const str=p?(p.lv.def*4+count(p.ships)*.3+(p.lv.cspy||0)*10):Math.min(spyCapOf(f.to),count(gar)*.3)*(1-cmdSpyRed(f.owner,f.cmd)),det=Math.min(p&&p.lv.cspy?.93:.85,str/(str+probes*6+1));const det2=meta.core&&!own?Math.max(0,(20-probes)/40):det;
       if(Math.random()<det2){await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Sondes abattues au-dessus de ${plName(f.to)}`,lines:[`${probes} sonde${probes>1?'s':''} repérée${probes>1?'s':''} et détruite${probes>1?'s':''}. Envoie-en davantage pour brouiller la détection.`]});if(own)reps.push({to:[own],tone:'info',title:`Sonde de ${pname(f.owner)} abattue au-dessus de ${tn}`,lines:['Quelqu’un s’intéresse à tes défenses.']});return}
       const T1=!own||sur>=1,T2=!own||sur>=3,T3=!own||sur>=5,lo=own&&T3?loadoutOf(S.players[own]):null;
       const intel={pid:f.to,at:f.arrive,owner:own||null,ships:T2?(p?p.ships:gar):null,turrets:T2?(p?p.lv.def*4:0):null,lv:p&&T3?p.lv:null,res:p&&T1?{m:Math.floor(p.res.m),c:Math.floor(p.res.c),f:Math.floor(p.res.f)}:null,loadout:lo,partial:!T3};
@@ -1742,7 +1749,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     }
     // attaque (seule ou groupée)
     if(p){const eb=S.events[btId(f.to)];if(eb&&eb.battle&&!eb.done){let any=false;for(const x of forces)if(await joinBattle(x.f,x.ref,'att',p.lv.mines||0))any=true;if(any)return}}
-    const mineLost={};if(p&&p.lv.mines)for(const x of forces){const l=hitMines(x.ships,p.lv.mines);for(const k in l)mineLost[k]=(mineLost[k]||0)+l[k]}
+    const mineLost={};if(p&&p.lv.mines)for(const x of forces){const l=hitMines(x.ships,p.lv.mines,cmdGardMul(p.owner,(planetCmd(p.owner,p.pid)||{}).id));for(const k in l)mineLost[k]=(mineLost[k]||0)+l[k]}
     const guards=p?await gatherGuards(f.to,f.owner):[];
     if(p&&placesOf(sumShips(forces.map(x=>x.ships)))+placesOf(p.ships)+placesOf(sumShips(guards.map(g=>g.ships)))>=LB_MIN&&await startBattle(f,forces,p,tn,guards)){if(count(mineLost))reps.push({to:atkUids,tone:'info',title:`Champ de mines devant ${tn}`,lines:[`${unitLine(mineLost)} détruits à l’approche.`]});return}
     const def=p?{...sumShips([p.ships,...guards.map(g=>g.ships)]),turret:(p.lv.def||0)*4}:{...gar};

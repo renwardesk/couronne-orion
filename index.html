@@ -2388,7 +2388,7 @@ function mpInit(){if(MP.tried)return MP.ok;MP.tried=true;if(!window.THREE)return
     scene.add(new THREE.AmbientLight(0x8090c0,.35));mpDecor(scene);
     const gt=glowTex();
     GALS.forEach((G,g)=>{const gc=galaxyCloud(g);MP.clouds.push(gc);scene.add(gc);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:G.shape==='ring'?0x9fffe8:0xffd9a8,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.75}));sp.position.set(...G.c);sp.scale.set(26,26,1);scene.add(sp)});
-    mpDeepInit(scene);const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);
+    mpDeepInit(scene);const sp=new THREE.Points(ptsGeo(SYSTEMS.length),ptsMat(90));sp.frustumCulled=false;SYSTEMS.forEach((s,i)=>sp.geometry.attributes.position.array.set(s.w,i*3));sp.material.depthTest=false;sp.renderOrder=10;MP.sysPts=sp;scene.add(sp);const pp=new THREE.Points(ptsGeo(2000),ptsMat(90));pp.frustumCulled=false;pp.material.depthTest=false;pp.renderOrder=11;MP.pPts=pp;scene.add(pp);{const og=new THREE.BufferGeometry();og.setAttribute('position',new THREE.BufferAttribute(new Float32Array(90000*3),3));og.setAttribute('color',new THREE.BufferAttribute(new Float32Array(90000*3),3));og.setDrawRange(0,0);const ol=new THREE.LineSegments(og,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending}));ol.frustumCulled=false;ol.renderOrder=9;MP.orbL=ol;scene.add(ol)}
     {const fg=new THREE.BufferGeometry();fg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(1500*3),3));fg.setAttribute('sz',new THREE.BufferAttribute(new Float32Array(1500),1));fg.setDrawRange(0,0);
      const fm=new THREE.ShaderMaterial({uniforms:{pr:{value:r.getPixelRatio()},ph:{value:800}},vertexShader:'attribute float sz;uniform float pr;uniform float ph;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=min(sz*pr*ph/-mv.z,900.0);gl_Position=projectionMatrix*mv;}',
        fragmentShader:'void main(){float l=length(gl_PointCoord-0.5);float a=smoothstep(0.5,0.05,l)*0.62;if(a<0.01)discard;gl_FragColor=vec4(0.035,0.04,0.085,a);}',transparent:true,depthWrite:false,depthTest:false});
@@ -2470,21 +2470,33 @@ function mpData(){if(!MP.ok)return;
   MP.owners=owners;
   const sig=JSON.stringify([(visibleSet(),VISC.sig),Object.values(S.events).map(e=>e.id+(e.done?1:0)+(e.at||0)).join(),Object.values(S.planets).filter(p=>p.owner).map(p=>p.pid+p.owner).join(),Object.keys(S.players).map(u=>u+pcolor(u)),MP.level,MP.gal,MP.sys,(cometAt()||{}).pid,(hiveAt()||{}).pid]);
   if(sig!==MP.dataSig){MP.dataSig=sig;const a=MP.sysPts.geometry.attributes;
-    SYSTEMS.forEach((s,i)=>{const vz=sysVisible(i),os=vz?owners[i]:null,mine=os&&os.has(ME),cur=s.gal===MP.gal&&MP.level!=='universe';let col=cur?[.62,.74,1]:[.42,.5,.78],sz=cur?8:3,rg=cur?1:0;if(!vz){col=cur?[.3,.32,.44]:[.26,.28,.38];sz=cur?4.5:2.5;rg=0}
-      if(os){sz=cur?10:4;rg=0}
+    SYSTEMS.forEach((s,i)=>{const vz=sysVisible(i),os=vz?owners[i]:null,mine=os&&os.has(ME),cur=s.gal===MP.gal&&MP.level!=='universe';let col=cur?hex2rgb(STARC[hash('s'+i)%STARC.length]):[.42,.5,.78],sz=cur?5.5:3,rg=0;if(!vz){col=cur?[.3,.32,.44]:[.26,.28,.38];sz=cur?3.5:2.5;rg=0}
+      if(os){sz=cur?6:4;rg=0}
       if(MP.level==='system'&&i!==MP.sys){rg=0;sz=Math.min(sz,2.5)}if(i===MP.sys){sz=17;rg=2;if(!os)col=[1,.8,.5]}a.color.array.set(col,i*3);a.sz.array[i]=sz;a.rg.array[i]=rg});
     a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true;
-    if(MP.ownPts){const oa=MP.ownPts.geometry.attributes;let n=0;if(MP.level!=='universe')for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si)||MP.level==='system'&&+si===MP.sys)continue;const L=[...os].sort((x,y)=>(y===ME)-(x===ME));L.forEach((o,j)=>{if(n>=600)return;oa.position.array.set(s.w,n*3);oa.color.array.set(hex2rgb(pcolor(o)),n*3);oa.sz.array[n]=(MP.level==='system'?7:13)+j*(MP.level==='system'?3:5);oa.rg.array[n]=3;n++})}
+    if(MP.ownPts){const oa=MP.ownPts.geometry.attributes;let n=0;if(MP.level==='system')for(const[si,os]of Object.entries(owners)){const s=SYSTEMS[si];if(s.gal!==MP.gal||!sysVisible(+si)||MP.level==='system'&&+si===MP.sys)continue;const L=[...os].sort((x,y)=>(y===ME)-(x===ME));L.forEach((o,j)=>{if(n>=600)return;oa.position.array.set(s.w,n*3);oa.color.array.set(hex2rgb(pcolor(o)),n*3);oa.sz.array[n]=(MP.level==='system'?7:13)+j*(MP.level==='system'?3:5);oa.rg.array[n]=3;n++})}
       MP.ownPts.geometry.setDrawRange(0,n);oa.position.needsUpdate=true;oa.color.needsUpdate=true;oa.sz.needsUpdate=true;oa.rg.needsUpdate=true}
     mpPlanetPts();mpFog();
     if(MP.level==='system'&&MP.sys!=null)mpBuildSystem(MP.sys)}
   mpRaids();mpLabels();mpNav()}
-function mpPlanetPts(){const pp=MP.pPts,a=pp.geometry.attributes;let n=0;MP.pList=[];if(MP.level!=='universe'){const cm=cometAt();
-  for(const s of SYSTEMS){if(s.gal!==MP.gal||s.deep||!sysVisible(s.i))continue;[...s.planets,...s.bodies].forEach((pid,k)=>{if(n>=2000)return;const ang=(hash(pid)%628)/100,rr=.55+k*.2,w=galToWorld(s.gal,s.x+Math.cos(ang)*rr*10,s.y+Math.sin(ang)*rr*10,s.z);
-    const d=S.planets[pid],own=d&&d.owner,body=isBody(pid);let col=hex2rgb(PTYPES[PLANETS[pid].type].col).map(c=>c*.85),sz=body?3.2:4.6,rg=0;
-    if(own){col=hex2rgb(pcolor(own));sz=own===ME?10:8;rg=own===ME?2:1}if(cm&&cm.pid===pid){col=[1,.82,.4];sz=9;rg=1}
-    a.position.array.set(w,n*3);a.color.array.set(col,n*3);a.sz.array[n]=sz;a.rg.array[n]=rg;MP.pList.push({w,pid,sys:s.i});n++})}}
-  pp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true}
+// vue galaxie : chaque système en miniature — l'étoile, des orbites ovales, les planètes (couleur du propriétaire) et les satellites plus petits, qui tournent quand on s'approche
+const ORB_W=rr0=>.07/Math.pow(rr0,1.5);
+function orbPos(o,t){const a=o.a0+(t?t*o.w:0);return galToWorld(o.g,o.x+Math.cos(a)*o.r*10,o.y+Math.sin(a)*o.r*10*.82,o.z)}
+function mpPlanetPts(){const pp=MP.pPts,a=pp.geometry.attributes;let n=0,ln=0;MP.pList=[];MP.pOrb=[];const OL=MP.orbL&&MP.orbL.geometry.attributes;
+  if(MP.level!=='universe'){const cm=cometAt();
+  for(const s of SYSTEMS){if(s.gal!==MP.gal||s.deep||!sysVisible(s.i))continue;const all=[...s.planets,...s.bodies];
+    all.forEach((pid,k)=>{if(n>=2000)return;const body=isBody(pid),pi=body?s.planets.length+s.bodies.indexOf(pid):s.planets.indexOf(pid),r0=.42+pi*.17,o={g:s.gal,x:s.x,y:s.y,z:s.z,r:r0,a0:(hash(pid)%628)/100,w:ORB_W(r0)*(hash(pid)%2?1:.85)};
+      const d=S.planets[pid],own=d&&d.owner;let col=hex2rgb(PTYPES[PLANETS[pid].type].col).map(c=>c*.7),sz=body?2.1:3.4,rg=0;
+      if(own){col=hex2rgb(isNpc(own)?NPC_COL:pcolor(own));sz=body?(own===ME?5.4:4.8):(own===ME?8.5:7.5);rg=0}if(cm&&cm.pid===pid){col=[1,.82,.4];sz=7;rg=1}
+      const w=orbPos(o,0);a.position.array.set(w,n*3);a.color.array.set(col,n*3);a.sz.array[n]=sz;a.rg.array[n]=rg;MP.pList.push({w,pid,sys:s.i});MP.pOrb.push(o);n++;
+      // orbite : ellipse discrète, teintée par le propriétaire
+      if(OL&&!body&&ln<89000-80){const oc=own?hex2rgb(isNpc(own)?NPC_COL:pcolor(own)).map(c=>c*.38):[.13,.16,.26],N=40;let p0=galToWorld(s.gal,s.x+r0*10,s.y,s.z);
+        for(let q=1;q<=N;q++){const t=q/N*Math.PI*2,p1=galToWorld(s.gal,s.x+Math.cos(t)*r0*10,s.y+Math.sin(t)*r0*10*.82,s.z);OL.position.array.set(p0,ln*3);OL.position.array.set(p1,ln*3+3);OL.color.array.set(oc,ln*3);OL.color.array.set(oc,ln*3+3);ln+=2;p0=p1}}})}}
+  pp.geometry.setDrawRange(0,n);a.position.needsUpdate=true;a.color.needsUpdate=true;a.sz.needsUpdate=true;a.rg.needsUpdate=true;
+  if(OL){MP.orbL.geometry.setDrawRange(0,ln);OL.position.needsUpdate=true;OL.color.needsUpdate=true}}
+// les planètes avancent sur leur orbite quand on regarde la galaxie de près
+function mpOrbitStep(now){if(!MP.pOrb||!MP.pOrb.length)return;const on=MP.level!=='universe'&&MP.dist<80;if(MP.orbL)MP.orbL.visible=MP.level!=='universe'&&MP.dist<140;if(!on)return;const t=now/1000,a=MP.pPts.geometry.attributes.position;
+  for(let i=0;i<MP.pOrb.length;i++){const w=orbPos(MP.pOrb[i],t);a.array[i*3]=w[0];a.array[i*3+1]=w[1];a.array[i*3+2]=w[2];MP.pList[i].w=w}a.needsUpdate=true}
 // étiquettes des flottes : de loin « Flotte de X », de près le commandant, ou le ralliement et ses lieutenants
 function fleetTag(f,detail){const host=isHostileF(f),who=f.owner===ME?'Ta flotte':`Flotte de ${pname(f.owner)}`,C=f.cmd&&cmdById(f.owner,f.cmd),col=c=>RAR[cmdInfo(c).r].col;
   const isR=f.phase==='rally'||f.rallied,end=f.phase==='rally'?f.rallyUntil:f.phase==='out'?f.arrive:f.phase==='back'?f.back:null;
@@ -2590,7 +2602,7 @@ function mpLoop(t){MP.raf=requestAnimationFrame(mpLoop);const dt=Math.min(.05,(t
   if(MP.sysDisk)MP.sysDisk.rotation.z-=dt*.6*k;for(const x of MP.deepFx||[]){if(x.disk)x.disk.rotation.z-=dt*.25*k;if(x.belt)x.belt.rotation.y+=dt*.02*k;deepFade(x)}
   const op=MP.level==='universe'?1:MP.level==='galaxy'?.32:.22;MP.clouds.forEach((c,g)=>{c.material.uniforms.op.value=(MP.level==='universe'||g===MP.gal)?op:Math.min(1,op*1.8)});MP.pPts.material.uniforms.op.value=MP.level!=='galaxy'?0:Math.max(0,Math.min(1,(110-MP.dist)/60));
   if((MP.level==='galaxy'&&(MP.lf=(MP.lf||0)+1)%20===0)||(MP.level==='system'&&(MP.lf=(MP.lf||0)+1)%40===0))mpLabels();
-  mpFleets(Date.now());
+  mpOrbitStep(Date.now());mpFleets(Date.now());
   MP.r.render(MP.scene,MP.cam);
   const spans=mplab.children,placed=[];for(let i=0;i<spans.length;i++){const l=MP.labels[i];if(!l)continue;let w=l.w;if(l.o){const v=new THREE.Vector3();l.o.mesh.getWorldPosition(v);w=[v.x,v.y,v.z]}if(l.fl){const fp=fleetPos(l.fl,Date.now());if(fp)w=fp.p}const p=mpProject(w);const el=spans[i];if(!p){el.style.visibility='hidden';continue}let z=(MP.labSz||(MP.labSz=[]))[i];if(!z||!z[0])z=MP.labSz[i]=[el.offsetWidth,el.offsetHeight];const R=[p[0]-z[0]/2-3,p[1]-z[1]*1.5-2,p[0]+z[0]/2+3,p[1]-z[1]*.5+2];if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])){el.style.visibility='hidden';continue}placed.push(R);el.style.visibility='visible';el.style.transform=`translate(${p[0]|0}px,${p[1]|0}px) translate(-50%,-150%)`}}
 function mpStart(){if(!MP.ok||MP.running)return;MP.running=true;mpSize();MP.last=performance.now();MP.raf=requestAnimationFrame(mpLoop)}
@@ -3641,7 +3653,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='145';
+const APP_VERSION='146';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -100,6 +100,10 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .owner{display:inline-flex;align-items:center;gap:6px;font-size:13px}
 .hostile{border-left:3px solid var(--bad)}
+.threats{display:grid;gap:10px;padding:12px;border:2px solid var(--bad);border-radius:12px;background:color-mix(in srgb,var(--bad) 14%,var(--panel));box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 60%,transparent);animation:thrPulse 1.8s ease-out infinite}
+.threats h2{color:var(--bad);margin:0;font-size:18px;letter-spacing:.02em}.threats .item{background:color-mix(in srgb,var(--bad) 10%,var(--panel));border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}.threats .item b{color:#ffd0d6}
+@keyframes thrPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 55%,transparent)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.threats{animation:none}}
 .tone-win{border-left:3px solid var(--good)}
 .tone-loss{border-left:3px solid var(--bad)}
 .tone-info{border-left:3px solid var(--line)}
@@ -1461,11 +1465,13 @@ async function pillardTick(){const now=Date.now();if(now-PILL_T<60000)return;PIL
     await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:NPC,npc:true,from,to:t.pid,mission:'attack',ships,cargo:{m:0,c:0,f:0},depart:now,arrive:now+eta,phase:'out',conquer:!t.capital&&r()<.4,spied:[]});
     await report({to:[pl.uid],tone:'loss',title:`Les ${NPC_NAME} foncent sur ${plName(t.pid)}`,lines:[`Une flotte pillarde arrive à ${clock(now+eta)} (dans ${fmtDur(eta/1000)}). Sa composition est inconnue.`,t.capital?'Ta capitale ne peut pas tomber, mais ses stocks peuvent être pillés.':'Si ta défense cède, la colonie peut tomber entre leurs mains.','Rappelle tes flottes, renforce tes défenses, espionne l’attaque avec des sondes (onglet Flottes) et demande de l’aide : tes alliés peuvent envoyer une flotte en « Renfort » sur ta planète.']})}}
 const pillSpyNeed=f=>Math.min(20,4+Math.ceil(worth(f.ships)/120));
-async function spyIncoming(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.owner===ME||f.mission!=='attack'||f.phase!=='out')throw err('Cette attaque n’est plus en approche.');const need=pillSpyNeed(f),tp=S.planets[f.to];
-  const pr=tp&&tp.owner===ME?(view(f.to).ships.probe||0):0;if(pr<need)throw err(`Il faut ${need} sondes sur ${plName(f.to)} pour percer leur brouillage (tu en as ${pr}).`);
+async function spyIncoming(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.owner===ME||f.mission!=='attack'||f.phase!=='out')throw err('Cette attaque n’est plus en approche.');const need=pillSpyNeed(f);
+  // sondes prises sur la planète choisie (onglet Flottes), sinon sur la planète visée, sinon sur n'importe quelle planète qui en a assez
+  const pr=pid=>pid&&S.planets[pid]&&S.planets[pid].owner===ME?((view(pid).ships||{}).probe||0):0,src=[S.sel,f.to,...myPlanets().map(q=>q.pid).sort((a,b)=>pr(b)-pr(a))].find(pid=>pr(pid)>=need);
+  if(!src){const best=myPlanets().map(q=>q.pid).sort((a,b)=>pr(b)-pr(a))[0];throw err(`Il faut ${need} sondes sur une de tes planètes pour percer leur brouillage (au mieux ${pr(best)} sur ${plName(best)}).`)}
   await locked('fleets/'+fid,async(d,ref)=>{if(!d||d.phase!=='out')throw err('Cette attaque n’est plus en approche.');d.spied=[...new Set([...(d.spied||[]),ME])];await ref.set(d)});
-  await locked('planets/'+f.to,async(d,ref)=>{if(!d||d.owner!==ME)return;const p=settle(d,Date.now());p.ships.probe=Math.max(0,(p.ships.probe||0)-1);await ref.set(p)});
-  sfx.done();toast('Espionnage réussi : composition révélée (1 sonde perdue).')})}
+  await locked('planets/'+src,async(d,ref)=>{if(!d||d.owner!==ME)return;const p=settle(d,Date.now());p.ships.probe=Math.max(0,(p.ships.probe||0)-1);await ref.set(p)});
+  sfx.done();toast(`Espionnage réussi depuis ${plName(src)} : composition révélée (1 sonde perdue).`)})}
 // flottes alliées en garde sur une planète : elles défendent avec le propriétaire
 async function gatherGuards(pid,attacker){const out=[];for(const g of Object.values(S.fleets)){const own=(S.planets[pid]||{}).owner;if(g.phase!=='hold'||(g.mission!=='reinforce'&&g.owner!==own)||g.to!==pid||g.owner===attacker)continue;
   try{await locked('fleets/'+g.fid,async(gd,gref)=>{if(gd&&gd.phase==='hold'&&(gd.mission==='reinforce'||gd.owner===own)&&gd.to===pid)out.push({f:gd,ref:gref,owner:gd.owner,ships:gd.ships})})}catch(e){}}return out}
@@ -2077,7 +2083,7 @@ function myFleetsHtml(mine){if(!mine.length)return`<p class="empty">Aucune flott
   return Object.entries(by).map(([o,L])=>`<div class="fgrp"><div class="fgh">Depuis ${esc(plName(o))} · ${L.length} flotte${L.length>1?'s':''}</div><div class="list">${L.map((f,i)=>`<div class="fnum"><span class="fn">#${i+1}</span>${fleetRow(f,false)}</div>`).join('')}</div></div>`).join('')}
 function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter(f=>f.owner===ME||(f.mission==='convoy'&&f.sender===ME&&f.phase==='out')).sort((a,b)=>a.arrive-b.arrive),inc=incoming().sort((a,b)=>a.arrive-b.arrive);
   const joinable=Object.values(S.fleets).filter(f=>f.phase==='out'&&f.mission==='attack'&&!f.group&&PLANETS[f.to]&&f.arrive>now+15000&&!(S.planets[f.to]&&S.planets[f.to].owner===ME)).sort((a,b)=>a.arrive-b.arrive);
-  return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section style="display:grid;gap:10px"><h2>Menaces entrantes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${ralliesHtml()}${battlesHtml()}${convoysHtml()}
+  return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section class="threats" role="alert"><h2>⚠ ${inc.length>1?inc.length+' attaques arrivent':'Une attaque arrive'} sur tes planètes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${ralliesHtml()}${battlesHtml()}${convoysHtml()}
   ${joinable.length?`<section style="display:grid;gap:10px"><h2>Attaques en cours à rejoindre</h2><p class="meta" style="margin:0">Envoie des renforts : ta flotte arrive au même moment et combat aux côtés de l’attaquant. Butin et points de combat sont partagés selon la force engagée et la soute.</p><div class="list">${joinable.map(f=>`<div class="item"><div class="ihead"><b>${esc(f.owner===ME?'Toi':pname(f.owner))} → ${esc(plName(f.to))}</b><span class="cd" data-cd="${f.arrive}"></span></div><div class="eff">Impact à ${clock(f.arrive)}${S.sel&&S.planets[S.sel]?` · depuis ${esc(PLANETS[S.sel].name)} : ${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs`:''}</div><div class="foot"><span></span><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></div></div>`).join('')}</div></section>`:''}
   ${cmdMovesHtml()}${armyHtml()}<section style="display:grid;gap:10px"><h2>Tes flottes</h2>${myFleetsHtml(mine)}</section>`}
 // ---------- gestion d'empire : tout voir et lancer les mêmes ordres partout ----------
@@ -3367,7 +3373,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='130';
+const APP_VERSION='131';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

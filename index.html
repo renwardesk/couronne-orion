@@ -2621,7 +2621,7 @@ function mpSync(){const show=S.tab==='galaxy'&&S.ready>=3&&!S.nodb&&mpInit();mpe
 // ---------- événements ----------
 document.addEventListener('click',e=>{
   if(S.onlOpen&&!e.target.closest('.onlw')){S.onlOpen=false;render()}
-  if(SFX.ambOn&&!SFX.amb&&SFX.on)ambient(true);
+  if(SFX.ambOn&&!SFX.amb&&SFX.on&&!BMUS.on&&(typeof btel==='undefined'||btel.hidden))ambient(true);
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(!['up','ship','mgo','join','mclose','res','mod','mount'].includes(a)||(a==='mclose'&&e.target===b))sfx.click();
   if(a==='snd'){SFX.on=!SFX.on;savePref('orion-sound',SFX.on);if(!SFX.on)ambient(false);else if(SFX.ambOn)ambient(true);render();return}
@@ -2782,13 +2782,13 @@ function mPad(c,notes,t,dur){notes.forEach((n,i)=>{for(const det of[-9,9]){const
 function mBass(c,n,t,dur){const o=c.createOscillator();o.type='sine';o.frequency.value=NOTE(n);const g2=c.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(.11,t+.6);g2.gain.linearRampToValueAtTime(0,t+dur);o.connect(g2).connect(MUS.bus);o.start(t);o.stop(t+dur+.1)}
 function mPluck(c,n,t,v){for(const[ty,mul,vol]of[['triangle',1,v],['sine',2,v*.35]]){const o=c.createOscillator();o.type=ty;o.frequency.value=NOTE(n)*mul;const g2=c.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(vol,t+.01);g2.gain.exponentialRampToValueAtTime(.0001,t+1.6);o.connect(g2);g2.connect(MUS.bus);g2.connect(MUS.dly);o.start(t);o.stop(t+1.7)}}
 function mKick(c,t,v){const o=c.createOscillator();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(38,t+.35);const g2=c.createGain();g2.gain.setValueAtTime(v,t);g2.gain.exponentialRampToValueAtTime(.0001,t+.5);o.connect(g2).connect(MUS.bus);o.start(t);o.stop(t+.55)}
-function mSchedule(){const c=SFX.ctx;if(!c||!MUS.playing)return;
+function mSchedule(){const c=SFX.ctx;if(!c||!MUS.playing)return;if(BMUS.on){ambient(false);return}
   while(MUS.next<c.currentTime+.8){const P=MUS.tension?PROG.war:PROG.calm,steps=P.len*2,t=MUS.next;
     if(MUS.step===0){const[root,notes]=P.chords[MUS.chord%P.chords.length];mPad(c,notes,t,P.len);mBass(c,root,t,P.len)}
     if(Math.random()<(MUS.tension?.22:.3)){const s=P.scale;mPluck(c,s[Math.floor(Math.random()*s.length)],t+(Math.random()<.3?.25:0),MUS.tension?.045:.038)}
     if(MUS.tension&&MUS.step%2===0)mKick(c,t,MUS.step%8===0?.32:.18);
     MUS.next+=.5;MUS.step++;if(MUS.step>=steps){MUS.step=0;MUS.chord++}}}
-function ambient(on){const c=audio();if(!c)return;
+function ambient(on){const c=audio();if(!c)return;if(on&&(BMUS.on||(typeof btel!=='undefined'&&!btel.hidden)))return;
   if(on&&!MUS.playing){musicSetup(c);MUS.playing=true;MUS.next=c.currentTime+.1;MUS.step=0;MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(.9,c.currentTime+3);MUS.timer=setInterval(mSchedule,200);mSchedule();SFX.amb=true}
   else if(!on&&MUS.playing){MUS.playing=false;SFX.amb=null;clearInterval(MUS.timer);MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(0,c.currentTime+1.2)}}
 function musicTension(on){if(MUS.tension!==on){MUS.tension=on;MUS.step=0}}
@@ -2991,7 +2991,7 @@ function weaponMesh(w,M){const e=new THREE.MeshStandardMaterial({color:WCOL[w],e
   if(w==='armor'){const a=mk(plate([[.05,0],[.035,.03],[-.04,.03],[-.05,0],[-.04,-.03],[.035,-.03]],.006),M.metal,.006),b=mk(plate([[.03,0],[.02,.018],[-.03,.018],[-.035,0],[-.03,-.018],[.02,-.018]],.005),M.dark,.014);return grp(a,b,mk(geoB(.06,.002,.004),M.trim,.017))}
   return grp(dome(.02,.02,M.trim),mk(new THREE.TorusGeometry(.024,.0025,6,24),M.metal,.006),mk(geoC(.003,.003,.03,6),M.metal,.035),mk(geoS(.006,8,6),e,.052))}
 // vaisseau amiral unique, généré à partir de l'identité du commandant
-function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;{if(!SHIPLIB.init)shipLibInit();const mf=modelFlag(key,pt);if(mf)return mf}const r=rng(hash('flag:'+key)),M=shipMats(pt),g2=new THREE.Group(),spins=[],add=(...o)=>o.forEach(x=>g2.add(x));
+function buildFlag(key,pt){const C=CMDK[key];if(!C)return null;{if(!SHIPLIB.init)shipLibInit();const mf=modelFlag(key,pt);if(mf)return mf;if(BT.building&&FLAGM[key])BT.fb=1}const r=rng(hash('flag:'+key)),M=shipMats(pt),g2=new THREE.Group(),spins=[],add=(...o)=>o.forEach(x=>g2.add(x));
   const col=new THREE.Color(RAR[C.r].col),acc=new THREE.MeshStandardMaterial({color:col,metalness:.85,roughness:.28,emissive:col,emissiveIntensity:.3});
   const L=.6+r()*.32+(C.r==='l'?.12:C.r==='e'?.06:0),W=.055+r()*.035+(C.sp==='hp'?.02:0)-(C.sp==='spd'?.012:0),arch=Math.floor(r()*5);
   const hull=(l,w,x=0,z=0,m=M.hullF,seg=8)=>add(mk(latheX([[0,-l/2],[w*.9,-l/2],[w,-l*.18],[w*.75,l*.22],[w*.28,l*.42],[0,l/2]],seg),m,0,x,z));
@@ -3071,7 +3071,7 @@ const SHIPMODEL={fighter:'striker',cruiser:'challenger',battleship:'imperial',co
 const TEXCOLS={blue:[80,130,255],red:[230,70,70],green:[90,200,110],orange:[240,160,60],purple:[170,90,240]};
 function texColorFor(pt){const c=new THREE.Color((pt&&pt.trim)||'#5ec8ff'),r=c.r*255,g=c.g*255,b=c.b*255;let best='blue',bd=1e9;for(const k in TEXCOLS){const[x,y,z]=TEXCOLS[k],d=(x-r)**2+(y-g)**2+(z-b)**2;if(d<bd){bd=d;best=k}}return best}
 function shipLibBump(){SHIPLIB.ver++;try{if(S.tab==='hangar')hgUpdate()}catch(e){}try{if(V3.running&&S.sel)v3Update(view(S.sel))}catch(e){}}
-async function shipLibInit(){if(SHIPLIB.init||!window.THREE)return;SHIPLIB.init=true;try{SHIPLIB.meta=await(await fetch('models/ships.json')).json();const col=texColorFor(typeof ME!=='undefined'?paintOf(ME):null);for(const t in SHIPMODEL){loadModel(SHIPMODEL[t]);loadTex(SHIPMODEL[t],col)}for(const n of COLOSSUS_PARTS){loadModel(n);loadTex(n,'purple')}}catch(e){SHIPLIB.meta=null}}
+async function shipLibInit(){if(SHIPLIB.init||!window.THREE)return;SHIPLIB.init=true;try{SHIPLIB.meta=await(await fetch('models/ships.json')).json();const col=texColorFor(typeof ME!=='undefined'?paintOf(ME):null);for(const t in SHIPMODEL){loadModel(SHIPMODEL[t]);loadTex(SHIPMODEL[t],col)}for(const n of COLOSSUS_PARTS){loadModel(n);loadTex(n,'purple')}}catch(e){SHIPLIB.meta=null;SHIPLIB.init=false}}
 const COLOSSUS_PARTS=['imperial','executioner','omen','insurgent','zenith','spitfire'];
 async function loadModel(n){if(!SHIPLIB.meta||!SHIPLIB.meta[n]||SHIPLIB.geo[n]||SHIPLIB.loading[n])return;SHIPLIB.loading[n]=1;
   try{const buf=await(await fetch('models/'+n+'.bin')).arrayBuffer(),u=new Uint32Array(buf,0,2),nv=u[0],ni=u[1];
@@ -3134,7 +3134,7 @@ function modelFlag(key,pt){const F=FLAGM[key],C=CMDK[key];if(!F||!C)return null;
   kitbash(s,key,F,C,L,pt);s.userData.len=L;const col=new THREE.Color(RAR[C.r].col);
   if(C.r!=='c'){const halo=new THREE.Sprite(libGlow(col.getHexString(),C.r==='l'?.3:C.r==='e'?.2:.1));halo.scale.set(L*1.3,L*1.3,1);s.add(halo)}return s}
 function buildShip(type,pt,lo){if(!SHIPLIB.init)shipLibInit();const n=SHIPMODEL[type];if(!n)return buildShipP(type,pt,lo);
-  const L=protoLen(type),s=modelShip(n,texColorFor(pt),L,pt);if(!s)return buildShipP(type,pt,lo);
+  const L=protoLen(type),s=modelShip(n,texColorFor(pt),L,pt);if(!s){if(BT.building)BT.fb=1;return buildShipP(type,pt,lo)}
   const M=shipMats(pt),b=SHIPLIB.geo[n].boundingBox,sc=L/(SHIPLIB.geo[n].userData.len||1),top=b.max.y*sc;
   (lo||[]).forEach((w,i)=>{if(!w||!HP[type]||!HP[type][i])return;const wm=weaponMesh(w,M),[x,y,z]=HP[type][i];wm.position.set(x,Math.sign(y||1)*Math.min(Math.abs(y),top*.9),z);if(type==='fighter')wm.rotation.x=Math.PI;s.add(wm)});
   if(lo&&lo.includes('shield')){const R={fighter:.32,cruiser:.5,battleship:.88,colony:.48}[type];const sh=new THREE.Mesh(new THREE.SphereGeometry(.5,32,20),atmMat(0x5fd4ff,2.2,.55));sh.scale.set(R,R*.55,R*.62);s.add(sh);s.userData.shield=sh}
@@ -3258,18 +3258,25 @@ function btInit(){if(BT.tried)return BT.ok;BT.tried=true;if(!window.THREE)return
     const up=e=>{BT.ptr.delete(e.pointerId);if(BT.ptr.size<2)BT.pinch=null;if(!BT.ptr.size)BT.drag=null};btc.addEventListener('pointerup',up);btc.addEventListener('pointercancel',up);
     btc.addEventListener('wheel',e=>{e.preventDefault();if(!BT.zoomed){BT.zoomed=true;BT.distT=BT.dist}BT.distT=bclamp(BT.distT*Math.exp(e.deltaY*.0012))},{passive:false});btc.style.touchAction='none';
     document.getElementById('btclose').addEventListener('click',()=>{sfx.click();btClose()});
-    document.getElementById('btreplay').addEventListener('click',()=>{sfx.click();btBuild();BT.t0=performance.now()});
+    document.getElementById('btreplay').addEventListener('click',e=>{e.stopPropagation();sfx.click();if(MUS.playing)ambient(false);if(!BMUS.on)battleMusic(true);btBuild();BT.t0=performance.now()});
     window.addEventListener('resize',btSize);
   }catch(e){BT.ok=false}return BT.ok}
 function btSize(){if(!BT.ok)return;const w=btc.clientWidth,h=btc.clientHeight;if(!w||!h)return;BT.r.setSize(w,h,false);BT.cam.aspect=w/h;BT.cam.updateProjectionMatrix();if(BT.comp){BT.comp.setPixelRatio(BT.r.getPixelRatio());BT.comp.setSize(w,h)}}
 function btOpen(id){const r=S.reports.find(x=>x.id===id);if(!r||!r.battle)return toast('Cette bataille n’est plus disponible.','bad');if(!btInit())return toast('L’animation 3D n’est pas disponible sur cet appareil.','bad');
-  BT.rep=r;btel.hidden=false;document.body.style.overflow='hidden';if(S.btNew&&S.btNew.id===id)S.btNew=null;btBuild();BT.t0=performance.now();btStart();battleMusic(true)}
+  BT.rep=r;BT.fbN=0;btel.hidden=false;document.body.style.overflow='hidden';if(S.btNew&&S.btNew.id===id)S.btNew=null;battleMusic(true);
+  const go=()=>{if(btel.hidden||BT.rep!==r)return;btBuild();BT.t0=performance.now();btStart()};const need=btNeed(r.battle);
+  if(!need.every(([n,c])=>SHIPLIB.geo[n]&&SHIPLIB.tex[n+'_'+c])){document.getElementById('bttitle').textContent='Chargement des vaisseaux…';document.getElementById('btround').textContent='';document.getElementById('btforces').innerHTML='';const t0=Date.now();
+    (function wait(){if(!SHIPLIB.init)shipLibInit();for(const[n,c]of need){loadModel(n);loadTex(n,c)}const ok=need.every(([n,c])=>SHIPLIB.geo[n]&&SHIPLIB.tex[n+'_'+c]);if(ok&&!BT.running)go();else if(ok){if(!btel.hidden&&BT.rep===r&&(BT.vt||0)<4){btBuild();BT.t0=performance.now()}}else{if(Date.now()-t0>15000&&!BT.running)go();if(Date.now()-t0<40000)setTimeout(wait,200)}})()}else go()}
+// modèles 3D et textures nécessaires à une bataille, chargés avant de lancer l'animation
+function btNeed(D){const out=new Set(),cols=new Set();for(const a of D.att||[])cols.add(texColorFor(paintOf(a.uid)));const du=S.players[D.def]?D.def:null;cols.add(texColorFor(du?paintOf(du):D.def==='hive'?HIVE_PAINT:D.def==='raid'?RAID_PAINT:PIRATE_PAINT));
+  const ks=new Set([...Object.keys(D.ia||{}),...Object.keys(D.id||{})].map(k=>k==='flag'?'battleship':k).filter(k=>SHIPMODEL[k]));for(const k of ks)for(const c of cols)out.add(SHIPMODEL[k]+'|'+c);if((D.ia||{}).flag||(D.id||{}).flag)for(const u of[...(D.att||[]).map(a=>a.uid),D.def]){if(!S.players[u])continue;const a=(D.att||[]).find(x=>x.uid===u&&x.ck);let k=a&&a.ck;if(!k){const L=cmdsOf(u).filter(c=>c.key&&CMDK[c.key]).sort((x,y)=>'lerc'.indexOf(CMDK[x.key].r)-'lerc'.indexOf(CMDK[y.key].r));k=L[0]&&L[0].key}const F=k&&FLAGM[k];if(F)out.add(F.m+'|'+F.c)}const R=RAIDS[D.pid];if(D.def==='raid'&&R&&((R.mid&&!R.esc)||R.emp))for(const n of COLOSSUS_PARTS)out.add(n+'|purple');return[...out].map(x=>x.split('|'))}
 function btClose(){btel.hidden=true;document.body.style.overflow='';btStop();battleMusic(false)}
 function btAlloc(total,shown,owners){// owners: [{uid,n}] -> nombre de maquettes par propriétaire
   const out=owners.map(o=>({...o,m:Math.floor(shown*o.n/(total||1))}));let rem=shown-out.reduce((a,b)=>a+b.m,0);out.sort((a,b)=>b.n-a.n);for(let i=0;rem>0&&i<out.length*3;i++){const o=out[i%out.length];if(o.m<o.n){o.m++;rem--}}return out}
 // vaisseau amiral du bon commandant dans le rejeu (sinon le meilleur commandant du joueur)
 function btFlag(uid,pt){const a=(BT.rep.battle.att||[]).find(x=>x.uid===uid&&x.ck);let k=a&&a.ck;if(!k){const L=cmdsOf(uid).filter(c=>c.key&&CMDK[c.key]).sort((x,y)=>'lerc'.indexOf(CMDK[x.key].r)-'lerc'.indexOf(CMDK[y.key].r));k=L[0]&&L[0].key}return k?buildFlag(k,pt):null}
-function btBuild(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(BT.g)}const g=new THREE.Group();BT.g=g;BT.scene.add(g);BT.units=[];BT.fx=[];BT.done=-1;BT.planR=-1;BT.plan=[];
+function btBuild(){BT.building=true;BT.fb=0;try{btBuild0()}finally{BT.building=false}}
+function btBuild0(){const D=BT.rep.battle;if(BT.g){BT.scene.remove(BT.g);v3Clear(BT.g)}const g=new THREE.Group();BT.g=g;BT.scene.add(g);BT.units=[];BT.fx=[];BT.done=-1;BT.planR=-1;BT.plan=[];
   const defUid=S.players[D.def]?D.def:null,defPaint=defUid?paintOf(defUid):D.def==='hive'?HIVE_PAINT:D.def==='raid'?RAID_PAINT:PIRATE_PAINT,defLo=defUid?loadoutOf(S.players[defUid]):{};
   BT.planet=null;if(D.planet&&PLANETS[D.pid]){const T=PTYPES[PLANETS[D.pid].type];const pm=new THREE.Mesh(new THREE.SphereGeometry(9,48,32),new THREE.MeshStandardMaterial({color:T.col,roughness:.9,flatShading:true}));pm.position.set(30,-4,-6);g.add(pm);
     const at=new THREE.Mesh(new THREE.SphereGeometry(10,48,32),atmMat(new THREE.Color(T.col).getHex(),2.6,1.3));at.position.copy(pm.position);g.add(at);BT.planet=pm}
@@ -3420,10 +3427,10 @@ function bmSchedule(){const c=SFX.ctx;if(!c||!BMUS.on)return;const q=60/112/2; /
     BMUS.next+=q;BMUS.step++}}
 function bmReverb(c){const len=c.sampleRate*2.2,b=c.createBuffer(2,len,c.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5)}const cv=c.createConvolver();cv.buffer=b;return cv}
 function battleMusic(on){const c=audio();if(!c)return;
-  if(on&&!BMUS.on){if(!SFX.on)return;BMUS.resumeAmb=!!MUS.playing;if(MUS.playing)ambient(false);BMUS.gain=c.createGain();BMUS.gain.gain.setValueAtTime(0,c.currentTime);BMUS.gain.gain.linearRampToValueAtTime(.55,c.currentTime+1.5);BMUS.gain.connect(c.destination);
+  if(on&&!BMUS.on){if(!SFX.on)return;if(BMUS.ambT){clearTimeout(BMUS.ambT);BMUS.ambT=null;BMUS.resumeAmb=true}else BMUS.resumeAmb=!!MUS.playing;if(MUS.playing)ambient(false);BMUS.gain=c.createGain();BMUS.gain.gain.setValueAtTime(0,c.currentTime);BMUS.gain.gain.linearRampToValueAtTime(.55,c.currentTime+1.5);BMUS.gain.connect(c.destination);
     BMUS.rev=bmReverb(c);const rg=c.createGain();rg.gain.value=.35;BMUS.rev.connect(rg).connect(BMUS.gain);
     BMUS.on=true;BMUS.next=c.currentTime+.15;BMUS.step=0;BMUS.timer=setInterval(bmSchedule,150);bmSchedule()}
-  else if(!on&&BMUS.on){BMUS.on=false;clearInterval(BMUS.timer);const g=BMUS.gain;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(g.gain.value,c.currentTime);g.gain.linearRampToValueAtTime(0,c.currentTime+1.2);setTimeout(()=>{try{g.disconnect()}catch(e){}},1500);if(BMUS.resumeAmb&&SFX.ambOn)setTimeout(()=>ambient(true),1000)}}
+  else if(!on&&BMUS.on){BMUS.on=false;clearInterval(BMUS.timer);const g=BMUS.gain;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(g.gain.value,c.currentTime);g.gain.linearRampToValueAtTime(0,c.currentTime+1.2);setTimeout(()=>{try{g.disconnect()}catch(e){}},1500);if(BMUS.resumeAmb&&SFX.ambOn)BMUS.ambT=setTimeout(()=>{if(!BMUS.on)ambient(true)},1000)}}
 // destructions d'une manche : chaque vaisseau perdu explose à un moment différent pendant les tirs
 function btPlan(ri,RDv){const D=BT.rep.battle,after=D.rounds[ri],out=[];
   for(const side of['a','d'])for(const k of Object.keys(side==='a'?D.ia:D.id)){const init=(side==='a'?D.ia:D.id)[k]||0,aft=(after[side][k]||0);const units=BT.units.filter(x=>x.side===side&&x.k===k),alive=units.filter(x=>x.alive);const want=aft>0?Math.max(1,Math.round(units.length*aft/init)):0;
@@ -3433,30 +3440,29 @@ function btKill(x){if(!x.alive)return;x.alive=false;const pos=x.m.position.clone
   if(C.colossus){const L=C.len;C.mods.forEach((md,i)=>setTimeout(()=>{if(!BT.running)return;btBoom(md.getWorldPosition(new THREE.Vector3()),true);md.visible=false},i*170));for(const g of C.guns)setTimeout(()=>{g.visible=false},Math.random()*1200);
     setTimeout(()=>{if(!BT.running)return;btBoom(pos,true);btBoom(pos.clone().add(new THREE.Vector3(L*.2,0,0)),true);btBoom(pos.clone().add(new THREE.Vector3(-L*.2,0,0)),true);btShake(1.4);BT.slow=.3;BT.slowT=1;x.m.visible=false},C.mods.length*170+300);return}
   setTimeout(()=>{x.m.visible=false},120+Math.random()*300);const big=x.k==='battleship'||x.k==='flag';btBoom(pos,big||x.k==='cruiser');if(big){BT.slow=.4;BT.slowT=.6}}
-// ---------- chorégraphie des batailles classiques : chaque vaisseau a sa propre trajectoire ----------
-const BT_E0=3.0; // les tirs commencent quand les flottes se sont rapprochées
+// ---------- chorégraphie des batailles classiques : approche lente, gros vaisseaux en ligne, chasseurs en grands arcs autour de l'ennemi ----------
+const BT_E0=4.2; // début des tirs : les flottes arrivent à portée
 const rr=(a,b)=>a+Math.random()*(b-a);
+const BT_RANGE={fighter:15,probe:12,colony:12,cruiser:20,battleship:26,flag:26,turret:22};
 function btMv(side,k){const att=side==='a',fx=k==='fighter'||k==='probe';
-  const amp=fx?1:att?1:.35; // la défense bouge moins, sauf ses chasseurs
-  return{sgn:Math.random()<.5?-1:1,w:fx?rr(.42,.8):k==='cruiser'||k==='colony'?rr(.3,.55):rr(.16,.28),Rx:fx?rr(6,10):rr(1.8,3.5)*amp,Rz:fx?rr(4,8):rr(2.5,4.5)*amp,Ry:fx?rr(1,3):rr(.4,.9)*amp,
-    lis:fx&&Math.random()<.45,cx:fx?rr(-2.5,2.5):0,adv:fx?0:(att?rr(2.5,5):rr(.8,1.8)),
-    tw:k==='turret'?0:att?(fx?rr(.1,.5):k==='cruiser'||k==='colony'?rr(.3,.8):rr(.5,1)):0,
-    app:att?rr(1.5,1.9):rr(2.3,2.8),off:k==="turret"?0:att?(fx?rr(10,13):k==="cruiser"?rr(9,12):rr(7,9)):(fx?rr(6,9):rr(4,6)),offz:rr(-3,3),warp:att&&k!=='turret'}}
-function btP(u,T){const m=u.m,b=m.userData.base,V=m.userData.mv,dir=u.side==='a'?1:-1,fx=u.k==='fighter'||u.k==='probe';
-  const kA=Math.max(0,Math.min(1,(T-V.tw)/V.app)),ease=kA*kA*(2-kA),kc0=Math.max(0,Math.min(1,(T-V.tw-V.app*.3)/(V.app*1.1))),kc=kc0*kc0*(3-2*kc0);
-  const S0=[b.x-dir*V.off,b.y,b.z+V.offz];let P;
-  if(fx){const a=T*V.w*V.sgn+m.userData.ph,cx=b.x*.3+V.cx;P=[cx+Math.cos(a)*V.Rx*dir,b.y+Math.sin((V.lis?2:1)*a+1)*V.Ry,b.z*.5+Math.sin((V.lis?2:1)*a)*V.Rz]}
-  else{const a=T*V.w*V.sgn+m.userData.ph,ad=Math.min(V.adv,Math.max(0,T-BT_E0+1)*.35);P=[b.x+dir*ad+Math.sin(a)*V.Rx,b.y+Math.sin(a*1.3+1)*V.Ry,b.z+Math.sin(a*.8)*V.Rz]}
-  const Q=[b.x+(P[0]-b.x)*kc,b.y+(P[1]-b.y)*kc,b.z+(P[2]-b.z)*kc];return[S0[0]+(Q[0]-S0[0])*ease,S0[1]+(Q[1]-S0[1])*ease,S0[2]+(Q[2]-S0[2])*ease]}
-function btMove2(u){const m=u.m,V=m.userData.mv,T=BT.vt||0;
-  if(u.k==='turret'){const b=m.userData.base;m.position.y=b.y+Math.sin(T*1.4+m.userData.ph)*.2;return}
+  const tw=k==='turret'?0:att?(fx?rr(.1,.6):k==='cruiser'||k==='colony'?rr(.3,.9):rr(.6,1.2)):0;
+  return{fx,tw,warp:att&&k!=='turret',sgn:Math.random()<.5?-1:1,sp:rr(2.1,2.8),turn:rr(.6,.9),R:rr(4.5,7.5),cy:rr(-1.6,1.6),tE:BT_E0-rr(.6,1.6),
+    app:Math.max(1.5,BT_E0-tw-rr(0,.5)),off:k==='turret'?0:att?(fx?rr(10,13):rr(8,11)):(fx?rr(5,8):rr(4,6)),offz:rr(-2.5,2.5)}}
+function btMove2(u){const m=u.m,V=m.userData.mv,b=m.userData.base,T=BT.vt||0,dir=u.side==='a'?1:-1,yaw0=u.side==='d'?Math.PI:0;
+  if(u.k==='turret'){m.position.y=b.y+Math.sin(T*1.4+m.userData.ph)*.2;return}
   if(T<V.tw){m.visible=false;return}
-  if(!m.userData.inT){m.userData.inT=1;m.visible=true;m.userData.sx=m.userData.sx||m.scale.x;if(V.warp){const p=btP(u,T);const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:u.side==='a'?0xcfe4ff:0xffc8f0,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.set(...p);fl.scale.setScalar(u.k==='battleship'||u.k==='flag'?6:u.k==='cruiser'?4:2.4);BT.g.add(fl);BT.fx.push({flash:fl,t:0,flashOnly:true})}}
-  const p=btP(u,T),q=btP(u,T+.05),vx=q[0]-p[0],vz=q[2]-p[2],sp=Math.hypot(vx,vz);m.position.set(p[0],p[1],p[2]);
-  const sx=m.userData.sx,wq=V.warp?Math.max(0,1-(T-V.tw)/.35):0;m.scale.set(sx*(1+wq*5),sx,sx);
-  const fx=u.k==='fighter'||u.k==='probe',yaw0=u.side==='d'?Math.PI:0;let yaw=m.userData.yaw??yaw0;
-  if(sp>.004){let ty=Math.atan2(-vz,vx);if(!fx){let d=Math.atan2(Math.sin(ty-yaw0),Math.cos(ty-yaw0));d=Math.max(-.45,Math.min(.45,d));ty=yaw0+d}let d=Math.atan2(Math.sin(ty-yaw),Math.cos(ty-yaw));const turn=d;yaw+=d*Math.min(1,(fx?10:3)*.016);m.userData.turn=(m.userData.turn||0)*.9+turn*.1}
-  m.userData.yaw=yaw;m.rotation.order='YXZ';const roll=fx?Math.max(-1,Math.min(1,-(m.userData.turn||0)*4)):Math.max(-.15,Math.min(.15,-(m.userData.turn||0)));const pitch=fx?Math.max(-.5,Math.min(.5,(q[1]-p[1])*6)):0;m.rotation.set(roll,yaw,pitch)}
+  let st=m.userData.st;
+  if(!st){st=m.userData.st={x:b.x-dir*V.off,y:b.y,z:b.z+V.offz,yaw:yaw0,lt:T,w:0};m.visible=true;m.userData.sx=m.userData.sx||m.scale.x;
+    if(V.warp){const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:0xcfe4ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.set(st.x,st.y,st.z);fl.scale.setScalar(u.k==='battleship'||u.k==='flag'?6:u.k==='cruiser'?4:2.4);BT.g.add(fl);BT.fx.push({flash:fl,t:0,flashOnly:true})}}
+  const dt=Math.max(0,Math.min(.1,T-st.lt));st.lt=T;const sx=m.userData.sx,wq=V.warp?Math.max(0,1-(T-V.tw)/.35):0;m.scale.set(sx*(1+wq*5),sx,sx);m.rotation.order='YXZ';
+  if(!V.fx){ // gros vaisseaux : approche lente qui se termine en douceur, puis ils restent en ligne et tirent
+    const k=Math.max(0,Math.min(1,(T-V.tw)/V.app)),e=1-Math.pow(1-k,3),S0x=b.x-dir*V.off,S0z=b.z+V.offz;
+    m.position.set(S0x+(b.x-S0x)*e,b.y+Math.sin(T*.5+m.userData.ph)*.18,S0z+(b.z-S0z)*e);m.rotation.set(Math.sin(T*.4+m.userData.ph)*.03,yaw0,0);return}
+  // chasseurs : vitesse constante, virage limité, grands arcs autour de la flotte ennemie
+  let tx,ty,tz;if(T<V.tE){tx=b.x+dir*3;ty=b.y;tz=b.z}else{const cx=dir*5,cz=0,a=Math.atan2(st.z-cz,st.x-cx)+V.sgn*.6;tx=cx+Math.cos(a)*V.R;ty=V.cy;tz=cz+Math.sin(a)*V.R}
+  const want=Math.atan2(-(tz-st.z),tx-st.x),d=Math.atan2(Math.sin(want-st.yaw),Math.cos(want-st.yaw)),mx=V.turn*dt,turn=Math.max(-mx,Math.min(mx,d));st.yaw+=turn;
+  const sp=V.sp;st.x+=Math.cos(st.yaw)*sp*dt;st.z-=Math.sin(st.yaw)*sp*dt;const vy=(ty-st.y)*Math.min(1,dt*.7);st.y+=vy;
+  st.w=st.w*.92+(dt>0?turn/dt:0)*.08;m.position.set(st.x,st.y,st.z);m.rotation.set(Math.max(-.9,Math.min(.9,st.w*.9)),st.yaw,Math.max(-.4,Math.min(.4,dt>0?vy/dt*.25:0)))}
 // manœuvres : les chasseurs tournent en boucles de combat, les croiseurs louvoient, les cuirassés avancent lentement
 function btMove(u,e){const m=u.m,b=m.userData.base,ph=m.userData.ph,T=BT.vt||0,dir=u.side==='a'?1:-1,k=Math.max(0,Math.min(1,e/2.5));
   if(u.k==='turret'||m.userData.colossus){m.position.y=b.y+Math.sin(T*1.4+ph)*.25;return}
@@ -3468,7 +3474,7 @@ function btMove(u,e){const m=u.m,b=m.userData.base,ph=m.userData.ph,T=BT.vt||0,d
   m.position.set(b.x+(x-b.x)*k,b.y+(y-b.y)*k,b.z+(z-b.z)*k);
   const yaw0=u.side==='d'?Math.PI:0,yaw=Math.atan2(-vz,vx);let dy=yaw-yaw0;dy=Math.atan2(Math.sin(dy),Math.cos(dy));
   m.rotation.order='YXZ';const fy=yaw0+dy*k,roll=(u.k==='fighter'||u.k==='probe')?.55*k:0;m.rotation.set(roll,fy,0)}
-function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const rdt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;if(BT.slowT>0){BT.slowT-=rdt;if(BT.slowT<=0)BT.slow=1}const dt=rdt*(BT.slow||1);BT.vt=(BT.vt||0)+dt;const D=BT.rep.battle,R=D.rounds.length,e=BT.vt-(BT.col?1.2:BT_E0);
+function btLoop(t){BT.raf=requestAnimationFrame(btLoop);if(BT.fb&&(BT.fbN||0)<2&&(BT.vt||0)<3&&t-(BT.fbT||0)>400){BT.fbT=t;const nd=btNeed(BT.rep.battle);for(const[n,c]of nd){loadModel(n);loadTex(n,c)}if(nd.every(([n,c])=>SHIPLIB.geo[n]&&SHIPLIB.tex[n+'_'+c])){BT.fbN=(BT.fbN||0)+1;btBuild();BT.t0=performance.now()}}const rdt=Math.min(.05,(t-BT.last)/1000||0);BT.last=t;if(BT.slowT>0){BT.slowT-=rdt;if(BT.slowT<=0)BT.slow=1}const dt=rdt*(BT.slow||1);BT.vt=(BT.vt||0)+dt;const D=BT.rep.battle,R=D.rounds.length,e=BT.vt-(BT.col?1.2:BT_E0);
   if(!BT.drag)BT.yaw+=dt*.06;BT.dist+=((BT.zoomed?BT.distT:btBaseDist())-(BT.dist||34))*Math.min(1,rdt*4);const dd=BT.dist||34;BT.cam.position.set(Math.sin(BT.yaw)*dd,11*dd/34,Math.cos(BT.yaw)*dd);if(BT.shake>0){BT.cam.position.x+=(Math.random()-.5)*BT.shake;BT.cam.position.y+=(Math.random()-.5)*BT.shake;BT.shake=Math.max(0,BT.shake-rdt*2.2)}BT.cam.lookAt(BT.col?9:2,BT.col?2:0,0);
   if(BT.col&&BT.vt<1.25)for(const u of BT.units)if(u.arr){const k=Math.max(0,Math.min(1,(BT.vt-.55)/.45));u.m.visible=k>0||u.m.visible&&BT.vt>.55;u.m.visible=BT.vt>.55;const sx=u.m.userData.sx||(u.m.userData.sx=u.m.scale.x);u.m.scale.set(sx*(1+(1-k)*6),sx,sx)}else if(BT.col&&!BT.arrDone){BT.arrDone=true;for(const u of BT.units)if(u.arr&&u.m.userData.sx)u.m.scale.setScalar(u.m.userData.sx);btBoom&&0}
   if(BT.col&&BT.vt>=.55&&!BT.flashDone){BT.flashDone=true;for(const x of[-14,14]){const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:BT.glow,color:0xffffff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));fl.position.set(x,0,0);fl.scale.setScalar(26);BT.g.add(fl);BT.fx.push({flash:fl,t:0,flashOnly:true})}}
@@ -3477,8 +3483,8 @@ function btLoop(t){BT.raf=requestAnimationFrame(btLoop);const rdt=Math.min(.05,(
   if(ri>=0&&ri<R&&BT.planR!==ri){BT.planR=ri;BT.plan=btPlan(ri,RDv)}
   if(ri>=0&&ri<R){const u=e-ri*RDv;
     if(u<RDv-1){const A=BT.units.filter(x=>x.side==='a'&&btShooter(x)),Dd=BT.units.filter(x=>x.side==='d'&&btShooter(x)),ta=BT.units.filter(x=>x.side==='d'&&x.alive),tdd=BT.units.filter(x=>x.side==='a'&&x.alive);
-      const rate=Math.min(18,(A.length+Dd.length)*.7);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)],tg=T1[Math.floor(Math.random()*T1.length)];
-        const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btShot(s,tg,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}
+      const rate=Math.min(18,(A.length+Dd.length)*.7);if(Math.random()<rate*dt){const fromA=Math.random()<A.length/((A.length+Dd.length)||1);const S1=fromA?A:Dd,T1=fromA?ta:tdd;if(S1.length&&T1.length){const s=S1[Math.floor(Math.random()*S1.length)];let tg=T1[Math.floor(Math.random()*T1.length)];if(!BT.col){const R=BT_RANGE[s.k]||18,near=T1.filter(x=>x.m.visible&&x.m.position.distanceTo(s.m.position)<R);tg=near.length?near[Math.floor(Math.random()*near.length)]:null}if(tg){
+        const p1=s.m.position.clone().add(new THREE.Vector3((s.side==='a'?1:-1)*.8,0,0)),p2=tg.m.position.clone().add(new THREE.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.5,(Math.random()-.5)*.8));btShot(s,tg,fromA?new THREE.Color(s.paint.glow).getHex():0xff5a5a)}}}}
     for(const q of BT.plan||[])if(!q.done&&u>=q.at){q.done=true;btKill(q.x)}
     if(u>=RDv-1&&BT.done<ri){BT.done=ri;for(const q of BT.plan||[])if(!q.done){q.done=true;btKill(q.x)}btHud(ri)}}
   else if(ri>=R&&BT.done<R){BT.done=R;btHud(R-1)}
@@ -3626,7 +3632,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='142';
+const APP_VERSION='143';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

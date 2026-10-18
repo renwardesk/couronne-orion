@@ -440,7 +440,9 @@ const capOf=p=>Math.round(2500*1.6**(p.lv.store||0));
 const PLACES={fighter:1,probe:1,cruiser:3,colony:4,battleship:8,flag:0};
 const placesOf=sh=>{let n=0;for(const k in sh||{})n+=(sh[k]||0)*(PLACES[k]??1);return n}; // le vaisseau amiral ne prend pas de place
 // Hangars d'attache : une flotte en orbite d'une de tes planètes dotée de Hangars compte pour celle-ci, sinon pour sa planète d'origine
-const bayHome=(f,uid)=>{const q=f.phase==='hold'&&S.planets[f.to];return q&&q.owner===uid&&((q.lv||{}).bay||0)>=1?f.to:fleetBase(f)};
+// une flotte compte toujours pour les Hangars de sa planète d'attache (f.home) ; elle change d'attache seulement si la nouvelle planète a la place
+const bayHome=(f,uid)=>fleetBase(f);
+const bayRoomFor=(pid,uid,ships)=>{const q=S.planets[pid];if(!q||q.owner!==uid||!q.lv||bayLv(q)<1)return false;return bayCap(q)-bayUse(q,uid)>=placesOf(ships)};
 const bayLv=p=>isBody(p.pid)?(p.lv.dock||0):(p.lv.bay||0);
 const bayCapL=(L,body)=>body?(L?Math.round(60*1.55**(L-1)):0):(L?Math.round(80*1.55**(L-1)):20);
 const bayCap=p=>bayCapL(bayLv(p),isBody(p.pid));
@@ -955,7 +957,8 @@ const AMB_INT=20*60e3,AMB_INT_FOG=10*60e3;
 async function holdAt(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();if(f.cmd)await killCmd(f.owner,f.cmd);return}
   if(f.autoBack&&f.mission!=='reinforce'&&!extra.stay)return goBack(f,fref,ships,cargo,extra); // retour automatique demandé à l'envoi
   if(f.cmd&&(f.ships||{}).flag&&!(ships||{}).flag){await killCmd(f.owner,f.cmd);f={...f,cmd:null}}
-  await fref.set({...f,...extra,ships,cargo,phase:'hold',holdAt:f.arrive,lastAmb:f.arrive,amb:0,home:f.home||f.from,group:null})}
+  let home=f.home||f.from;if(f.to!==home&&bayRoomFor(f.to,f.owner,ships))home=f.to; // en orbite d'une de tes planètes avec de la place : elle y est rattachée
+  await fref.set({...f,...extra,ships,cargo,phase:'hold',holdAt:f.arrive,lastAmb:f.arrive,amb:0,home,group:null})}
 function sysPacksAlive(si){const s=SYSTEMS[si];if(!s)return[];return[s.lair,...(s.packs||[])].filter(pid=>{const st=raidState(pid);return!st.done&&!st.absent&&worth(st.garrison)>0})}
 function ambushNext(f){const m=PLANETS[f.to];if(!m||!sysPacksAlive(m.sys).length)return null;if(f.mission==='reinforce'||(S.planets[f.to]&&S.planets[f.to].owner))return null; // en orbite d'une planète habitée : la flotte défend avec elle
   return(f.lastAmb||f.holdAt||Date.now())+(inFog(m.sys)?AMB_INT_FOG:AMB_INT)*cmdAmb(f.owner,f.cmd)}
@@ -1483,6 +1486,10 @@ async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[M
       await report({to:[cur],tone:'loss',title:`Expédition punitive contre ${s.name}`,lines:[`Ta domination du système attire les ${NPC_NAME} : une flotte renforcée fonce sur ${plName(t.pid)}, arrivée à ${clock(now+eta)}.`,'Prépare la défense ou lance un ralliement défensif avec tes alliés.']})}}}
 // annonce et récompense quand un joueur devient seigneur de secteur (paliers 3, 5 et 8 systèmes voisins)
 let SECT_T=0;const SECT_REW={3:{g:1,ins:15},5:{g:2,ins:25},8:{g:3,ins:40}};
+// reprise de l'ancienne règle : une flotte en orbite d'une de tes planètes dotée de Hangars comptait pour celle-ci. On la rattache officiellement à cette planète pour que les comptes ne changent pas.
+let BAYMIG=false;async function bayMigrate(){if(BAYMIG||!S.players[ME])return;BAYMIG=true;
+  for(const f of Object.values(S.fleets)){if(f.owner!==ME||f.phase!=='hold')continue;const q=S.planets[f.to];if(!q||q.owner!==ME||!q.lv||isBody(f.to)||(q.lv.bay||0)<1||(f.home||f.from)===f.to)continue;
+    await locked('fleets/'+f.fid,async(fd,ref)=>{if(!fd||fd.phase!=='hold'||fd.owner!==ME||(fd.home||fd.from)===fd.to)return;await ref.set({...fd,home:fd.to})}).catch(()=>{})}}
 async function sectorTick(){const now=Date.now();if(now-SECT_T<60000||!S.players[ME])return;SECT_T=now;SECC.t=0;const sc=sectors();
   for(const uid of Object.keys(S.players)){const sec=sc.of[uid],tier=sec?SECT_TIERS.filter(t=>sec.size>=t).pop():0,id='sector-'+uid,ev=S.events[id]||{};if((ev.tier||0)===tier)continue;let rep=null,rew=null;
     await locked('events/'+id,async(e,eref)=>{e=e||{kind:'event',id,rewarded:[]};const pv=e.tier||0;if(pv===tier)return;const got=SECT_TIERS.filter(t=>t<=tier&&!(e.rewarded||[]).includes(t));
@@ -1916,11 +1923,13 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   });
   for(const r of reps)await report(r)}
 async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
-  if(!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){const cap=capitalOf(f.owner);dest=cap&&cap.pid}
+  if(!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){ // planète d'attache perdue : la plus proche de tes planètes qui a la place, sinon la capitale
+    const own=Object.values(S.planets).filter(q=>q.owner===f.owner&&PLANETS[q.pid]&&q.pid!==dest&&(!isBody(q.pid)||(q.lv&&q.lv.dock>=1))&&bayCap(q)-bayUse(q,f.owner)>=placesOf(f.ships)).sort((a,b)=>dist(a.pid,f.to)-dist(b.pid,f.to));
+    const cap=capitalOf(f.owner);dest=own[0]?own[0].pid:cap&&cap.pid}
   if(dest)await locked('planets/'+dest,async(d,ref)=>{if(!d||d.owner!==f.owner)return;const p=settle(d,Date.now());addShips(p.ships,f.ships);if(!isBody(dest))addRes(p.res,f.cargo);if(f.modCargo){p.mods=p.mods||{};for(const w in f.modCargo)p.mods[w]=(p.mods[w]||0)+f.modCargo[w]}await ref.set(p)});
   if(f.rareCargo&&S.players[f.owner])await withPlayer(f.owner,d=>{for(const k in f.rareCargo)d.rare[k]=(d.rare[k]||0)+f.rareCargo[k]}).catch(()=>{});
   await fref.delete()}
-async function resolveDue(){if(!db||S.spectator)return;await battleTicks();await pillardTick().catch(()=>{});await lordTick().catch(()=>{});await sectorTick().catch(()=>{});await relicTick().catch(()=>{});await pbTick().catch(()=>{});await deepTick().catch(()=>{});const now=Date.now();
+async function resolveDue(){if(!db||S.spectator)return;await battleTicks();await pillardTick().catch(()=>{});await lordTick().catch(()=>{});await sectorTick().catch(()=>{});await bayMigrate().catch(()=>{});await relicTick().catch(()=>{});await pbTick().catch(()=>{});await deepTick().catch(()=>{});const now=Date.now();
   for(const f of Object.values(S.fleets)){if(busy.has(f.fid))continue;if(f.group){const L=S.fleets[f.group];if(L&&L.phase==='out')continue}if(f.phase==='rally'){if(f.rallyUntil<=now&&!busy.has('r'+f.fid)){busy.add('r'+f.fid);try{await rallyLaunch(f.fid,true)}catch(e){}finally{busy.delete('r'+f.fid)}}continue}if(f.phase==='rwait')continue;
     if(f.phase==='wait'){const c=S.fleets[f.target];if(!c||c.phase!=='out'){busy.add(f.fid);try{await locked('fleets/'+f.fid,async(fd,fref)=>{if(fd&&fd.phase==='wait')await holdAt(fd,fref,fd.ships,fd.cargo,{target:null})})}catch(e){}finally{busy.delete(f.fid)}}continue}
     if(f.phase==='hold'){const nx=ambushNext(f);if(nx&&nx<=now){busy.add(f.fid);try{await locked('fleets/'+f.fid,async(fd,fref)=>{if(fd&&fd.phase==='hold')await ambush(fd,fref)})}catch(e){}finally{busy.delete(f.fid)}}continue}
@@ -3632,7 +3641,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='143';
+const APP_VERSION='144';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

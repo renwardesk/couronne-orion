@@ -211,6 +211,26 @@ body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tab
 .who{flex-wrap:wrap}.emp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:10px;font-size:12.5px;color:var(--dim)}.emp b{color:var(--ink)}.empcu{display:grid;gap:3px;min-width:150px}.slotup{width:28px;height:28px;border-radius:8px;border:1px solid var(--line,#2a3354);background:#141a30;color:var(--dim);font-size:13px;line-height:1;cursor:pointer}.slotup.on{border-color:var(--good);color:#06120b;background:var(--good);box-shadow:0 0 10px color-mix(in srgb,var(--good) 60%,transparent);animation:slotp 1.6s ease-in-out infinite}@keyframes slotp{50%{transform:scale(1.12)}}.empcu .prog{height:4px}
 .cav{display:inline-grid;place-items:center;width:38px;height:38px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--rc) 55%,#fff 0%),#10172c 75%);border:2px solid var(--rc);font-family:var(--f-display);font-size:13px;color:#fff;letter-spacing:.03em}
 .cmdc{border-left:3px solid var(--rc)}.chests{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}.chest{display:grid;justify-items:center;gap:4px;padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:#0d1428;text-align:center;font-size:13px}.chico{font-size:28px;color:var(--cc);line-height:1}
+.cfx{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--rc) 22%,#05081a) 0%,#05081af2 60%);animation:cfxIn .25s ease-out both;overflow:hidden;padding:20px}
+.cfxtitle{position:absolute;top:calc(28px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;font-family:var(--f-display);letter-spacing:.08em;color:var(--cc);font-size:16px;text-transform:uppercase}
+.cfxstage{position:relative;display:grid;place-items:center;width:min(340px,90vw);min-height:420px}
+.cfxchest{width:150px;filter:drop-shadow(0 8px 24px #000a);animation:cfxShake 1.1s ease-in-out both,cfxGone .45s 1.25s ease-in forwards}@keyframes cfxGone{to{opacity:0;transform:translateY(60px) scale(.7)}}.cfxlid{transform-origin:60px 40px;animation:cfxLid .5s 1.05s cubic-bezier(.3,1.6,.5,1) both}
+.cfxflash{position:absolute;width:40px;height:40px;border-radius:50%;background:var(--rc);filter:blur(10px);opacity:0;animation:cfxFlash .9s 1.1s ease-out both}
+.cfxrays{position:absolute;width:160vmax;height:160vmax;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--rc) 28%,transparent) 0 6deg,transparent 6deg 18deg);opacity:0;animation:cfxRays 1.2s 1.1s ease-out forwards,cfxSpin 18s 1.1s linear infinite;mask-image:radial-gradient(circle,#000 0,transparent 55%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 55%)}
+.cfxreward{position:absolute;inset:0;display:grid;align-content:center;justify-items:center;gap:8px;text-align:center;opacity:0;transform:scale(.4);animation:cfxPop .6s 1.35s cubic-bezier(.2,1.6,.4,1) forwards}
+.cfxbadge{filter:drop-shadow(0 0 22px var(--rc))}.cfxrar{font-family:var(--f-display);font-size:30px;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 0 18px var(--rc)}
+.cfxname{font-size:22px;font-weight:700;color:#fff}.cfxspec{font-size:13px;color:var(--dim);max-width:300px}.cfxsub{font-size:13px;color:var(--dim);margin-bottom:6px}
+.cfxres{display:grid;gap:10px}.cfxres div{display:flex;gap:10px;align-items:baseline;justify-content:center}.cfxres b{font-family:var(--f-data);font-size:30px;color:#fff;text-shadow:0 0 14px var(--rc)}.cfxres span{color:var(--dim)}
+.cfxsparks{position:absolute;inset:0;pointer-events:none}.cfxsparks i{position:absolute;left:50%;top:45%;width:6px;height:6px;border-radius:50%;background:var(--rc);box-shadow:0 0 10px var(--rc);opacity:0;animation:cfxSpark 1.4s calc(1.15s + var(--d)) ease-out infinite;transform:rotate(var(--a)) translateY(0)}
+.cfx.leg .cfxname{color:#ffe59a}
+@keyframes cfxIn{from{opacity:0}to{opacity:1}}
+@keyframes cfxShake{0%{transform:translateY(40px) scale(.6);opacity:0}25%{transform:translateY(0) scale(1);opacity:1}40%,60%,80%{transform:rotate(-7deg)}50%,70%,90%{transform:rotate(7deg)}100%{transform:rotate(0) translateY(0);opacity:1}}
+@keyframes cfxLid{to{transform:translateY(-38px) rotate(-28deg);opacity:0}}
+@keyframes cfxFlash{0%{opacity:0;transform:scale(1)}30%{opacity:1;transform:scale(6)}100%{opacity:0;transform:scale(14)}}
+@keyframes cfxRays{to{opacity:1}}@keyframes cfxSpin{to{rotate:360deg}}
+@keyframes cfxPop{to{opacity:1;transform:scale(1)}}
+@keyframes cfxSpark{0%{opacity:1;transform:rotate(var(--a)) translateY(0)}100%{opacity:0;transform:rotate(var(--a)) translateY(-170px)}}
+@media (prefers-reduced-motion:reduce){.cfx *{animation-duration:.01s!important;animation-delay:0s!important}}
 .chestwin{display:grid;gap:6px;border-color:var(--rc);box-shadow:0 0 24px color-mix(in srgb,var(--rc) 35%,transparent)}.chestwin span{display:flex;align-items:center;gap:8px}
 .flagpick{display:grid;gap:4px;text-align:left;width:100%;font:inherit;color:inherit;background:var(--panel);cursor:pointer}.flagpick[aria-pressed="true"]{outline:1px solid var(--rc)}
 .cbadge{display:inline-block;vertical-align:middle;flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}.ctag{display:inline-flex;align-items:center;gap:5px;font-weight:600}.ml .cbadge{margin:0 1px 0 3px}
@@ -993,14 +1013,34 @@ async function openChest(t){await act(async()=>{const C=CHEST[t];if(!C)return;co
   await withPlayer(ME,d=>{if(t==='st'){if(d.starter)throw err('Coffre déjà ouvert.');d.starter=true}else{d.chests=d.chests||{};if(!(d.chests[t]>0))throw err('Tu n’as pas ce coffre.');d.chests[t]--}});
   let got=null;
   if(Math.random()<C.cmd){let rar=rollRar(C.p,Math.random());const order=['l','e','r','c'],tries=[rar,...order.slice(order.indexOf(rar)+1),...order.slice(0,order.indexOf(rar)).reverse()];
-    for(const rr of tries){const pool=CMDDB.filter(x=>x[2]===rr&&!x[4]).sort(()=>Math.random()-.5);for(const[k]of pool){if(S.events['cm-'+k])continue;let ok=false;
+    for(const rr of tries){const pool=CMDDB.filter(x=>x[2]===rr&&!x[4]).sort(()=>Math.random()-.5);for(const[k]of pool){if(S.events['cm-'+k]&&S.events['cm-'+k].owner)continue;let ok=false;
         try{await locked('events/cm-'+k,async(ev,eref)=>{if(ev&&ev.owner)return;await eref.set({kind:'event',id:'cm-'+k,owner:ME,at:Date.now()});ok=true})}catch(e){}
         if(ok){got=k;break}}if(got)break}}
   if(got){await withPlayer(ME,d=>{d.cmds=d.cmds||[];d.cmds.push({id:newId(),key:got,xp:0})});const i=CMDK[got];sfx.done();
-    S.chestShow={t,k:got};toast(`${C.n} : ${RAR[i.r].n.toLowerCase()} ! ${i.n} rejoint tes rangs.`)}
+    S.chestShow={t,k:got};chestFx({t,k:got})}
   else{const k=t==='g'?3:t==='s'?2:1,ins=t==='g'?2:t==='s'?1:0,res={m:600*k,c:450*k,f:200*k};const cap=capitalOf(ME);if(cap)await locked('planets/'+cap.pid,async(pd,ref)=>{if(!pd)return;const p=settle(pd,Date.now());addRes(p.res,res);await ref.set(p)});
-    if(ins)await withPlayer(ME,d=>{d.ins=(d.ins||0)+ins});S.chestShow={t,res,ins};sfx.done();toast(`${C.n} : ${lootTxt(res)}${ins?` et ${ins} insigne${ins>1?'s':''}`:''}.`)}
+    if(ins)await withPlayer(ME,d=>{d.ins=(d.ins||0)+ins});S.chestShow={t,res,ins};chestFx({t,res,ins})}
   render()})}
+// ---------- marché noir : on revend un commandant aux contrebandiers contre des insignes et des Éclats du Vide ; il retourne dans les coffres ----------
+const BLACK={c:[2,15],r:[4,40],e:[8,100],l:[15,250]};
+const blackPrice=c=>{const i=cmdInfo(c),L=cmdLvl(c.xp),b=BLACK[i.r]||BLACK.c;return{ins:b[0]+Math.floor(L/2),frag:Math.round(b[1]*(1+.1*L))}};
+const cmdSellBlock=c=>Object.values(S.fleets).some(f=>f.owner===ME&&f.cmd===c.id)?'en mission':cmdMoving(c)?'en déplacement':null;
+function blackHtml(){const L=cmdsOf(ME);if(!L.length)return'';return`<section style="display:grid;gap:10px"><h2>🕶 Marché noir</h2><p class="meta" style="margin:0">Des contrebandiers rachètent tes commandants en trop contre des insignes et des Éclats du Vide. Plus il est rare et expérimenté, plus il vaut cher. Le commandant vendu repart dans les coffres : un autre joueur pourra le trouver.</p>
+  <div class="list">${[...L].sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).map(c=>{const i=cmdInfo(c),pr=blackPrice(c),bl=cmdSellBlock(c),arm=S.sellArm===c.id;return`<div class="item"><div class="ihead"><span>${cmdBadge(c,22)} <b style="color:${RAR[i.r].col}">${esc(i.n)}</b> <span class="eff">· ${RAR[i.r].n} · niv. ${cmdLvl(c.xp)}</span></span></div>
+    <div class="foot"><span class="eff">🎖 ${pr.ins} insigne${pr.ins>1?'s':''} · ✦ ${pr.frag} Éclats</span>${bl?`<span class="lv">${bl}</span>`:arm?`<span style="display:flex;gap:6px"><button class="btn ghost sm" data-act="sellx">Annuler</button><button class="btn sm" style="background:var(--bad);border-color:var(--bad)" data-act="sellok" data-c="${c.id}">Confirmer la vente</button></span>`:`<button class="btn ghost sm" data-act="sell" data-c="${c.id}">Vendre</button>`}</div></div>`}).join('')}</div></section>`}
+async function sellCmd(id){await act(async()=>{let key=null,pr=null,nm='';const c0=cmdById(ME,id);if(!c0)throw err('Commandant introuvable.');const bl=cmdSellBlock(c0);if(bl)throw err(`Impossible : ce commandant est ${bl}.`);
+  await withPlayer(ME,d=>{const c=(d.cmds||[]).find(x=>x.id===id);if(!c)throw err('Commandant introuvable.');key=c.key;pr=blackPrice(c);nm=cmdInfo(c).n;d.cmds=d.cmds.filter(x=>x.id!==id);d.ins=(d.ins||0)+pr.ins;d.frag=(d.frag||0)+pr.frag});
+  if(key)await locked('events/cm-'+key,async(ev,eref)=>{if(ev&&ev.owner&&ev.owner!==ME)return;await eref.set({kind:'event',id:'cm-'+key,owner:null,at:Date.now(),freed:true})}).catch(()=>{});
+  S.sellArm=null;sfx.done();toast(`${nm} vendu au marché noir : +${pr.ins} insigne${pr.ins>1?'s':''} et +${pr.frag} Éclats du Vide.`)})}
+// ---------- ouverture de coffre animée ----------
+function chestFx(r){let el=document.getElementById('chestfx');if(!el){el=document.createElement('div');el.id='chestfx';document.body.appendChild(el)}const C=CHEST[r.t],i=r.k?CMDK[r.k]:null,col=i?RAR[i.r].col:C.col,leg=i&&i.r==='l',epic=i&&i.r==='e';
+  const reward=i?`<div class="cfxbadge">${cmdBadge(r.k,128)}</div><div class="cfxrar" style="color:${col}">${RAR[i.r].n}${leg?' !!!':epic?' !':''}</div><div class="cfxname">${esc(i.n)}</div><div class="cfxspec">${SPEC[i.sp].n} · ${SPEC[i.sp].d(Math.round(RAR[i.r].sp*100))}</div><div class="cfxsub">rejoint tes rangs</div>`
+    :`<div class="cfxres">${Object.entries(r.res||{}).map(([k,v])=>`<div><b>+${fmt(v)}</b><span>${RES[k]}</span></div>`).join('')}${r.ins?`<div><b>+${r.ins}</b><span>insigne${r.ins>1?'s':''}</span></div>`:''}</div><div class="cfxsub">livrés sur ta capitale</div>`;
+  el.innerHTML=`<div class="cfx${leg?' leg':''}" style="--cc:${C.col};--rc:${col}" data-act="cfxx"><div class="cfxrays"></div><div class="cfxstage">
+    <svg class="cfxchest" viewBox="0 0 120 100" aria-hidden="true"><g class="cfxlid"><path d="M14 40 Q60 6 106 40 Z" fill="var(--cc)" stroke="#0a0f1e" stroke-width="3"/><rect x="54" y="26" width="12" height="16" rx="2" fill="#0a0f1e" opacity=".5"/></g><rect x="14" y="40" width="92" height="52" rx="5" fill="var(--cc)" stroke="#0a0f1e" stroke-width="3"/><rect x="14" y="56" width="92" height="7" fill="#0a0f1e" opacity=".35"/><rect x="52" y="48" width="16" height="20" rx="3" fill="#0a0f1e" opacity=".55"/></svg>
+    <div class="cfxflash"></div><div class="cfxreward">${reward}<button class="btn" data-act="cfxx">${i?(leg?'Légendaire !':'Super !'):'Super !'}</button></div>
+    ${leg||epic?`<div class="cfxsparks">${Array.from({length:leg?26:14},(_,k)=>`<i style="--a:${(k*360/(leg?26:14)).toFixed(0)}deg;--d:${(.2+Math.random()*.5).toFixed(2)}s"></i>`).join('')}</div>`:''}</div><div class="cfxtitle">${C.n}</div></div>`;
+  setTimeout(()=>{const x=el.querySelector('.cfx');if(x)x.classList.add('done')},1500);  try{sfx.build()}catch(e){}setTimeout(()=>{try{sfx.done()}catch(e){}},1150);if(leg)setTimeout(()=>{try{sfx.done()}catch(e){}},1500)}
 async function trainCmd(id){await act(async()=>{await withPlayer(ME,d=>{if((d.ins||0)<1)throw err('Il faut un insigne de commandement.');const c=(d.cmds||[]).find(x=>x.id===id);if(!c)throw err('Commandant introuvable.');if(cmdLvl(c.xp)>=CMD_LMAX)throw err('Niveau maximum atteint.');d.ins--;c.xp=(c.xp||0)+120});sfx.build();toast('Entraînement : +120 XP.')})}
 async function insToChest(){await act(async()=>{await withPlayer(ME,d=>{if((d.ins||0)<4)throw err('Il faut 4 insignes.');d.ins-=4;d.chests=d.chests||{};d.chests.s=(d.chests.s||0)+1});sfx.done();toast('4 insignes échangés contre un coffre d’argent.')})}
 // insigne unique de chaque commandant (sans écu) : ailes, lauriers et chevrons selon la rareté, emblème selon la spécialité
@@ -1052,7 +1092,7 @@ function cmdsHtml(){const pl=S.players[ME];if(!pl)return'';const L=cmdsOf(ME),ch
   <div class="insx"><div class="ihead"><b>🎖 Insignes : ${ins}</b><span class="lv">à récupérer sur les Écumeurs</span></div><div class="eff" style="font-size:12px">Chaque victoire sur une meute d’Écumeurs peut en rapporter (plus sur les repaires, Armadas et gardiens). Échange-les contre des coffres :</div>
   <div class="insrow">${INSX.map(([t,n])=>`<div class="insc" style="--cc:${CHEST[t].col}"><span class="prog"><b style="width:${Math.min(100,ins/n*100)}%;background:var(--cc)"></b></span><span>${CHEST[t].n.replace('Coffre ','')}</span><small>${Math.min(ins,n)}/${n}</small><button class="btn ${ins>=n?'':'ghost '}sm" data-act="ins2t" data-t="${t}" ${ins>=n?'':'disabled'}>Échanger</button></div>`).join('')}</div></div>
   ${(()=>{const fr=Math.floor(pl.frag||0);return`<div class="insx"><div class="ihead"><b>✦ Éclats du Vide : ${fmt(fr)}</b><span class="lv">butin des Écumeurs</span></div><div class="eff" style="font-size:12px">Échange-les contre des coffres, ou utilise-les pour soigner un commandant blessé (bouton sur sa fiche).</div><div class="insrow">${FRAGX.map(([t,n])=>`<div class="insc" style="--cc:${CHEST[t].col}"><span class="prog"><b style="width:${Math.min(100,fr/n*100)}%;background:var(--cc)"></b></span><span>${CHEST[t].n.replace('Coffre ','')}</span><small>${Math.min(fr,n)}/${n}</small><button class="btn ${fr>=n?'':'ghost '}sm" data-act="frag2t" data-t="${t}" ${fr>=n?'':'disabled'}>Échanger</button></div>`).join('')}</div></div>`})()}</div>
-  ${L.length?`<div class="list">${[...L].sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).map(cmdCard).join('')}</div>`:''}</section>`}
+  ${L.length?`<div class="list">${[...L].sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).map(cmdCard).join('')}</div>`:''}</section>${blackHtml()}`}
 // ---------- commandants des Écumeurs : ils s’aguerrissent tant qu’on les laisse vivre ----------
 const CMD_EPOCH=Date.UTC(2026,9,16,13,0);
 const ECU_N=['Kraag le Rouge','Vessa Crocs-Noirs','Mordo l’Ancien','Sythra la Pâle','Gharn Brise-Coque','Lysk la Veuve','Torg Trois-Doigts','Zhaal l’Affamé','Ruun l’Écorcheur','Iskra Feu-Pâle','Drevan Sans-Nom','Ossia la Hyène'];
@@ -2572,6 +2612,8 @@ document.addEventListener('click',e=>{
   else if(a==='fretask')retask(b.dataset.f);
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='chest')openChest(b.dataset.t);
+  else if(a==='sell'){S.sellArm=b.dataset.c;render()}else if(a==='sellx'){S.sellArm=null;render()}else if(a==='sellok')sellCmd(b.dataset.c);
+  else if(a==='cfxx'){const el=document.getElementById('chestfx');if(el&&el.querySelector('.cfx.done'))el.innerHTML='';return}
   else if(a==='cmdtrain')trainCmd(b.dataset.c);
   else if(a==='hflag'){if(b.dataset.k){S.hflag=b.dataset.k;render();window.scrollTo({top:0,behavior:'smooth'})}}
   else if(a==='ins2chest')insToChest();
@@ -3383,7 +3425,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='133';
+const APP_VERSION='134';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

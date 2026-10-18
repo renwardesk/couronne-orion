@@ -1565,7 +1565,7 @@ async function mount(cls,slot,w){await act(async()=>{const pid=S.sel;await withP
 async function savePaint(part,c){await act(async()=>{await withPlayer(ME,d=>{d.paint={...(d.paint||{}),[part]:c}})})}
 // ---------- ralliements ----------
 // capacité (en places de hangar) et bonus d'attaque/résistance donnés par le commandant organisateur
-const rallyCap=(uid,id)=>{const c=cmdById(uid,id);if(!c)return 0;return Math.round(({c:350,r:500,e:700,l:1000}[cmdInfo(c).r]||350)*(1+.1*cmdLvl(c.xp)))};
+const rallyCap=(uid,id)=>{const c=cmdById(uid,id);if(!c)return 0;return Math.round(({c:600,r:850,e:1200,l:1700}[cmdInfo(c).r]||350)*(1+.1*cmdLvl(c.xp)))};
 const rallyBonus=(uid,id)=>{const c=cmdById(uid,id);if(!c)return 0;return({c:.04,r:.06,e:.08,l:.1}[cmdInfo(c).r]||.04)+.01*cmdLvl(c.xp)};
 const rallyLoad=L=>placesOf(L.ships)+rallyMembers(L.fid).reduce((t,x)=>t+placesOf(x.ships),0);
 const rallyMembers=lid=>Object.values(S.fleets).filter(x=>x.rally===lid&&(x.phase==='out'||x.phase==='rwait'));
@@ -2008,13 +2008,16 @@ function renderHangar0(){if(S.hcls==='flag')return flagHtml();const p=view(S.sel
   <div class="card" style="display:grid;gap:10px">${[['hull','Coque',HULLS],['trim','Liserés',COLORS],['glow','Réacteurs',GLOWS]].map(([part,lab,pal])=>`<div style="display:grid;gap:6px"><span class="eff">${lab}</span><div class="swatches">${pal.map(c=>`<button class="sw" data-act="paint" data-p="${part}" data-c="${c}" aria-label="${lab} ${c}" aria-pressed="${pt[part]===c}" style="background:${c}"></button>`).join('')}</div></div>`).join('')}</div></section>`}
 function intelBox(pid){const it=latestIntel(pid);if(!it)return'';const parts=[];parts.push(it.ships?`flotte : ${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue');if(it.res)parts.push(`stocks : ${fmt(it.res.m)} métal, ${fmt(it.res.c)} cristal, ${fmt(it.res.f)} hélium-3`);
   return`<span class="intel">🔭 Espionné ${ago(it.at)} · ${parts.join(' · ')}</span>`}
-function modalIntel(to,ships){const it=latestIntel(to);const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
+function modalIntel(to,ships){const it0=latestIntel(to),stale=it0&&PLANETS[to]&&PLANETS[to].raid&&raidIntelStale(to,it0),it=stale?null:it0;if(stale)return`<p class="eff" style="margin:0">Armée en face : <b>renseignement périmé</b> (le groupe est réapparu ou a changé depuis ton espionnage ${ago(it0.at)}). Espionne-le à nouveau.</p>`;const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
   const foe={...(it.ships||{}),...(it.turrets?{turret:it.turrets}:{})},wf=worth(foe),wm=worth(ships),r=wf?wm/wf:0;
   return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)})</span>${M.mission==='attack'?pctHtml(winChance(att,foe,forceMods(ME,M.cmd),md),'Chance de victoire'):''}`:''}</div>`}
 // mot sous le nom sur la carte : espionnée récemment, ou à re-espionner si la cible a changé depuis (nouveau maître, repaire des Écumeurs, flotte détruite)
+// renseignement sur des Écumeurs périmé : groupe réapparu depuis, combat après l'espionnage, ou plus de 6 h (ils grossissent)
+function raidIntelStale(pid,it){const R=RAIDS[pid];if(!R||!it)return false;const ev=S.events[pid],now=Date.now();if(ev){if(ev.done){const back=(ev.doneAt||0)+respawnOf(R);if(now>=back&&it.at<back)return true}else if((ev.doneAt||0)>it.at||(ev.at||0)>it.at)return true}
+  return R.local&&now-it.at>6*HR}
 function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);if(v.owner===ME)return'';let old=!P.raid&&(it.owner||null)!==(v.owner||null);
   if(!old&&!P.raid&&SYSTEMS[P.sys]&&SYSTEMS[P.sys].lair){const L=lairInfoAt(SYSTEMS[P.sys]);if(L&&L.pid===pid&&L.founded>it.at)old=true}
-  if(!old&&P.raid){const ev=S.events[pid];if(ev&&((ev.doneAt||0)>it.at||(ev.at||0)>it.at))old=true}
+  if(!old&&P.raid&&raidIntelStale(pid,it))old=true;
   return old?'<i class="sub2" style="color:#ff9b6b">🔍 à re-espionner</i>':`<i class="sub2" style="color:#9fe0a8">🔍 espionnée ${ago(it.at)}</i>`}
 // rapports : les pertes en rouge
 const repLine=l=>esc(l).replace(/(pertes\s*:\s*)([^.—·]+)/gi,(m,a,b)=>/^aucune/i.test(b.trim())?m:`${a}<b style="color:var(--bad,#ff6b6b)">${b}</b>`);
@@ -3380,7 +3383,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='132';
+const APP_VERSION='133';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

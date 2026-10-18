@@ -108,6 +108,9 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .tone-loss{border-left:3px solid var(--bad)}
 .tone-info{border-left:3px solid var(--line)}
 .rep p{margin:0;font-size:13px;color:var(--dim)}
+.rcat{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-right:7px;vertical-align:2px;color:var(--cc);background:color-mix(in srgb,var(--cc) 16%,transparent);border:1px solid color-mix(in srgb,var(--cc) 40%,transparent)}
+.rep{background:linear-gradient(90deg,color-mix(in srgb,var(--cc) 7%,var(--panel)) 0,var(--panel) 45%)}
+.cat-feat{--cc:#ffcf6b}.cat-spy{--cc:#5ec8ff}.cat-exp{--cc:#c58cff}.cat-thr{--cc:#ff8a5c}.cat-war{--cc:#ff5a6e}.cat-eco{--cc:#6fe3a1}.cat-inf{--cc:#9aa3b5}
 .rep time{font-family:var(--f-data);font-size:12px;color:var(--dim)}
 .rank{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center}
 .tabs .wrap.many{grid-template-columns:repeat(5,1fr)!important}.tabs .wrap.many .tab{font-size:12.5px;letter-spacing:.02em;padding:7px 0 8px}.tabs .wrap.many .tab[aria-current="true"]::before{left:25%;right:25%}
@@ -1691,8 +1694,10 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
   const color=(S.joinColor||freeColor()).toLowerCase();
   const used=new Set(Object.keys(S.planets));const ownedSys=new Set(Object.values(S.planets).filter(p=>p.owner).map(p=>PLANETS[p.pid].sys));
   const free=p=>!p.body&&!p.raid&&!p.comet&&!p.core&&!p.sig&&!JEWELS[p.pid]&&!RELIC_AT[p.pid]&&!used.has(p.pid)&&!ownedSys.has(p.sys)&&(lairInfoAt(SYSTEMS[p.sys])||{}).pid!==p.pid;
-  // on démarre près du premier empire fondé (l'hôte), dans un système voisin libre
-  const anchor=Object.values(S.players).sort((a,b)=>(a.joined||0)-(b.joined||0)).map(p=>capitalOf(p.uid)).find(Boolean);let c=[];
+  // nouvel empire : ni collé aux autres, ni à l'autre bout de la galaxie — entre 3 et 5 systèmes (≈ 70 à 115 unités) de l'empire le plus proche
+  const others=Object.values(S.planets).filter(q=>q.owner&&!isNpc(q.owner)&&PLANETS[q.pid]&&galOf(q.pid)===0).map(q=>SYSTEMS[PLANETS[q.pid].sys]);let c=[];
+  if(others.length){const dmin=s0=>Math.min(...others.map(o=>Math.hypot(o.x-s0.x,o.y-s0.y,o.z-s0.z)));for(const[lo,hi]of[[70,115],[55,140],[40,170]]){c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].gal===0&&!SYSTEMS[p.sys].deep&&!pbOfPid(p.pid)&&(()=>{const d=dmin(SYSTEMS[p.sys]);return d>=lo&&d<=hi})());if(c.length)break}}
+  const anchor=c.length?null:Object.values(S.players).sort((a,b)=>(a.joined||0)-(b.joined||0)).map(p=>capitalOf(p.uid)).find(Boolean);
   if(anchor){const A=SYSTEMS[PLANETS[anchor.pid].sys];c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].gal===A.gal).map(p=>({p,d:Math.hypot(SYSTEMS[p.sys].x-A.x,SYSTEMS[p.sys].y-A.y,SYSTEMS[p.sys].z-A.z)})).filter(x=>x.d>=30).sort((a,b)=>a.d-b.d);const near=[...new Set(c.map(x=>x.p.sys))].slice(0,4);c=c.filter(x=>near.includes(x.p.sys)).map(x=>x.p)}
   if(!c.length)c=Object.values(PLANETS).filter(p=>free(p)&&SYSTEMS[p.sys].rad>250&&SYSTEMS[p.sys].gal===0);if(!c.length)c=Object.values(PLANETS).filter(p=>!p.body&&!p.raid&&!p.comet&&!p.core&&!p.sig&&!JEWELS[p.pid]&&!RELIC_AT[p.pid]&&!used.has(p.pid));
   c.sort(()=>Math.random()-.5);
@@ -2003,7 +2008,7 @@ function renderPlanet(){const p=view(S.sel),m=PLANETS[p.pid],sys=SYSTEMS[m.sys],
   const bonus=body?`extraction de ${RARE[rkOf(p)].toLowerCase()}`:T.m>1?'+30 % métal':T.c>1?'+30 % cristal':T.f>1?'+40 % hélium-3':'production équilibrée';
   const bq=p.bq||[],full=bq.length>=BQ_MAX,qn=k=>bq.filter(x=>x.k===k).length,has3d=V3.on&&V3.ok,B=body?BUILD_OUT:(NOTECH?Object.fromEntries(Object.entries(BUILD).filter(([k])=>k!=='acad'&&k!=='arsenal')):BUILD),cap=body?view(capitalOf(ME).pid):null,payer=body?cap.res:p.res;
   const battleCard=(()=>{const e=activeBattle(S.sel);return e?`<div class="card" style="border-color:var(--bad);display:grid;gap:4px"><b style="color:var(--bad)">⚔ Grande bataille en cours ici</b><div class="eff">Échange ${e.rounds}/${LB_MAXR} · suis-la et appelle des renforts depuis l’onglet Flottes.</div></div>`:''})();
-  return`${attackCards(S.sel)}${battleCard}<section class="phead" style="--pc:${T.col}">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
+  return`${installBanner()}${attackCards(S.sel)}${battleCard}<section class="phead" style="--pc:${T.col}">${has3d?'':`<div class="orb" style="--glow:${T.col};background:radial-gradient(circle at 34% 30%,#fff9 0,${T.col} 26%,color-mix(in srgb,${T.col} 40%,#000) 78%)"></div>`}
     <div style="min-width:0;flex:1"><h1>${esc(m.name)}${p.capital?'<span class="badge">Capitale</span>':body?'<span class="badge">Avant-poste</span>':''}</h1><p class="meta">${T.n} (${bonus}) · ${esc(sys.name)} · ${esc(GALS[sys.gal].name)}</p></div>
     ${window.THREE?`<button class="tgl" data-act="v3" aria-pressed="${V3.on}">Vue 3D</button>`:''}</section>
   <div class="chiprow">${lordChip(p)}${miniCometChips()}${jewelCard(p)}</div>
@@ -2212,9 +2217,18 @@ function renderEmpire(){if(!empireOn())return`<h1>Empire</h1><p class="empty">L�
     <div class="foot"><span class="eff">${S.empN||10} par chantier, payés par chaque planète.</span><button class="btn sm" data-act="empship" ${sp.some(x=>!x.why)?'':'disabled'}>Lancer sur ${sp.filter(x=>!x.why).length}</button></div></div></section>`}
 function renderCmds(){return`<h1>Commandants</h1>${cmdsHtml()}`}
 function renderQuests(){return`<section style="display:grid;gap:4px"><h1>Quêtes</h1><p class="meta" style="margin:0">Chaque quête t’apprend une mécanique du jeu et rapporte des ressources.</p></section><div class="foot" style="justify-content:flex-end"><button class="btn ghost sm" data-act="welshow">Revoir le guide du débutant</button></div>${questsHtml()}`}
+// catégorie d'un message du Journal : couleur et étiquette
+function repCat(r){const t=(r.title||'')+' '+(r.lines||[]).join(' ');
+  if(r.feat||/^🏆/.test(r.title||''))return['feat','🏆','Exploit'];
+  if(r.intel||/espionnage|sondes|Sonde /i.test(r.title||''))return['spy','🔭','Espionnage'];
+  if(/^(📡|🧭|💎|🏺)/.test(r.title||'')||/signal/i.test(r.title||''))return['exp','📡','Exploration'];
+  if(/foncent sur|attaque |contre-attaque|expédition punitive|raid|vendetta|☠|⚠/i.test(r.title||'')&&!r.battle)return['thr','⚠','Menace'];
+  if(r.battle||/bataille|anéantis|assaut|combat|repouss|chassés|vaincu/i.test(r.title||''))return['war','⚔','Combat'];
+  if(/convoi|comète|récolt|colon|satellite|coffre|rattrapage|livr|marché|comptoir|quête/i.test(t))return['eco','💰','Économie'];
+  return['inf','ℹ','Info']}
 const isCombatRep=r=>!!r.battle||r.tone==='win'||r.tone==='loss';
 const questReady=()=>{const pl=S.players[ME];if(!pl)return 0;const done=pl.quests||[],st=qStats();return QUESTS.filter(q=>!done.includes(q.id)).filter(q=>{const[c,g]=q.need(st);return c>=g}).length};
-function renderLog(){const lt=S.logTab||'combat',R=S.reports.filter(r=>lt==='rally'?r.rally:r.rally?false:lt==='combat'?isCombatRep(r):!isCombatRep(r));return`<section style="display:grid;gap:10px"><h1>Journal</h1><div class="chips"><button class="chip" data-act="logt" data-t="combat" aria-pressed="${lt==='combat'}">Combats</button><button class="chip" data-act="logt" data-t="rally" aria-pressed="${lt==='rally'}">⚑ Ralliements</button><button class="chip" data-act="logt" data-t="other" aria-pressed="${lt==='other'}">Espionnage et autres</button></div>${R.length?`<div class="list">${R.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');return`<div class="item rep tone-${tone}"><div class="ihead"><b>${esc(r.title)}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${repLine(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}${(()=>{const pk=(r.intel&&r.intel.pid)||(r.battle&&r.battle.pid)||r.pid;const m=pk&&PLANETS[pk];return m?`<div class="foot"><span></span><button class="btn ghost sm" data-act="pmap" data-s="${m.sys}" data-p="${esc(pk)}">📍 Voir sur la carte</button></div>`:''})()}</div>`}).join('')}</div>`:`<p class="empty">${lt==='combat'?'Tes rapports de combat apparaîtront ici.':'Rapports d’espionnage, convois, constructions et nouvelles de l’univers.'}</p>`}</section>`}
+function renderLog(){const lt=S.logTab||'combat',R=S.reports.filter(r=>lt==='rally'?r.rally:r.rally?false:lt==='combat'?isCombatRep(r):!isCombatRep(r));return`<section style="display:grid;gap:10px"><h1>Journal</h1><div class="chips"><button class="chip" data-act="logt" data-t="combat" aria-pressed="${lt==='combat'}">Combats</button><button class="chip" data-act="logt" data-t="rally" aria-pressed="${lt==='rally'}">⚑ Ralliements</button><button class="chip" data-act="logt" data-t="other" aria-pressed="${lt==='other'}">Espionnage et autres</button></div>${R.length?`<div class="list">${R.map(r=>{const tone=r.tone==='info'?'info':(r.loser===ME?'loss':(r.tone==='win'||r.loser)?'win':'loss');const ct=repCat(r);return`<div class="item rep tone-${tone} cat-${ct[0]}"><div class="ihead"><b><span class="rcat">${ct[1]} ${ct[2]}</span>${esc((r.title||'').replace(/^(🏆|📡|⚔|🔭|⚠)\s*/u,''))}</b><time>${new Date(r.at).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</time></div>${(r.lines||[]).map(l=>`<p>${repLine(l)}</p>`).join('')}${r.battle?`<div class="foot"><span></span><button class="btn ghost sm" data-act="replay" data-r="${r.id}">Voir la bataille</button></div>`:''}${(()=>{const pk=(r.intel&&r.intel.pid)||(r.battle&&r.battle.pid)||r.pid;const m=pk&&PLANETS[pk];return m?`<div class="foot"><span></span><button class="btn ghost sm" data-act="pmap" data-s="${m.sys}" data-p="${esc(pk)}">📍 Voir sur la carte</button></div>`:''})()}</div>`}).join('')}</div>`:`<p class="empty">${lt==='combat'?'Tes rapports de combat apparaîtront ici.':'Rapports d’espionnage, convois, constructions et nouvelles de l’univers.'}</p>`}</section>`}
 function renderNews(){const t=S.newsTab||'conquest',L=Object.values(S.events).filter(e=>e.news&&e.type===t).sort((a,b)=>b.at-a.at).slice(0,40);
   const ico=t==='conquest'?'🚩':'⚔';
   return`<section style="display:grid;gap:10px"><h1>Événements</h1><p class="meta" style="margin:0">Les dernières nouvelles de l’univers : qui s’étend, qui se bat.</p>
@@ -3461,6 +3475,27 @@ function authMsg(e){const m=(e&&(e.message||e.code))||'';
   if(/rate limit|too many/i.test(m))return'Trop d’essais. Patiente quelques minutes.';
   if(/fetch|network/i.test(m))return'Pas de connexion internet.';return'Erreur : '+m}
 let loginMode='in';
+// ---------- installer l'appli sur l'écran d'accueil ----------
+let INSTALL_EV=null;const isStandalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}};
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const inAppBrowser=()=>/FBAN|FBAV|Instagram|Line\/|Snapchat|WhatsApp|GSA\//i.test(navigator.userAgent);
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTALL_EV=e;try{if(typeof render==='function'&&S.ready>=3)render()}catch(x){}});
+addEventListener('appinstalled',()=>{INSTALL_EV=null;try{localStorage.setItem('orion-installed','1')}catch(e){}});
+const installHidden=()=>{try{return localStorage.getItem('orion-installx')==='1'}catch(e){return false}};
+function installBanner(){if(isStandalone()||(installHidden()&&location.hash!=='#installer'))return'';return`<div class="chip2 gold instb"><span>📲 <b>Installe le jeu sur ton écran d’accueil</b><span>une icône, l’appli s’ouvre en plein écran, avec les notifications</span></span><span style="display:flex;gap:6px;flex:none"><button class="btn sm" data-act="install">Installer</button><button class="mppx" data-act="installx" aria-label="Masquer">✕</button></span></div>`}
+async function doInstall(){if(INSTALL_EV){INSTALL_EV.prompt();try{const r=await INSTALL_EV.userChoice;if(r&&r.outcome==='accepted')INSTALL_EV=null}catch(e){}return}
+  let el=document.getElementById('instx');if(!el){el=document.createElement('div');el.id='instx';document.body.appendChild(el)}
+  const ios=isIOS(),steps=inAppBrowser()?[`Ce lien s’est ouvert dans l’application de discussion. Touche le menu (⋯ ou ⋮) puis <b>Ouvrir dans ${ios?'Safari':'le navigateur'}</b>.`,'Recommence ensuite depuis ce bouton.']
+    :ios?['Touche le bouton <b>Partager</b> (le carré avec une flèche ⬆ vers le haut), en bas de Safari.','Fais défiler et choisis <b>Sur l’écran d’accueil</b>.','Touche <b>Ajouter</b> : l’icône Couronne d’Orion apparaît sur ton écran d’accueil.']
+    :['Touche le menu <b>⋮</b> en haut à droite du navigateur.','Choisis <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.','Confirme : l’icône Couronne d’Orion apparaît sur ton écran d’accueil.'];
+  el.innerHTML=`<div class="scrim" data-act="instclose"><div class="sheet" role="dialog" aria-modal="true" aria-label="Installer l’appli" data-stop="1"><h2 style="margin:0">📲 Installer Couronne d’Orion</h2><ol style="margin:0;padding-left:20px;display:grid;gap:8px;line-height:1.45">${steps.map(x=>`<li>${x}</li>`).join('')}</ol>
+    <p class="eff" style="margin:0;font-size:12px">Lien à partager pour installer le jeu : <b style="user-select:all">${esc(location.origin+location.pathname)}#installer</b></p><div class="foot"><button class="btn ghost sm" data-act="instcopy">Copier le lien</button><button class="btn sm" data-act="instclose">Compris</button></div></div></div>`}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='install'){e.stopPropagation();doInstall()}
+  else if(a==='installx'){e.stopPropagation();try{localStorage.setItem('orion-installx','1')}catch(x){}if(location.hash==='#installer')history.replaceState(null,'',location.pathname+location.search);const c=b.closest('.instb');if(c)c.remove()}
+  else if(a==='instclose'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;const el=document.getElementById('instx');if(el)el.innerHTML=''}
+  else if(a==='instcopy'){const u=location.origin+location.pathname+'#installer';try{navigator.clipboard.writeText(u).then(()=>{try{toast('Lien copié.')}catch(x){}},()=>{})}catch(x){}}},true);
+if(location.hash==='#installer'&&!isStandalone())setTimeout(doInstall,1200);
 function showLogin(msg){top_.hidden=true;tabsEl.hidden=true;v3Sync(false);hgSync(false);mpel.hidden=true;
   main.innerHTML=`<div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">Un univers de ${GALS.length} galaxies à conquérir entre amis.</p>
     <div class="card" style="display:grid;gap:12px"><div class="chips"><button class="chip" data-act="lmode" data-m="in" aria-pressed="${loginMode==='in'}">Se connecter</button><button class="chip" data-act="lmode" data-m="up" aria-pressed="${loginMode==='up'}">Créer un compte</button></div>
@@ -3471,7 +3506,7 @@ function showLogin(msg){top_.hidden=true;tabsEl.hidden=true;v3Sync(false);hgSync
         <p id="lerr" class="eff" style="margin:0;color:var(--bad)">${msg?esc(msg):''}</p>
         <div><button class="btn" type="submit">${loginMode==='up'?'Créer mon compte':'Entrer dans la galaxie'}</button></div>
       </form>
-      <p class="meta" style="margin:0">${loginMode==='up'?'Ton pseudo est unique. Note bien ton mot de passe : il n’y a pas de récupération automatique.':'Mot de passe oublié ? Demande à l’hôte du jeu de réinitialiser ton compte.'}</p></div></div>`;
+      ${installBanner()}<p class="meta" style="margin:0">${loginMode==='up'?'Ton pseudo est unique. Note bien ton mot de passe : il n’y a pas de récupération automatique.':'Mot de passe oublié ? Demande à l’hôte du jeu de réinitialiser ton compte.'}</p></div></div>`;
   document.getElementById('loginf').addEventListener('submit',async e=>{e.preventDefault();const p=document.getElementById('lpseudo').value,pw=document.getElementById('lpass').value,er=document.getElementById('lerr');
     const s=slugPseudo(p);if(s.length<3)return er.textContent='Le pseudo doit contenir au moins 3 lettres ou chiffres.';if(pw.length<6)return er.textContent='Le mot de passe doit faire au moins 6 caractères.';
     if(loginMode==='up'&&pw!==document.getElementById('lpass2').value)return er.textContent='Les deux mots de passe ne correspondent pas.';
@@ -3504,7 +3539,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='136';
+const APP_VERSION='137';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

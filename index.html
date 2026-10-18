@@ -1488,7 +1488,7 @@ async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[M
 let SECT_T=0;const SECT_REW={3:{g:1,ins:15},5:{g:2,ins:25},8:{g:3,ins:40}};
 // reprise de l'ancienne règle : une flotte en orbite d'une de tes planètes dotée de Hangars comptait pour celle-ci. On la rattache officiellement à cette planète pour que les comptes ne changent pas.
 let BAYMIG=false;async function bayMigrate(){if(BAYMIG||!S.players[ME])return;BAYMIG=true;
-  for(const f of Object.values(S.fleets)){if(f.owner!==ME||f.phase!=='hold')continue;const q=S.planets[f.to];if(!q||q.owner!==ME||!q.lv||isBody(f.to)||(q.lv.bay||0)<1||(f.home||f.from)===f.to)continue;
+  for(const f of Object.values(S.fleets)){if(f.owner!==ME||f.phase!=='hold')continue;const q=S.planets[f.to];if(!q||q.owner!==ME||!q.lv||isBody(f.to)||(q.lv.bay||0)<1||(f.home||f.from)===f.to)continue;if(bayCap(q)-bayUse(q,ME)<placesOf(f.ships))continue;
     await locked('fleets/'+f.fid,async(fd,ref)=>{if(!fd||fd.phase!=='hold'||fd.owner!==ME||(fd.home||fd.from)===fd.to)return;await ref.set({...fd,home:fd.to})}).catch(()=>{})}}
 async function sectorTick(){const now=Date.now();if(now-SECT_T<60000||!S.players[ME])return;SECT_T=now;SECC.t=0;const sc=sectors();
   for(const uid of Object.keys(S.players)){const sec=sc.of[uid],tier=sec?SECT_TIERS.filter(t=>sec.size>=t).pop():0,id='sector-'+uid,ev=S.events[id]||{};if((ev.tier||0)===tier)continue;let rep=null,rew=null;
@@ -1877,7 +1877,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(lo){const arm=Object.entries(lo).map(([k,ws])=>ws.filter(Boolean).length?`${SHIPS[k].n} : ${ws.filter(Boolean).map(w=>WEAP[w].n).join(', ')}`:'').filter(Boolean);lines.push(arm.length?`Armement : ${arm.join(' · ')}.`:'Aucune arme montée.')}
       if(own&&p.lv.cspy&&Math.random()<.15*p.lv.cspy)reps.push({to:[own],tone:'info',title:`Espionnage détecté sur ${tn}`,lines:[`Ton contre-espionnage a repéré les sondes de ${pname(f.owner)}, mais elles ont pu transmettre leur rapport.`]});reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[...lines,...(discTag(f.to)&&(JEWELS[f.to]||RELIC_AT[f.to])?[JEWELS[f.to]?`💎 Planète joyau : ${JTYPES[JEWELS[f.to]].n} (${JTYPES[JEWELS[f.to]].d}).`:'',RELIC_AT[f.to]?`🏺 La ${RELICS[RELIC_AT[f.to]].n} repose ici : ${RELICS[RELIC_AT[f.to]].d}.`:''].filter(Boolean):[])],intel});await goBack(f,fref,f.ships,f.cargo);markExplored(f.owner,meta.sys,f.to).catch(()=>{});return}
     if(p&&p.owner===f.owner){if(body&&p.lv.dock<1){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Pas de base de flotte sur ${tn}`,lines:['Construis une base de flotte sur l’avant-poste pour y stationner des vaisseaux.']});return}
-      addShips(p.ships,f.ships);if(!body)addRes(p.res,f.cargo);await ref.set(p);await fref.delete();reps.push({to:[f.owner],tone:'info',title:`Flotte stationnée sur ${tn}`,lines:[unitLine(f.ships)]});
+      if((f.home||f.from)!==f.to&&bayCap(p)-bayUse({...p,pid:f.to},f.owner)<placesOf(f.ships)){await holdAt(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Hangars pleins sur ${tn}`,lines:[`Il n’y a pas la place pour ${unitLine(f.ships)}. La flotte reste en orbite pour défendre la planète et garde sa place dans les Hangars de ${plName(f.home||f.from)}.`]})}else{addShips(p.ships,f.ships);if(!body)addRes(p.res,f.cargo);await ref.set(p);await fref.delete();reps.push({to:[f.owner],tone:'info',title:`Flotte stationnée sur ${tn}`,lines:[unitLine(f.ships)]});}
       for(const j of joiners)await goBack(j.f,j.ref,j.f.ships,j.f.cargo);return}
     if(f.mission==='transfer'){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Transfert refusé sur ${tn}`,lines:['La cible ne t’appartient plus. La flotte fait demi-tour.']});return}
     const limitOk=body?outpostsOf(f.owner)<MAXO:planetsOf(f.owner)<MAXP,limTxt=body?`Limite de ${MAXO} avant-postes atteinte.`:`Limite de ${MAXP} planètes atteinte.`;
@@ -3641,7 +3641,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='144';
+const APP_VERSION='145';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

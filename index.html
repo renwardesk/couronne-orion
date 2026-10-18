@@ -3438,12 +3438,12 @@ const BT_E0=3.0; // les tirs commencent quand les flottes se sont rapprochées
 const rr=(a,b)=>a+Math.random()*(b-a);
 function btMv(side,k){const att=side==='a',fx=k==='fighter'||k==='probe';
   const amp=fx?1:att?1:.35; // la défense bouge moins, sauf ses chasseurs
-  return{sgn:Math.random()<.5?-1:1,w:fx?rr(.75,1.45):k==='cruiser'||k==='colony'?rr(.35,.7):rr(.18,.32),Rx:fx?rr(4.5,8):rr(1.2,2.6)*amp,Rz:fx?rr(3,6.5):rr(1.5,3.2)*amp,Ry:fx?rr(.8,2.4):rr(.3,.7)*amp,
+  return{sgn:Math.random()<.5?-1:1,w:fx?rr(.42,.8):k==='cruiser'||k==='colony'?rr(.3,.55):rr(.16,.28),Rx:fx?rr(6,10):rr(1.8,3.5)*amp,Rz:fx?rr(4,8):rr(2.5,4.5)*amp,Ry:fx?rr(1,3):rr(.4,.9)*amp,
     lis:fx&&Math.random()<.45,cx:fx?rr(-2.5,2.5):0,adv:fx?0:(att?rr(2.5,5):rr(.8,1.8)),
     tw:k==='turret'?0:att?(fx?rr(.1,.5):k==='cruiser'||k==='colony'?rr(.3,.8):rr(.5,1)):0,
     app:att?rr(1.5,1.9):rr(2.3,2.8),off:k==="turret"?0:att?(fx?rr(10,13):k==="cruiser"?rr(9,12):rr(7,9)):(fx?rr(6,9):rr(4,6)),offz:rr(-3,3),warp:att&&k!=='turret'}}
 function btP(u,T){const m=u.m,b=m.userData.base,V=m.userData.mv,dir=u.side==='a'?1:-1,fx=u.k==='fighter'||u.k==='probe';
-  const kA=Math.max(0,Math.min(1,(T-V.tw)/V.app)),ease=kA*kA*(3-2*kA),kc=Math.max(0,Math.min(1,(T-BT_E0+.3)/1.6));
+  const kA=Math.max(0,Math.min(1,(T-V.tw)/V.app)),ease=kA*kA*(2-kA),kc0=Math.max(0,Math.min(1,(T-V.tw-V.app*.3)/(V.app*1.1))),kc=kc0*kc0*(3-2*kc0);
   const S0=[b.x-dir*V.off,b.y,b.z+V.offz];let P;
   if(fx){const a=T*V.w*V.sgn+m.userData.ph,cx=b.x*.3+V.cx;P=[cx+Math.cos(a)*V.Rx*dir,b.y+Math.sin((V.lis?2:1)*a+1)*V.Ry,b.z*.5+Math.sin((V.lis?2:1)*a)*V.Rz]}
   else{const a=T*V.w*V.sgn+m.userData.ph,ad=Math.min(V.adv,Math.max(0,T-BT_E0+1)*.35);P=[b.x+dir*ad+Math.sin(a)*V.Rx,b.y+Math.sin(a*1.3+1)*V.Ry,b.z+Math.sin(a*.8)*V.Rz]}
@@ -3626,7 +3626,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='141';
+const APP_VERSION='142';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

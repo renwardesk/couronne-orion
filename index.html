@@ -250,7 +250,7 @@ details.card summary{cursor:pointer;font-size:14px;color:var(--dim)}
 <button id="chatpeek" class="chatpeek" type="button" data-act="chat" hidden></button>
 <button id="chatbtn" class="chatbtn" type="button" data-act="chat" hidden>Chat<span id="chatn" class="n" hidden></span></button>
 <div id="chatov" class="chatov" hidden><div class="chatbox" role="dialog" aria-label="Chat des joueurs"><div class="ihead chathead"><h2>Chat de l’univers</h2><button class="tgl" type="button" data-act="chatx">Fermer</button></div><div id="chatlist" class="chatlist"></div><form id="chatform" class="chatform" autocomplete="off"><input id="chatin" maxlength="300" placeholder="Écris un message…" enterkeyhint="send"><button class="btn sm" type="submit">Envoyer</button></form></div></div>
-<div id="modal"></div>
+<div id="modal"></div><div id="tut"></div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
@@ -474,7 +474,8 @@ const ASTS=Object.values(PLANETS).filter(p=>p.type==='ast'&&SYSTEMS[p.sys].gal<=
 const HIVES=Object.values(PLANETS).filter(p=>!p.body&&SYSTEMS[p.sys].gal===0&&SYSTEMS[p.sys].rad<330).map(p=>p.pid);
 const HIVE0={fighter:150,cruiser:50,battleship:14};
 const COMET_BOUNTY={m:6000,c:4500,f:2500},COMET_RARE={ir:120,xe:80,am:25},HIVE_POOL={ir:500,xe:320,am:110};
-function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR)return null;return{id:'c'+w,pid:'K'+PLANETS[ASTS[hash('comet'+w)%ASTS.length]].sys,start:s,end:s+3*HR}}
+let GO={t:0,v:0};function galOpen(){const n=Date.now();if(n-GO.t<60000)return GO.v;let m=0;for(const u of Object.keys(S.players||{}))m=Math.max(m,unlockedOf(u));GO={t:n,v:m};return m}
+function cometAt(t=Date.now()){const w=Math.floor(t/(4*HR)),s=w*4*HR;if(t>s+3*HR)return null;const g=galOpen(),A=ASTS.filter(x=>galOf(x)<=g);if(!A.length)return null;return{id:'c'+w,pid:'K'+PLANETS[A[hash('comet'+w)%A.length]].sys,start:s,end:s+3*HR}}
 function hiveAt(t=Date.now()){const w=Math.floor((t+HR)/(6*HR)),s=w*6*HR-HR;if(t<s||t>s+4*HR)return null;return{id:'h'+w,pid:HIVES[hash('hive'+w)%HIVES.length],start:s,end:s+4*HR}}
 function stormAt(t=Date.now()){const w=Math.floor((t+2*HR)/(6*HR)),s=w*6*HR-2*HR;if(t<s||t>s+2*HR)return null;return{id:'s'+w,gal:hash('storm'+w)%GALS.length,start:s,end:s+2*HR}}
 const TRAVEL=37.5; // multiplicateur global des temps de trajet
@@ -629,9 +630,11 @@ const CORE=(()=>{const g=0,w=galToWorld(g,500,500,0),s={i:SYSTEMS.length,li:-1,g
   PLANETS[eid]={pid:eid,sys:s.i,slot:9,name:`Repaire d’Orion · ${EMP_NAME.replace(/^l’/,'')}`,type:'raid',raid:true,local:true,emp:true};s.packs.push(eid);return s})();
 const leviathans=g=>Object.values(RAIDS).filter(r=>r.mid&&r.gal===g&&sysVisible(r.sys)&&!raidState(r.pid).done);
 // les grands ennemis (Léviathans, escortes, Armadas) suivent la puissance du joueur le plus fort
-let TS={t:0,v:1};function threatScale(){const n=Date.now();if(n-TS.t<60000)return TS.v;let m=0;for(const u of Object.keys(S.players||{}))m=Math.max(m,playerPower(u));TS={t:n,v:Math.max(1,Math.min(4,m/450))};return TS.v}
+let TS={t:0,v:1};function threatScale(){const n=Date.now();if(n-TS.t<60000)return TS.v;let m=0;for(const u of Object.keys(S.players||{}))m=Math.max(m,playerPower(u));TS={t:n,v:Math.max(1,Math.min(6,m/350)),b:Math.max(1,Math.min(14,m/200))};return TS.v}
+function bossScale(){threatScale();return TS.b||1}
+function lootMul(R){return R&&R.mid?Math.pow(bossScale(),.75):1}
 function raidGarrison(pid,ev,now){const R=RAIDS[pid];if(!R.local)return ev&&ev.remaining?ev.remaining:scaleShips(R.ships,threatScale());
-  if(R.boss||R.mid||R.emp){if(ev&&!ev.done&&now-(ev.at||0)<respawnOf(R))return ev.remaining||R.ships;return R.mid?scaleShips(R.ships,threatScale()):R.ships}
+  if(R.boss||R.mid||R.emp){if(ev&&!ev.done&&now-(ev.at||0)<respawnOf(R))return ev.remaining||R.ships;return R.mid?scaleShips(R.ships,bossScale()):R.ships}
   if(ev&&!ev.done&&now-(ev.at||0)<RESPAWN)return ev.remaining||R.ships;
   const s=SYSTEMS[R.sys];if(R.lair){const L=lairInfoAt(s,now);const h=L?Math.max(0,(now-Math.max(L.founded,GROW_EPOCH))/HR):0;const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.06:.03)*h))}
   const h=Math.max(0,(now-packBorn(ev))/HR);const fz=inFog(R.sys);return scaleShips(R.ships,Math.min(fz?3:2,1+(fz?.04:.015)*h)*(lairInfoAt(s,now)?1.3:1))}
@@ -1507,8 +1510,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       CMDCTX.vs='raid';G=groupFight(forces,ev.remaining,raidMods(f.to));CMDCTX.vs=null;val=worth(ev.remaining)-worth(G.B.d);frac=val/(worth(R.ships)||1);ev.remaining=G.B.d;ev.at=Date.now();if(isEmpty(G.B.d)){ev.done=true;ev.doneAt=Date.now()}await eref.set(ev)});
     if(gone){await finish(forces.map(x=>x.ships));reps.push({to:atkUids,tone:'info',title:`${tn} : groupe déjà dispersé`,lines:[R.local?'D’autres capitaines sont passés avant toi. Ils reviendront bientôt.':'D’autres capitaines sont passés avant toi.']});for(const r of reps)await report(r);return}
     if(spy==='fail'){const need=raidSpyNeed(f.to),lost=Math.ceil((f.ships.probe||0)*.7),left={...f.ships,probe:(f.ships.probe||0)-lost};if(left.probe>0)await goBack(f,fref,left,f.cargo);else await fref.delete();reps.push({to:[f.owner],tone:'loss',loser:f.owner,title:`Espionnage raté : ${tn}`,lines:[`Les éclaireurs des Écumeurs ont repéré tes sondes : ${lost} détruite${lost>1?'s':''}.`,`Il faut au moins ${need} sondes pour percer leur écran.`]});for(const r of reps)await report(r);return}
-    if(spy){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[`Flotte : ${unitLine(spy)}.`,`Butin estimé si anéantis : ${lootTxt(R.treasure)} et ${R.frag} Éclats du Vide.`],intel:{pid:f.to,at:f.arrive,owner:null,ships:spy,turrets:0}});for(const r of reps)await report(r);return}
-    const tre={m:R.treasure.m*frac,c:R.treasure.c*frac,f:R.treasure.f*frac},loots=splitLoot(tre,G.surv,shares(forces)),frag=Math.round(R.frag*frac),sh=shares(forces);
+    if(spy){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Rapport d’espionnage : ${tn}`,lines:[`Flotte : ${unitLine(spy)}.`,`Butin estimé si anéantis : ${lootTxt(scaleShips(R.treasure,lootMul(R)))} et ${Math.round(R.frag*lootMul(R))} Éclats du Vide.`],intel:{pid:f.to,at:f.arrive,owner:null,ships:spy,turrets:0}});for(const r of reps)await report(r);return}
+    const lmu=lootMul(R),tre={m:R.treasure.m*frac*lmu,c:R.treasure.c*frac*lmu,f:R.treasure.f*frac*lmu},loots=splitLoot(tre,G.surv,shares(forces)),frag=Math.round(R.frag*frac*lmu),sh=shares(forces);
     await finish(G.surv,loots);await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:val*sh[i],frag:Math.round(frag*sh[i])})));
     if(R.boss&&isEmpty(G.B.d)){for(const u of atkUids)await withPlayer(u,d=>{d.unlocked=Math.max(d.unlocked||0,R.gate+1)}).catch(()=>{});const C=GALS[R.gate+1];reps.push({news:'battle',newsBy:atkUids,to:allPlayers(),tone:'info',title:`${HOLES[R.gate].boss} est tombé !`,lines:[`${atkUids.map(pname).join(', ')} ${atkUids.length>1?'ouvrent':'ouvre'} la route vers ${C.name}.`,`Chapitre ${R.gate+2} · ${C.chap} — ${C.story}`]})}
     const insK=isEmpty(G.B.d)?insDrop(R):0,chK=isEmpty(G.B.d)?chestDrop(R):null;if(chK)for(const u of atkUids)await giveChest(u,chK);if(insK)for(const u of atkUids)await withPlayer(u,d=>{d.ins=(d.ins||0)+insK}).catch(()=>{});
@@ -1603,6 +1606,19 @@ const incoming=()=>Object.values(S.fleets).filter(f=>f.owner!==ME&&f.phase==='ou
 const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'à l’instant':m<60?`il y a ${m} min`:`il y a ${Math.round(m/60)} h`};
 const threat=n=>n<=0?'aucune':n<15?'faible':n<40?'moyenne':n<90?'forte':'extrême';
 
+// tuto antimatière : s'affiche une seule fois, quand le prochain niveau d'un bâtiment en demande pour la première fois
+function amNeeded(){for(const p of myPlanets()){const lv=(settle(p).lv)||{};for(const k in lv)if(BUILD[k]&&(bRare(k,lv[k]||0).am||0)>0)return{p,k}}return null}
+function amSeen(){try{if(localStorage.getItem('orion-am-'+ME))return true}catch(e){}return !!(S.players[ME]&&S.players[ME].amTut)}
+function tutSync(joined){const el=document.getElementById('tut');if(!el)return;const n=joined&&!S.modal&&!amSeen()&&amNeeded();if(!n){if(el.innerHTML)el.innerHTML='';return}if(el.innerHTML)return;
+  const h=nearestAm(n.p.pid);
+  el.innerHTML=`<div class="scrim" data-act="amx"><div class="sheet" role="dialog" aria-modal="true" aria-label="Antimatière" data-stop="1" style="display:grid;gap:12px;border-color:#b48cff">
+    <h1 style="font-size:22px;margin:0">⚛ Il te faut de l’antimatière</h1>
+    <p class="eff" style="margin:0">Ton bâtiment <b>${esc(BUILD[n.k].n||n.k)}</b> sur ${esc(PLANETS[n.p.pid].name)} demande maintenant de l’<b>antimatière</b> pour monter de niveau. C’est la ressource la plus rare du jeu : <b>tu n’en trouveras pas dans ta galaxie</b>.</p>
+    <p class="eff" style="margin:0">Pars au-delà des portes, vers les <b>trous noirs</b> et les <b>épaves</b>. Leurs satellites en extraient, mais ils sont gardés par des équipages pirates et des Sentinelles redoutables, qui reviennent reprendre ce qu’on leur a volé.</p>
+    <p class="eff" style="margin:0">Seul, c’est presque impossible. <b>Trouve des alliés</b>, lance des <b>⚑ ralliements</b> menés par tes meilleurs commandants, et espionne avant de frapper.</p>
+    <div class="foot"><button class="btn ghost sm" data-act="amx">Compris</button>${h?`<button class="btn sm" data-act="pmap" data-s="${PLANETS[h].sys}" data-p="${esc(h)}">📍 Voir le plus proche</button>`:''}</div></div></div>`}
+function nearestAm(from){const m=PLANETS[from];if(!m)return null;const a=SYSTEMS[m.sys];let best=null,bd=1e18;for(const s of SYSTEMS){if(!s.deep)continue;const pid=(s.bodies||[])[0]||(s.planets||[])[0];if(!pid)continue;const d=Math.hypot((s.w||{}).x-(a.w||{}).x||0,(s.w||{}).y-(a.w||{}).y||0,(s.w||{}).z-(a.w||{}).z||0);if(d<bd){bd=d;best=pid}}return best}
+async function amDone(){try{localStorage.setItem('orion-am-'+ME,'1')}catch(e){}document.getElementById('tut').innerHTML='';try{await withPlayer(ME,d=>{d.amTut=1})}catch(e){}}
 function render(){
   if(S.nodb){v3Sync(false);hgSync(false);top_.hidden=true;tabsEl.hidden=true;main.innerHTML=`<div class="join"><div class="hero">Couronne <span>d'Orion</span></div><p class="lead">${esc(S.nodbMsg||(window.supabase?'Configuration Supabase manquante dans le fichier supabase-config.js du dépôt.':'Impossible de charger la base de données. Vérifie ta connexion internet.'))}</p></div>`;mpSync();return}
   if(S.ready<3){return}
@@ -1616,6 +1632,7 @@ function render(){
   for(const id in keep){const el=document.getElementById(id);if(el&&el.value==='')el.value=keep[id];else if(el&&el.tagName==='SELECT')el.value=keep[id]}if(keep.mkn)mkPreview();
   mpSync();
   tickUi();
+  tutSync(joined);
 }
 function renderJoin(){
   const others=Object.values(S.players);
@@ -1937,7 +1954,7 @@ function renderModal(){fixMis(S.modal);const el=document.getElementById('modal')
     ${S.players[ME]&&galOf(M.to)>unlockedOf(ME)?'<p class="eff" style="margin:0;color:var(--bad)">Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.</p>':''}${M.mission==='salvage'?'<p class="eff" style="margin:0">Plus ta soute est grande, plus tu rapportes de ressources. Les minerais rares et les modules d’armes ne dépendent pas de la soute.</p>':''}
     ${M.join&&S.fleets[M.join]?`<p class="eff" style="margin:0">Attaque groupée avec <b>${esc(pname(S.fleets[M.join].owner))}</b> : arrivée synchronisée à ${clock(S.fleets[M.join].arrive)}.${eta*1000>S.fleets[M.join].arrive-Date.now()?' <b style="color:var(--bad)">Ta flotte est trop lente pour arriver à temps.</b>':''}</p>`:''}
     ${M.mission==='colonize'&&!isBody(M.to)&&!tv.raid?`<p class="eff" style="margin:0">Planètes : ${planetsOf(ME)} / ${slotsOf(ME)} emplacements. ${planetsOf(ME)<slotsOf(ME)?'Un emplacement est libre pour cette colonie.':`Aucun emplacement libre : débloques-en un avec ${fmt(cultureCost(ME))} de culture (les combats en rapportent).`}</p>`:''}
-    ${tv.raid&&RAIDS[M.to]?`<p class="eff" style="margin:0">Butin si anéantis : ${lootTxt(RAIDS[M.to].treasure)} et ${RAIDS[M.to].frag} Éclats du Vide, partagés selon les dégâts infligés et la soute.</p>`:''}
+    ${tv.raid&&RAIDS[M.to]?`<p class="eff" style="margin:0">Butin si anéantis : ${lootTxt(scaleShips(RAIDS[M.to].treasure,lootMul(RAIDS[M.to])))} et ${Math.round(RAIDS[M.to].frag*lootMul(RAIDS[M.to]))} Éclats du Vide, partagés selon les dégâts infligés et la soute.</p>`:''}
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-act="mclose">Annuler</button><button class="btn" data-act="mgo" ${isEmpty(ships)||fuel>fuelHave||(M.join&&S.fleets[M.join]&&eta*1000>S.fleets[M.join].arrive-Date.now())?'disabled':''}>Lancer la flotte</button></div>
   </div></div>`}
 // ---------- carte 3D de l'univers ----------
@@ -2237,6 +2254,8 @@ document.addEventListener('click',e=>{
   if(a==='snd'){SFX.on=!SFX.on;savePref('orion-sound',SFX.on);if(!SFX.on)ambient(false);else if(SFX.ambOn)ambient(true);render();return}
   if(a==='amb'){SFX.ambOn=!SFX.ambOn;savePref('orion-amb',SFX.ambOn);if(SFX.ambOn&&!SFX.on){SFX.on=true;savePref('orion-sound',true)}ambient(SFX.ambOn);render();return}
   if(a==='v3'){V3.on=!V3.on;savePref('orion-3d',V3.on);render();return}
+  if(a==='amx'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;amDone();return}
+  if(a==='pmap'&&b.closest('#tut'))amDone();
   if(a==='mclose'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;S.modal=null;renderModal();return}
   if(a==='tab'){S.tab=b.dataset.t;render();window.scrollTo(0,0)}
   else if(a==='up')upgrade(S.sel,b.dataset.k);

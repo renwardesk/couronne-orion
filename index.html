@@ -1998,8 +1998,10 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     reps.push({intel:{pid:f.to,at:Date.now()+1000,owner:null,ships:won?{}:Object.fromEntries(Object.entries(B.d).filter(([k,v])=>v>0)),turrets:0,after:true},to:atkUids,tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won||!isEmpty(B.a)?null:f.owner,title:won?`Pirates chassés de ${tn}`:!isEmpty(B.a)?`Combat indécis contre les pirates de ${tn} : il en reste ${unitLine(B.d)}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
   });
   for(const r of reps)await report(r)}
-async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
-  if(!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){ // planète d'attache perdue : la plus proche de tes planètes qui a la place, sinon la capitale
+async function homecoming(f,fref){let dest=fleetBase(f);const o=S.planets[dest];
+  // la flotte rentre à sa planète d'attache (pas au point de ralliement) ; si son hangar déborde, elle se pose sur la plus proche qui a la place
+  const full=o&&o.owner===f.owner&&!isBody(dest)&&o.lv&&bayCap(o)<bayUse(o,f.owner);
+  if(full||!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){ // planète d'attache perdue : la plus proche de tes planètes qui a la place, sinon la capitale
     const own=Object.values(S.planets).filter(q=>q.owner===f.owner&&PLANETS[q.pid]&&q.pid!==dest&&(!isBody(q.pid)||(q.lv&&q.lv.dock>=1))&&bayCap(q)-bayUse(q,f.owner)>=placesOf(f.ships)).sort((a,b)=>dist(a.pid,f.to)-dist(b.pid,f.to));
     const cap=capitalOf(f.owner);dest=own[0]?own[0].pid:cap&&cap.pid}
   if(dest)await locked('planets/'+dest,async(d,ref)=>{if(!d||d.owner!==f.owner)return;const p=settle(d,Date.now());addShips(p.ships,f.ships);if(!isBody(dest))addRes(p.res,f.cargo);if(f.modCargo){p.mods=p.mods||{};for(const w in f.modCargo)p.mods[w]=(p.mods[w]||0)+f.modCargo[w]}await ref.set(p)});
@@ -4010,7 +4012,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='169';
+const APP_VERSION='170';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

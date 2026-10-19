@@ -188,7 +188,7 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 .xbtn{border:1px solid color-mix(in srgb,var(--bad) 55%,transparent);background:none;color:var(--bad);border-radius:8px;font-size:11.5px;padding:3px 7px;cursor:pointer}
 .rarebar{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 8px;font-size:12px;color:#b9a6ee}.rarebar b{color:#e2d8ff;font-variant-numeric:tabular-nums}
 .ftobox{display:grid;gap:3px;padding:6px 8px;border-radius:8px;background:color-mix(in srgb,var(--good) 8%,transparent);border-left:3px solid var(--good);font-size:12.5px}.ftobox b{color:var(--ink)}
-.armyt{width:100%;border-collapse:collapse;font-size:12.5px}.armyt th{text-align:left;color:var(--dim);font-weight:500;padding:7px 10px;border-bottom:1px solid var(--line)}.armyt td{padding:7px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);vertical-align:top}.armyt tr.sel td{background:color-mix(in srgb,var(--brass,#e3ac55) 8%,transparent)}.armyt td.free b{color:var(--good)}.armyt td.out b{color:var(--warn)}.armyt small{color:var(--dim)}.lnk{background:none;border:0;padding:0;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.armyt{width:100%;border-collapse:collapse;font-size:12.5px}.fltt td small{display:block;font-size:11px;color:var(--dim);margin-top:1px}.fltt .fgr td{background:#ffffff08;color:var(--brass);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px}.fltt .frow{cursor:pointer}.fltt .frow.open td{background:#5ec8ff10}.fltt .fdet td{padding:6px}.fltt .prog.fp{display:block;height:3px;margin-top:4px}.armyt th{text-align:left;color:var(--dim);font-weight:500;padding:7px 10px;border-bottom:1px solid var(--line)}.armyt td{padding:7px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);vertical-align:top}.armyt tr.sel td{background:color-mix(in srgb,var(--brass,#e3ac55) 8%,transparent)}.armyt td.free b{color:var(--good)}.armyt td.out b{color:var(--warn)}.armyt small{color:var(--dim)}.lnk{background:none;border:0;padding:0;color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:left}
 .fgrp{display:grid;gap:6px}.fgh{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}.fnum{position:relative}.fnum .fn{position:absolute;left:-2px;top:-7px;z-index:1;font-size:11px;font-weight:700;color:#06120b;background:var(--brass,#e3ac55);border-radius:99px;padding:0 6px}
 .baysplit{display:grid;gap:4px;font-size:12.5px}.baysplit>div{display:grid;grid-template-columns:130px 1fr;gap:8px}.baysplit span{color:var(--dim)}.baysplit b{font-weight:400}.baysplit b b{color:var(--ink);font-weight:600}.baysplit small{color:var(--dim)}
 .atkcard{display:grid;gap:6px;border-color:var(--bad);background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 8%,transparent),transparent 60%)}.atkrow{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:baseline;font-size:13px;padding-left:8px;border-left:3px solid var(--c)}.atkrow span{color:var(--dim);font-size:12px}.atkrow b{color:var(--c);font-weight:600}
@@ -1429,8 +1429,8 @@ function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='o
   const myHelp=(S.players[ME]||{}).help;
   return L.map(f=>{const npc=isNpc(f.owner),who=npc?NPC_NAME:pname(f.owner),seen=(f.spied||[]).includes(ME),icp=Object.values(S.fleets).filter(g=>g.mission==='intercept'&&g.target===f.fid&&(g.phase==='out'||g.phase==='wait'));
     const row=(col,lbl,txt)=>`<div class="atkrow" style="--c:${col}"><span>${lbl}</span><b>${txt}</b></div>`;
-    const defS=sumShips([v.ships,...guards.map(g=>g.ships),...coming.filter(g=>g.arrive<f.arrive).map(g=>g.ships)]);delete defS.probe;if(tur)defS.turret=tur;
-    const hold=seen?withCtx(npc?'raid':null,()=>100-winChance(f.ships,defS,forceMods(f.owner,f.cmd),S.planets[pid]?defMods(v,{...v.ships,turret:tur},guards):null)):null;
+    const allG=[...Object.values(S.fleets).filter(g=>g.phase==='hold'&&g.to===pid&&(g.mission==='reinforce'||g.owner===ME)),...coming.filter(g=>g.arrive<f.arrive)],defS=sumShips([v.ships,...allG.map(g=>g.ships)]);delete defS.probe;if(tur)defS.turret=tur;
+    const hold=seen?withCtx(npc?'raid':null,()=>100-winChance(f.ships,defS,forceMods(f.owner,f.cmd),S.planets[pid]?defMods(v,{...v.ships,turret:tur},allG):null)):null;
     return`<div class="card atkcard"><div class="ihead"><b style="color:var(--bad)">⚔ ${esc(who)} attaque ${esc(plName(pid))}</b><span class="cd" data-cd="${f.arrive}"></span></div>
     <span class="eff" style="font-size:12px">Impact à ${clock(f.arrive)}</span>
     ${row('var(--bad)','Ennemis',seen?unitLine(f.ships):`inconnus · ${pillSpyNeed(f)} sondes pour espionner`)}
@@ -2218,8 +2218,8 @@ function intelBox(pid){const it=latestIntel(pid);if(!it)return'';if(intelStale(p
   return`<span class="intel">🔭 Espionné ${ago(it.at)} · ${parts.join(' · ')}</span>`}
 // bonus du commandant pour la mission choisie : actifs en clair, inactifs grisés avec la raison
 const pctFr=x=>String(Math.round(x*10)/10).replace('.',',');
-function cmdBonusHtml(c,mis,to,rb){if(!c)return'';const i=cmdInfo(c),L=cmdLvl(c.xp),v=cmdSpecVal(c),FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1,P=PLANETS[to],tw=S.planets[to]||{},vsP=!!P&&(P.raid||!tw.owner||isNpc(tw.owner));
-  const fight=['attack','colonize','salvage','rally','rallysup','intercept'].includes(mis),on=[],off=[];
+function cmdBonusHtml(c,mis,to,rb){if(!c)return'';const i=cmdInfo(c),L=cmdLvl(c.xp),v=cmdSpecVal(c),FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1,P=PLANETS[to],tw=S.planets[to]||{};let vsP=!!P&&(P.raid||!tw.owner||isNpc(tw.owner));
+  const fight=['attack','colonize','salvage','rally','rallysup','intercept','reinforce'].includes(mis),on=[],off=[];if(mis==='reinforce')vsP=Object.values(S.fleets).some(x=>x.phase==='out'&&x.to===to&&x.mission==='attack'&&isNpc(x.owner));
   if(fight){on.push(`+${pctFr(2*L)} % attaque et +${pctFr(1.5*L)} % PV pour toute la flotte (niveau ${L})`);if(FM>1)on.push(`vaisseau amiral ×${pctFr(FM)} (rang ${RAR[i.r].n.toLowerCase()})`);if(mis==='rally'&&rb)on.push(`+${Math.round(rb*100)} % attaque et +${pctFr(rb*50)} % PV pour toute l’armée ralliée`)}
   const t=SPEC[i.sp].d(v),sp=i.sp;let ok,why='';
   if(['att','hp','fighter','cruiser','battleship','xp'].includes(sp)){ok=fight;why='pas de combat prévu'}
@@ -2318,9 +2318,16 @@ function armyHtml(){const P=myPlanets();if(!P.length)return'';const fl=Object.va
   const cAt=pid=>cmdsOf(ME).filter(c=>!cmdBusy(ME,c.id)&&cmdHome(ME,c)===pid).sort(cmdRank);const rows=P.map(p=>{const v=view(p.pid),free={};for(const k of SK)if(v.ships[k]>0)free[k]=v.ships[k];const out=sumShips(fl.filter(f=>(f.home||f.from)===p.pid).map(f=>f.ships)),nf=fl.filter(f=>(f.home||f.from)===p.pid).length;
     return`<tr${p.pid===S.sel?' class="sel"':''}><td><button class="lnk" data-act="selp" data-p="${p.pid}">${esc(PLANETS[p.pid].name)}</button>${p.capital?' <small>capitale</small>':isBody(p.pid)?' <small>avant-poste</small>':''}</td><td class="free">${unitShort(free)}${cAt(p.pid).map(c=>`<span class="armc">${cmdBadge(c,13)} ${esc(cmdInfo(c).n)}</span>`).join('')}</td><td class="out">${nf?`${unitShort(out)} <small>(${nf} flotte${nf>1?'s':''})</small>`:'—'}${fl.filter(f=>(f.home||f.from)===p.pid&&f.cmd).map(f=>{const c=cmdById(ME,f.cmd);return c?`<span class="armc">${cmdBadge(c,13)} ${esc(cmdInfo(c).n)} · ${esc(plName(f.to))}</span>`:''}).join('')}</td></tr>`}).join('');
   return`<section style="display:grid;gap:8px"><h2>🪐 Mon armée</h2><div class="card" style="padding:0;overflow-x:auto"><table class="armyt"><thead><tr><th>Planète</th><th>Libres</th><th>En mission</th></tr></thead><tbody>${rows}</tbody></table></div><p class="eff" style="margin:0;font-size:12px">Ch chasseurs · Cr croiseurs · Cu cuirassés · Co colons · So sondes · Am vaisseau amiral. Touche une planète pour la sélectionner comme point de départ.</p></section>`}
+// tableau compact des flottes : une ligne par flotte, groupées par planète d'origine ; toucher une ligne déplie le détail et les actions
+function fleetState(f){const R=f.phase==='rwait'?S.fleets[f.rally]:null;
+  if(f.phase==='rally')return{t:'⚑ rassemblement',c:'#e3ac55',cd:f.rallyUntil};if(f.phase==='rwait')return{t:'⚑ attend le départ',c:'#e3ac55',cd:R&&R.rallyUntil};
+  if(f.phase==='hold')return{t:f.mission==='reinforce'?'🛡 en garde':'● en position',c:'var(--good)'};if(f.phase==='battle')return{t:'⚔ en bataille',c:'var(--bad)'};if(f.phase==='wait')return{t:'🎯 embuscade',c:'#7fc8ff'};
+  if(f.phase==='out')return{t:'➜ aller',c:'#7fc8ff',cd:f.arrive,a:f.depart,b:f.arrive};return{t:f.recalled?'↩ rappelée':'↩ retour',c:'#a9b4c8',cd:f.back,a:f.arrive,b:f.back}}
+function fleetMis(f){const R=f.phase==='rwait'?S.fleets[f.rally]:null;if(f.phase==='rally'||f.rallied)return['⚑','Ralliement',f.to];if(f.phase==='rwait'||f.lt||f.mission==='rallysup')return['⚑','Soutien',R?R.to:f.to];if(f.group)return['⚔','Attaque groupée',f.to];return[MISICO[f.mission]||'➜',MIS[f.mission]||f.mission,f.to]}
 function myFleetsHtml(mine){if(!mine.length)return`<p class="empty">Aucune flotte en vol. Ouvre la Carte, choisis une cible et envoie tes vaisseaux.</p>`;
   const by={};for(const f of mine){const o=f.home||f.from;(by[o]=by[o]||[]).push(f)}
-  return Object.entries(by).map(([o,L])=>`<div class="fgrp"><div class="fgh">Depuis ${esc(plName(o))} · ${L.length} flotte${L.length>1?'s':''}</div><div class="list">${L.map((f,i)=>`<div class="fnum"><span class="fn">#${i+1}</span>${fleetRow(f,false)}</div>`).join('')}</div></div>`).join('')}
+  return`<div class="card" style="padding:0;overflow-x:auto"><table class="armyt fltt"><thead><tr><th>Mission</th><th>Flotte</th><th>État</th></tr></thead><tbody>${Object.entries(by).map(([o,L])=>`<tr class="fgr"><td colspan="3">Depuis ${esc(plName(o))} · ${L.length} flotte${L.length>1?'s':''}</td></tr>${L.map(f=>{const[ic,mn,to]=fleetMis(f),st=fleetState(f),C=f.cmd&&cmdById(ME,f.cmd),open=S.fOpen===f.fid;
+    return`<tr class="frow${open?' open':''}" data-act="fopen" data-f="${f.fid}"><td><b>${ic} ${esc(mn)}</b><small>${esc(plName(to))}</small></td><td>${unitShort(f.mission==='convoy'?{}:f.ships)}${f.mission==='convoy'?esc(lootLine(goodsOf(f))):''}${C?`<small style="color:${RAR[cmdInfo(C).r].col}">${cmdBadge(C,12)} ${esc(cmdInfo(C).n)}</small>`:''}</td><td style="color:${st.c}"><b>${st.t}</b>${st.cd?`<small><span class="cd" data-cd="${st.cd}"></span></small>`:''}${st.a?`<span class="prog fp"><b data-a="${st.a}" data-b="${st.b}"></b></span>`:''}</td></tr>${open?`<tr class="fdet"><td colspan="3">${fleetRow(f,false)}</td></tr>`:''}`}).join('')}`).join('')}</tbody></table></div><p class="eff" style="margin:0;font-size:12px">Touche une flotte pour voir le détail et ses actions (rappeler, rentrer, nouvelle mission…).</p>`}
 function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter(f=>f.owner===ME||(f.mission==='convoy'&&f.sender===ME&&f.phase==='out')).sort((a,b)=>a.arrive-b.arrive),inc=incoming().sort((a,b)=>a.arrive-b.arrive);
   const joinable=Object.values(S.fleets).filter(f=>f.phase==='out'&&f.mission==='attack'&&!f.group&&PLANETS[f.to]&&f.arrive>now+15000&&!(S.planets[f.to]&&S.planets[f.to].owner===ME)).sort((a,b)=>a.arrive-b.arrive);
   return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section class="threats" role="alert"><h2>⚠ ${inc.length>1?inc.length+' attaques arrivent':'Une attaque arrive'} sur tes planètes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}${eventsHtml()}${ralliesHtml()}${battlesHtml()}${convoysHtml()}
@@ -3036,6 +3043,7 @@ document.addEventListener('click',e=>{
   else if(a==='pmap'){const si=+b.dataset.s,pk=b.dataset.p;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok){const R=pk&&RAIDS[pk];if(R&&(R.mid||R.bounty||!R.local)){mpGoGalaxy(R.gal,raidPos(pk),14)}else{mpGoSystem(si);if(pk&&PLANETS[pk]){S.pickP=pk;render()}}}const el=document.getElementById('mp');if(el)el.scrollIntoView({block:'start'})},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
   else if(a==='flygo'){flyStart()}
+  else if(a==='fopen'){S.fOpen=S.fOpen===b.dataset.f?null:b.dataset.f;render()}
   else if(a==='mlgo'){const i=+b.dataset.s;if(SYSTEMS[i]){sfx.click();mpGoSystem(i)}}
   else if(a==='mappl'){S.mpPl=!S.mpPl;mpNav()}
   else if(a==='mapplgo'){S.mpPl=false;const pm=PLANETS[b.dataset.p];if(pm){mpGoSystem(pm.sys);S.pickP=b.dataset.p;render()}}
@@ -4017,7 +4025,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='174';
+const APP_VERSION='175';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

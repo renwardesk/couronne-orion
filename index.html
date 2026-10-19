@@ -1252,7 +1252,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
     for(let i=0;i<A.length;i++){const x=A[i];await locked('fleets/'+x.fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle')return;if(i===annex||isNpc(x.owner)){await fref.delete();return}await holdAt({...fl,arrive:now},fref,x.ships,loots[i])}).catch(()=>{})}
     for(const x of e.dal)await locked('fleets/'+x.fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle')return;await holdAt({...fl,arrive:now},fref,x.ships,fl.cargo||{m:0,c:0,f:0})}).catch(()=>{});
     const WA=A.reduce((t,x)=>t+x.w,0)||1,WD=(e.hw||0)+e.dal.reduce((t,x)=>t+x.w,0)||1;
-    await award([...A.map(x=>({uid:x.owner,cmd:x.cmd,v:e.kA*x.w/WA})),{uid:e.owner,cmd:(planetCmd(e.owner,e.pid)||{}).id,v:e.kD*(e.hw||0)/WD},...e.dal.map(x=>({uid:x.owner,cmd:x.cmd,v:e.kD*x.w/WD}))],`grande bataille de ${tn}`);
+    await award(A.map(x=>({uid:x.owner,cmd:x.cmd,v:e.kA*x.w/WA})),`grande bataille de ${tn}`);await award([{uid:e.owner,cmd:(planetCmd(e.owner,e.pid)||{}).id,v:e.kD*(e.hw||0)/WD},...e.dal.map(x=>({uid:x.owner,cmd:x.cmd,v:e.kD*x.w/WD}))],`défense de ${tn}`);
     const atkU=[...new Set(A.map(x=>x.owner))],defU=[...new Set([e.owner,...e.dal.map(x=>x.owner)])],dur=fmtDur((now-e.start)/1000);
     for(const u of(won?atkU:defU))if(!isNpc(u)&&Math.random()<.6)await giveChest(u,'b');
     const cmdL=[...A,...e.dal].filter(x=>x.cmd).map(x=>{const c=cmdById(x.owner,x.cmd);return c?`${cmdInfo(c).n} (${pname(x.owner)})`:null}).filter(Boolean);
@@ -1971,6 +1971,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const guards=p?await gatherGuards(f.to,f.owner):[];
     if(p&&placesOf(sumShips(forces.map(x=>x.ships)))+placesOf(p.ships)+placesOf(sumShips(guards.map(g=>g.ships)))>=LB_MIN&&await startBattle(f,forces,p,tn,guards)){if(count(mineLost))reps.push({to:atkUids,tone:'info',title:`Champ de mines devant ${tn}`,lines:[`${unitLine(mineLost)} détruits à l’approche.`]});return}
     const def=p?{...sumShips([p.ships,...guards.map(g=>g.ships)]),turret:(p.lv.def||0)*4}:{...gar};
+    // défenseurs : la garnison (avec le commandant en poste) et chaque flotte en orbite, pour partager points et expérience
+    const dList=p?[{owner:p.owner,cmd:(planetCmd(p.owner,p.pid)||{}).id,ships:{...p.ships,turret:(p.lv.def||0)*4}},...guards.map(g=>({owner:g.owner,cmd:g.f&&g.f.cmd,ships:{...g.ships}}))]:[],dSh=dList.length?shares(dList):[];
     const G=withCtx(vsPirates(p&&p.owner,f.owner)?'raid':null,()=>groupFight(forces,def,p?defMods(p,{...p.ships,turret:(p.lv.def||0)*4},guards):null)),B=G.B,won=isEmpty(B.d)&&!isEmpty(B.a);
     const killedDef=worth(B.id)-worth(B.d),killedAtk=worth(B.ia)-worth(B.a),sh=shares(forces);
     const lines=fightLines(B);if(count(mineLost))lines.unshift(`Champ de mines : ${unitLine(mineLost)} détruits à l’approche.`);
@@ -1980,7 +1982,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
         reps.push({news:'conquest',newsBy:[victim],to:[victim],tone:'loss',loser:victim,title:`${tn} est tombée aux mains des ${NPC_NAME}`,lines:[...lines,'La colonie est perdue : les pillards y ont installé une garnison. Reprends-la en l’attaquant avec un vaisseau colon.'],battle:rec(B,victim,{planet:true})});return}
       let loots=forces.map(()=>({m:0,c:0,f:0}));
       if(won&&!body){loots=splitLoot({m:p.res.m/2,c:p.res.c/2,f:p.res.f/2},G.surv,shares(forces));const t=sumLoot(loots);for(const k in RES)p.res[k]-=t[k]}
-      await award([...forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})),{uid:victim,v:killedAtk}],tn);
+      await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})),tn);await award(dList.map((x,i)=>({uid:x.owner,cmd:x.cmd,v:killedAtk*dSh[i]})),`défense de ${tn}`);
       lines.push(`Points de combat : ${Math.round(killedDef)} pour l’attaque, ${Math.round(killedAtk)} pour la défense.`);
       if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=zeroShips();addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await holdAt(f,fref,A,{m:0,c:0,f:0}); // l'escorte reste en orbite, rattachée à sa planète d'origine
         for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
@@ -4015,7 +4017,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='173';
+const APP_VERSION='174';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

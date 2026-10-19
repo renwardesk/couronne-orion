@@ -1767,7 +1767,7 @@ async function launch0(){const M=S.modal;if(!M)return;if(M.fleet)return launchHe
     if(M.mission==='rally'&&(isBody(M.from)))throw err('Un ralliement se lance depuis une planète, pas depuis un avant-poste.');
     if(M.mission==='rally'&&!M.cmd)throw err('Un ralliement doit être mené par un commandant.');
     if(M.mission==='rallysup'){const L=S.fleets[M.rally];if(!L||L.phase!=='rally')throw err('Ce ralliement est déjà parti ou dissous.');if(L.owner===ME&&M.from===L.from)throw err('Ta flotte est déjà au point de ralliement : choisis une autre planète de départ.');if(M.cmd){const blk=rallyCmdBlock(L,M.from,ME);if(blk)throw err(blk);if(placesOf(ships)<RSUP_CMD_MIN)throw err(`Un commandant en soutien doit être escorté par au moins ${RSUP_CMD_MIN} places de troupes.`)}{const left=(L.rcap||rallyCap(L.owner,L.cmd)||9999)-rallyLoad(L);if(placesOf(ships)>left)throw err(`Ralliement presque plein : il reste ${Math.max(0,left)} places.`)}if(Date.now()+etaOf(M.from,M.to,ships)/cmdSpeed(ME,M.cmd)*1000>L.rallyUntil)throw err(`Trop lent : ta flotte arriverait après le départ du ralliement (${clock(L.rallyUntil)}).`)}
-    if(M.mission==='transfer'&&S.planets[M.to]){const tv=view(M.to),u=bayUse(tv,ME),c=bayCap(tv),need=placesOf(ships);if(u+need>c)throw err(`Hangars de destination pleins : ${u}/${c} places, il en faut ${need}.`)}
+    if(M.mission==='transfer')throw err('Les troupes ne se transfèrent pas entre planètes.');
     const fuel=fuelOf(M.from,M.to,ships),eta=Math.round(etaOf(M.from,M.to,ships)/cmdSpeed(ME,M.cmd)),body=isBody(M.from);const LJ=M.join?S.fleets[M.join]:null;if(M.join&&(!LJ||LJ.phase!=='out'||LJ.arrive<Date.now()+eta*1000))throw err('Trop tard pour rejoindre cette attaque.');
     const id=newId();
     // réservation des places dans le ralliement, sous verrou : deux joueurs qui envoient à la même seconde ne peuvent pas dépasser la capacité
@@ -4012,7 +4012,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='170';
+const APP_VERSION='171';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

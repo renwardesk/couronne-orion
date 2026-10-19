@@ -1264,7 +1264,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
       ...(!won&&!isEmpty(fa)?['Le temps est écoulé : les attaquants restent en position autour de la planète.']:[])];
     e.done=true;e.doneAt=now;e.won=won;await eref.set(e);
     reps.push({news:annex>=0||npcTook?['battle','conquest']:'battle',to:[...new Set([...atkU,...defU])],tone:won?'win':'loss',loser:won?e.owner:atkU[0],title:won?`${atkU.map(pname).join(', ')} ${atkU.length>1?'remportent':'remporte'} la grande bataille de ${tn}`:`${pname(e.owner)} tient ${tn}`,lines,
-      intel:(()=>{const rem={};for(const k in e.iD){if(k==='turret')continue;const v=Math.max(0,(fd||{})[k]||0);if(v)rem[k]=v}return{pid:e.pid,at:Date.now()+1000,owner:annex>=0?A[annex].owner:e.owner,ships:rem,turrets:Math.max(0,((e.iD||{}).turret||0)-((fd||{}).turret||0)),after:true}})(),
+      intel:(()=>{const rem={};for(const k in e.iD){if(k==='turret')continue;const v=Math.max(0,(fd||{})[k]||0);if(v)rem[k]=v}return{pid:e.pid,at:Date.now()+1000,owner:annex>=0?A[annex].owner:e.owner,ships:rem,turrets:(e.iD||{}).turret||0,after:true}})(),
       battle:{ia:e.iA,id:e.iD,rounds:e.snaps,att:A.map(x=>({uid:x.owner,ships:x.ships0,ck:(cmdById(x.owner,x.cmd)||{}).key||null})),def:e.owner,pid:e.pid,planet:true}})});
   for(const r of reps)await report(r)}
 async function retreatBattle(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.owner!==ME||f.phase!=='battle')throw err('Cette flotte n’est plus au combat.');let ent=null;

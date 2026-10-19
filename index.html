@@ -1087,23 +1087,23 @@ const cmdXpMul=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='xp'
 async function killCmd(uid,id,why){if(!uid||!id||!S.players[uid])return;let nm=null,h=0;try{await withPlayer(uid,d=>{const c=(d.cmds||[]).find(x=>x.id===id);if(c){const i=cmdInfo(c);h=RAR[i.r].inj;nm=i.n;c.inj=Date.now()+h*HR}})}catch(e){}
   if(nm)await report({to:[uid],tone:'loss',loser:uid,title:`${nm} est blessé`,lines:[why==='flag'?`Son vaisseau amiral a été détruit pendant le combat ; le reste de sa flotte a survécu et continue sans lui. Il est indisponible pendant ${h} heures, le temps de se remettre.`:`Sa flotte a été anéantie. Il est indisponible pendant ${h} heures, le temps de se remettre.`]})}
 // ---------- coffres ----------
-const CHEST={st:{n:'Coffre de départ',col:'#a9b4c8',p:{c:1},cmd:1},b:{n:'Coffre de bronze',col:'#c98a54',p:{c:.75,r:.22,e:.03},cmd:.35},s:{n:'Coffre d’argent',col:'#cfd8e6',p:{c:.4,r:.45,e:.13,l:.02},cmd:.6},g:{n:'Coffre d’or',col:'#ffcf6b',p:{c:.1,r:.4,e:.38,l:.12},cmd:1}};
+const CHEST={st:{n:'Coffre de départ',col:'#a9b4c8',p:{c:1},cmd:1},b:{n:'Coffre de bronze',col:'#c98a54',p:{c:.7,r:.25,e:.05},cmd:1},s:{n:'Coffre d’argent',col:'#cfd8e6',p:{c:.4,r:.4,e:.17,l:.03},cmd:1},g:{n:'Coffre d’or',col:'#ffcf6b',p:{c:.1,r:.4,e:.38,l:.12},cmd:1}};
 const chestsOf=uid=>(S.players[uid]||{}).chests||{};
 const chestDrop=R=>!R?null:R.bounty?(R.leg?'g':'s'):R.boss||R.emp?'g':R.mid&&!R.esc?(Math.random()<.3?'g':'s'):(R.lair||R.guard||!R.local)?'s':R.tier>=1?(Math.random()<.5?'b':null):(Math.random()<.08?'b':null);
 async function giveChest(uid,t,n=1){if(!uid||!S.players[uid]||!CHEST[t])return;try{await withPlayer(uid,d=>{d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+n})}catch(e){}}
 const chestTxt=t=>CHEST[t]?CHEST[t].n.toLowerCase():'';
 function rollRar(p,r){let x=r,acc=0;for(const k of['c','r','e','l']){acc+=p[k]||0;if(x<acc)return k}return'c'}
+// chaque coffre donne un commandant : la rareté dépend du coffre. Tirage parmi les commandants libres et les tiens ; un doublon fait monter le tien d'un bon paquet d'XP.
+const DUP={c:{f:.35,min:300,frag:20},r:{f:.7,min:700,frag:50},e:{f:1,min:1500,frag:120},l:{f:2,min:3000,frag:300}};
+const dupXP=(c,r)=>{const L=cmdLvl(c.xp),gap=cmdNext(L)-(L>0?cmdNext(L-1):0),D=DUP[r]||DUP.c;return Math.max(D.min,Math.round(gap*D.f))};
 async function openChest(t){await act(async()=>{const C=CHEST[t];if(!C)return;const pl=S.players[ME];if(t==='st'?pl.starter:!(chestsOf(ME)[t]>0))throw err('Tu n’as pas ce coffre.');
   await withPlayer(ME,d=>{if(t==='st'){if(d.starter)throw err('Coffre déjà ouvert.');d.starter=true}else{d.chests=d.chests||{};if(!(d.chests[t]>0))throw err('Tu n’as pas ce coffre.');d.chests[t]--}});
-  let got=null;
-  if(Math.random()<C.cmd){let rar=rollRar(C.p,Math.random());const order=['l','e','r','c'],tries=[rar,...order.slice(order.indexOf(rar)+1),...order.slice(0,order.indexOf(rar)).reverse()];
-    for(const rr of tries){const pool=CMDDB.filter(x=>x[2]===rr&&!x[4]).sort(()=>Math.random()-.5);for(const[k]of pool){if(S.events['cm-'+k]&&S.events['cm-'+k].owner)continue;let ok=false;
-        try{await locked('events/cm-'+k,async(ev,eref)=>{if(ev&&ev.owner)return;await eref.set({kind:'event',id:'cm-'+k,owner:ME,at:Date.now()});ok=true})}catch(e){}
-        if(ok){got=k;break}}if(got)break}}
-  if(got){await withPlayer(ME,d=>{d.cmds=d.cmds||[];d.cmds.push({id:newId(),key:got,xp:0})});const i=CMDK[got];sfx.done();
-    S.chestShow={t,k:got};chestFx({t,k:got})}
-  else{const k=t==='g'?3:t==='s'?2:1,ins=t==='g'?2:t==='s'?1:0,res={m:600*k,c:450*k,f:200*k};const cap=capitalOf(ME);if(cap)await locked('planets/'+cap.pid,async(pd,ref)=>{if(!pd)return;const p=settle(pd,Date.now());addRes(p.res,res);await ref.set(p)});
-    if(ins)await withPlayer(ME,d=>{d.ins=(d.ins||0)+ins});S.chestShow={t,res,ins};chestFx({t,res,ins})}
+  const rar=rollRar(C.p,Math.random()),order=['l','e','r','c'],tries=[rar,...order.slice(order.indexOf(rar)+1),...order.slice(0,order.indexOf(rar)).reverse()],mine=new Set(cmdsOf(ME).map(c=>c.key));let got=null,dup=null;
+  for(const rr of tries){const pool=CMDDB.filter(x=>x[2]===rr&&!x[4]&&(mine.has(x[0])||!(S.events['cm-'+x[0]]&&S.events['cm-'+x[0]].owner))).sort(()=>Math.random()-.5);
+    for(const[k]of pool){if(mine.has(k)){dup=k;break}let ok=false;try{await locked('events/cm-'+k,async(ev,eref)=>{if(ev&&ev.owner)return;await eref.set({kind:'event',id:'cm-'+k,owner:ME,at:Date.now()});ok=true})}catch(e){}if(ok){got=k;break}}if(got||dup)break}
+  if(got){await withPlayer(ME,d=>{d.cmds=d.cmds||[];d.cmds.push({id:newId(),key:got,xp:0})});sfx.done();S.chestShow={t,k:got};chestFx({t,k:got})}
+  else if(dup){let xp=0,frag=0,L0=0,L1=0;await withPlayer(ME,d=>{const c=(d.cmds||[]).find(x=>x.key===dup);if(!c)return;L0=cmdLvl(c.xp);if(L0>=CMD_LMAX){frag=DUP[CMDK[dup].r].frag;d.frag=(d.frag||0)+frag}else{xp=dupXP(c,CMDK[dup].r);c.xp=(c.xp||0)+xp}L1=cmdLvl(c.xp)});sfx.done();S.chestShow={t,k:dup,dup:true,xp,frag,L0,L1};chestFx({t,k:dup,dup:true,xp,frag,L0,L1})}
+  else{const k=t==='g'?3:t==='s'?2:1,res={m:600*k,c:450*k,f:200*k};const cap=capitalOf(ME);if(cap)await locked('planets/'+cap.pid,async(pd,ref)=>{if(!pd)return;const p=settle(pd,Date.now());addRes(p.res,res);await ref.set(p)});S.chestShow={t,res,ins:0};chestFx({t,res,ins:0})}
   render()})}
 // ---------- marché noir : on revend un commandant aux contrebandiers contre des insignes et des Éclats du Vide ; il retourne dans les coffres ----------
 const BLACK={c:[2,15],r:[4,40],e:[8,100],l:[15,250]};
@@ -1118,7 +1118,7 @@ async function sellCmd(id){await act(async()=>{let key=null,pr=null,nm='';const 
   S.sellArm=null;sfx.done();toast(`${nm} vendu au marché noir : +${pr.ins} insigne${pr.ins>1?'s':''} et +${pr.frag} Éclats du Vide.`)})}
 // ---------- ouverture de coffre animée ----------
 function chestFx(r){let el=document.getElementById('chestfx');if(!el){el=document.createElement('div');el.id='chestfx';document.body.appendChild(el)}const C=CHEST[r.t],i=r.k?CMDK[r.k]:null,col=i?RAR[i.r].col:C.col,leg=i&&i.r==='l',epic=i&&i.r==='e';
-  const reward=i?`<div class="cfxbadge">${cmdBadge(r.k,128)}</div><div class="cfxrar" style="color:${col}">${RAR[i.r].n}${leg?' !!!':epic?' !':''}</div><div class="cfxname">${esc(i.n)}</div><div class="cfxspec">${SPEC[i.sp].n} · ${SPEC[i.sp].d(Math.round(RAR[i.r].sp*100))}</div><div class="cfxsub">rejoint tes rangs</div>`
+  const reward=i?`<div class="cfxbadge">${cmdBadge(r.k,128)}</div><div class="cfxrar" style="color:${col}">${RAR[i.r].n}${leg?' !!!':epic?' !':''}</div><div class="cfxname">${esc(i.n)}</div><div class="cfxspec">${SPEC[i.sp].n} · ${SPEC[i.sp].d(Math.round(RAR[i.r].sp*100))}</div>${r.dup?`<div class="cfxsub" style="color:var(--good)">Doublon : ${r.xp?`+${fmt(r.xp)} XP${r.L1>r.L0?` · niveau ${r.L0} → ${r.L1} !`:''}`:`déjà au maximum : +${r.frag} Éclats du Vide`}</div>`:'<div class="cfxsub">rejoint tes rangs</div>'}`
     :`<div class="cfxres">${Object.entries(r.res||{}).map(([k,v])=>`<div><b>+${fmt(v)}</b><span>${RES[k]}</span></div>`).join('')}${r.ins?`<div><b>+${r.ins}</b><span>insigne${r.ins>1?'s':''}</span></div>`:''}</div><div class="cfxsub">livrés sur ta capitale</div>`;
   el.innerHTML=`<div class="cfx${leg?' leg':''}" style="--cc:${C.col};--rc:${col}" data-act="cfxx"><div class="cfxrays"></div><div class="cfxstage">
     <svg class="cfxchest" viewBox="0 0 120 100" aria-hidden="true"><g class="cfxlid"><path d="M14 40 Q60 6 106 40 Z" fill="var(--cc)" stroke="#0a0f1e" stroke-width="3"/><rect x="54" y="26" width="12" height="16" rx="2" fill="#0a0f1e" opacity=".5"/></g><rect x="14" y="40" width="92" height="52" rx="5" fill="var(--cc)" stroke="#0a0f1e" stroke-width="3"/><rect x="14" y="56" width="92" height="7" fill="#0a0f1e" opacity=".35"/><rect x="52" y="48" width="16" height="20" rx="3" fill="#0a0f1e" opacity=".55"/></svg>
@@ -1173,8 +1173,8 @@ function cmdTile(c,act,sel,stTxt){const i=cmdInfo(c),lv=cmdLvl(c.xp),nx=cmdNext(
 function cmdGridHtml(L,act,sel,detail,stTxt,bare){const S0=L.find(c=>c.id===sel);return`<div class="cmdgrid">${L.map(c=>cmdTile(c,act,sel,stTxt)).join('')}</div>${S0?(bare?detail(S0):`<div class="list">${detail(S0)}</div>`):`<p class="eff" style="margin:0;font-size:12px">Touche un commandant pour voir sa fiche.</p>`}`}
 function cmdsHtml(){const pl=S.players[ME];if(!pl)return'';const L=cmdsOf(ME),ch=chestsOf(ME),ins=insOf(ME),list=[...(pl.starter?[]:[['st',1]]),...['b','s','g'].filter(t=>ch[t]>0).map(t=>[t,ch[t]])],show=S.chestShow;S.chestShow=null;
   const owned=Object.values(S.events).filter(e=>e.id&&e.id.startsWith('cm-')&&e.owner).length;
-  return`<section style="display:grid;gap:10px"><h2>Commandants</h2><p class="meta" style="margin:0">Un commandant par flotte, choisi au moment de l’envoyer. Chaque commandant est <b>unique dans l’univers</b> : celui qui le trouve le garde pour toujours. Ils se gagnent dans des coffres. Si sa flotte est anéantie, il est blessé quelques heures. (${owned}/${CMDDB.length} commandants déjà trouvés.)</p>
-  ${show&&show.k?`<div class="card chestwin" style="--rc:${RAR[CMDK[show.k].r].col}"><b>${CHEST[show.t].n} ouvert !</b><span>${cmdAvatar({key:show.k})} <b style="color:var(--rc)">${esc(CMDK[show.k].n)}</b> · ${RAR[CMDK[show.k].r].n} · ${SPEC[CMDK[show.k].sp].n}</span></div>`:''}
+  return`<section style="display:grid;gap:10px"><h2>Commandants</h2><p class="meta" style="margin:0">Un commandant par flotte, choisi au moment de l’envoyer. Chaque commandant est <b>unique dans l’univers</b> : celui qui le trouve le garde pour toujours. Ils se gagnent dans des coffres : <b>chaque coffre donne un commandant</b>, la rareté dépend du coffre (bronze 70 % commun · 25 % rare · 5 % épique ; argent 40 / 40 / 17 % · 3 % légendaire ; or 10 / 40 / 38 % · 12 % légendaire). Si tu tires un commandant que tu as déjà, c’est un doublon : il gagne beaucoup d’expérience. Si son vaisseau amiral est détruit, il est blessé quelques heures. (${owned}/${CMDDB.length} commandants déjà trouvés.)</p>
+  ${show&&show.k?`<div class="card chestwin" style="--rc:${RAR[CMDK[show.k].r].col}"><b>${CHEST[show.t].n} ouvert !</b><span>${cmdAvatar({key:show.k})} <b style="color:var(--rc)">${esc(CMDK[show.k].n)}</b> · ${RAR[CMDK[show.k].r].n} · ${SPEC[CMDK[show.k].sp].n}${show.dup?` · <b style="color:var(--good)">doublon ${show.xp?`+${fmt(show.xp)} XP`:`+${show.frag} Éclats`}</b>`:''}</span></div>`:''}
   <div class="card" style="display:grid;gap:8px"><div class="ihead"><b>Coffres</b><span class="lv">${ins} insigne${ins>1?'s':''}</span></div>
   ${list.length?`<div class="chests">${list.map(([t,n])=>`<div class="chest" style="--cc:${CHEST[t].col}"><span class="chico">▣</span><b>${CHEST[t].n}</b><small>× ${n}</small><button class="btn sm" data-act="chest" data-t="${t}">Ouvrir</button></div>`).join('')}</div>`:'<p class="eff" style="margin:0">Aucun coffre. Bronze : hordes et certaines quêtes · Argent : repaires, Armadas, sentinelles · Or : gardiens des trous noirs.</p>'}
   ${(()=>{const fc=freeChestState(ME);return`<div class="freech"><span class="chico" style="color:#c98a54">▣</span><div style="flex:1;min-width:0"><b>Coffre gratuit</b><div class="eff" style="font-size:12px">Un coffre de bronze toutes les 8 h (2 max en réserve) · petite chance d’argent (8 %) ou d’or (1,5 %).</div>${fc.n<1&&fc.next?`<div class="eff" style="font-size:12px">Prochain dans <span class="cd" data-cd="${fc.next}"></span></div>`:''}</div><button class="btn sm" data-act="freechest" ${fc.n>0?'':'disabled'}>${fc.n>0?`Récupérer${fc.n>1?` (${fc.n})`:''}`:'Patience'}</button></div>`})()}
@@ -1395,7 +1395,7 @@ const freeChestState=uid=>{const pl=S.players[uid]||{},now=Date.now(),b=freeBase
 async function claimFree(){await act(async()=>{let t=null;await withPlayer(ME,d=>{const now=Date.now(),b=freeBase(d,now),n=Math.floor((now-b)/FREE_EVERY);if(n<1)throw err('Le prochain coffre gratuit n’est pas encore prêt.');
     const r=Math.random();t=r<.015?'g':r<.10?'s':'b';d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+1;d.freeAt=b+FREE_EVERY});
   sfx.done();toast(t==='b'?'Coffre de bronze récupéré.':t==='s'?'Chanceux ! Le coffre gratuit est un coffre d’argent.':'Incroyable ! Le coffre gratuit est un coffre d’or !')})}
-const INSX=[['b',2],['s',4],['g',10]];
+const INSX=[['b',3],['s',6],['g',12]];
 const FRAGX=[['b',40],['s',120],['g',400]];
 async function fragToChest(t){const need=(FRAGX.find(x=>x[0]===t)||[])[1];if(!need)return;await act(async()=>{await withPlayer(ME,d=>{if((d.frag||0)<need)throw err(`Il faut ${need} Éclats du Vide.`);d.frag-=need;d.chests=d.chests||{};d.chests[t]=(d.chests[t]||0)+1});sfx.done();toast(`${need} Éclats du Vide échangés contre un ${chestTxt(t)}.`)})}
 const healCost=c=>Math.max(10,Math.ceil(((c.inj||0)-Date.now())/HR)*15);
@@ -4015,7 +4015,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='172';
+const APP_VERSION='173';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

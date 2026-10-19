@@ -510,6 +510,9 @@ GALS.forEach((G,g)=>{const r=rng(31337+g*977),rz=rng(555+g),extra=Math.round(G.N
     const name=makeName(r),n=3+Math.floor(r()*4),gi=SYSTEMS.length,sys={i:gi,li:1000+made,gal:g,x,y,z,rad,ang,name,planets:[],bodies:[],w:galToWorld(g,x,y,z)};
     for(let k=0;k<n;k++){const pid=`n${g}-${made}-${k}`,pr=rng(hash(pid));PLANETS[pid]={pid,sys:gi,slot:k,name:`${name} ${ROM[k]}`,type:PT4[Math.floor(pr()*4)]};sys.planets.push(pid)}
     SYSTEMS.push(sys);near.push(sys);made++}});
+// écarte les systèmes trop proches (lisibilité et clics sur la carte) : seules les positions bougent, rad/ang restent pour l'équilibrage
+GALS.forEach((G,g)=>{const L=SYSTEMS.filter(s=>s.gal===g),MIN=17;for(const s of L){s.x0=s.x;s.y0=s.y}for(let it=0;it<40;it++){let mv=0;for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=L[i],b=L[j];let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>=MIN)continue;if(d<.01){dx=1;dy=0;d=1}const k=(MIN-d)/2/d;a.x-=dx*k;a.y-=dy*k;b.x+=dx*k;b.y+=dy*k;mv++}if(!mv)break}
+  for(const s of L)s.w=galToWorld(g,s.x,s.y,s.z)});
 const GREEK=['α','β','γ','δ'];
 SYSTEMS.forEach(s=>{const r=rng(hash('b'+s.i)),G=GALS[s.gal],kinds=[];const nb=r()<.75?1+Math.floor(r()*2):0;for(let k=0;k<nb;k++)kinds.push(r()<.6?'ast':'moon');if(r()<.05+(G.rich-1)*.35)kinds.push('anom');if(!kinds.length&&!s.deep)kinds.push(hash('sat'+s.i)%2?'moon':'ast'); // au moins un satellite par système
   kinds.forEach((t,k)=>{const pid=`b${s.i}-${k}`;PLANETS[pid]={pid,sys:s.i,slot:s.planets.length+k,name:t==='ast'?`Ceinture ${GREEK[k]} de ${s.name}`:t==='moon'?`Lune ${GREEK[k]} de ${s.name}`:`Anomalie de ${s.name}`,type:t,body:true};s.bodies.push(pid)})});
@@ -628,7 +631,7 @@ const bodyRareCap=p=>{const q=p&&p.owner?settle(p,Date.now()):p;return RARE_BASE
 const rareCapAll=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p.pid)).reduce((t,p)=>t+bodyRareCap(p),0);
 function rareOf(uid,pid){const pl=S.players[uid],o={ir:0,xe:0,am:0},p=S.planets[pid];if(!pl||!p)return o;const b=(pl.rareBy||{})[pid]||{},x=rareRate(settle(p,Date.now())),cp=bodyRareCap(p),dt=Math.max(0,(Date.now()-(pl.rareAt||Date.now()))/60000);for(const k in o)o[k]=Math.min(cp,rareFill(b[k]||0,x[k]*dt,cp));return o} // jamais au-delà de la capacité du satellite;
 function rareNow(uid){const pl=S.players[uid],o={ir:0,xe:0,am:0};if(!pl)return o;const b=pl.rare||{};for(const k in o)o[k]=b[k]||0;for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid)){const x=rareOf(uid,p.pid);for(const k in o)o[k]+=x[k]}return o} // total de l'empire : réserve centrale + stocks des satellites
-const latestIntel=pid=>{const r=S.reports.find(x=>x.intel&&x.intel.pid===pid);return r&&r.intel};
+const latestIntel=pid=>{let b=null;for(const x of S.reports)if(x.intel&&x.intel.pid===pid&&(!b||(x.intel.at||0)>(b.at||0)))b=x.intel;return b};
 
 // ---------- Écumeurs du Vide ----------
 // meutes locales : 2 ou 3 par système (1 horde + 1 ou 2 meutes), qui grossissent si on les laisse et réapparaissent 3 h après dispersion.
@@ -688,6 +691,8 @@ function lairInfoAt(s,now=Date.now()){if(!s||!s.lair)return null;const le=S.even
   else{let born=packBorn(S.events[s.packs[0]]);if(le&&le.done)born=Math.max(born,le.doneAt||0);founded=born+lairDelay(s);if(now<founded)return null}
   const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
 // Léviathans des Écumeurs : énormes vaisseaux-mères stationnés dans le vide, entre deux systèmes voisins. Plus forts qu'une horde.
+const LEV_SWAP=on=>{for(const s of SYSTEMS)if(s.x0!=null){const t=s.x;s.x=on?s.x0:s.xm;s.xm=t;const u=s.y;s.y=on?s.y0:s.ym;s.ym=u}};
+LEV_SWAP(1);const LEV_K0=new Set(Object.keys(RAIDS));
 (function registerLeviathans(){const lv=a=>GALS[a.gal].rich*(1+(500-Math.min(a.rad,500))/400);
   for(let g=0;g<GALS.length;g++){const L=SYS_BY_GAL[g].filter(s=>!s.deep),seen=new Set(),placed=[],cand=[],maxR=Math.max(...L.map(s=>s.rad));
     // près du cœur de la galaxie (pas entre deux systèmes : c'est trop confus à l'écran)
@@ -704,6 +709,8 @@ function lairInfoAt(s,now=Date.now()){if(!s||!s.lair)return null;const le=S.even
         RAIDS[eid]={pid:eid,sys:home.i,gal:g,tier:1,local:true,mid:true,esc:true,big,start:0,end:Infinity,mx:c.x+Math.cos(an)*11,my:c.y+Math.sin(an)*11,mz:c.z+3+(r()-.5)*4,
           ships:{fighter:Math.round(10*kk+r()*5),cruiser:Math.round(3.5*kk),battleship:Math.round((big?.6:.2)*kk)},...raidLoot(kk*1.2)};
         PLANETS[eid]={pid:eid,sys:home.i,slot:12,name:`${big?'Horde':'Meute'} d’élite · escorte du Léviathan`,type:'raid',raid:true,local:true,mid:true}}}}})();
+// placement calculé sur les positions d’origine (mêmes Léviathans qu’avant l’écartement), puis décalé avec leur système
+LEV_SWAP(0);for(const k in RAIDS){if(LEV_K0.has(k))continue;const R=RAIDS[k],h=SYSTEMS[R.sys];if(h&&h.x0!=null&&R.mx!=null){R.mx+=h.x-h.x0;R.my+=h.y-h.y0}}
 const CORE_N=['Bastion','Citadelle','Forge','Arsenal','Trône'],EMP_NAME='l’Empereur Vorgath le Dévoreur';
 const CORE=(()=>{const g=0,w=galToWorld(g,500,500,0),s={i:SYSTEMS.length,li:-1,gal:g,x:500,y:500,z:0,rad:0,ang:0,name:'Cœur d’Orion',planets:[],bodies:[],packs:[],w,core:true};SYSTEMS.push(s);
   const types=['vol','tel','vol','tel','vol'];CORE_N.forEach((n,k)=>{const pid='o'+g+'-'+k;PLANETS[pid]={pid,sys:s.i,slot:k,name:`${n} d’Orion`,type:PTYPES[types[k]]?types[k]:Object.keys(PTYPES)[0],core:true};s.planets.push(pid)});
@@ -1684,7 +1691,7 @@ async function rallyKick(fid){await act(async()=>{await locked('fleets/'+fid,asy
     await sendBack(x,xref,x.owner===ME?null:`${pname(ME)} a renvoyé ta flotte du ralliement : elle rentre.`)});toast('Flotte renvoyée.')})}
 // chances de victoire d'un ralliement : le chef seul, puis avec tous les soutiens (et éventuellement ta propre flotte en plus)
 function rallyMods(owner,cmd,rb){const m=forceMods(owner,cmd),o={};for(const k in m)o[k]={...m[k],att:m[k].att*(1+(rb||0))};return o}
-function rallyOddsHtml(R,extra){if(!R||!PLANETS[R.to])return'';const it0=latestIntel(R.to),stale=it0&&PLANETS[R.to].raid&&raidIntelStale(R.to,it0),it=stale?null:it0;
+function rallyOddsHtml(R,extra){if(!R||!PLANETS[R.to])return'';const it0=latestIntel(R.to),stale=it0&&intelStale(R.to,it0),it=stale?null:it0;
   if(!it||!it.ships)return`<span class="eff" style="font-size:12px">🔭 Armée en face ${stale?'<b>à re-espionner</b> (renseignement périmé)':'inconnue'} : espionne la cible pour voir les chances de victoire.</span>`;
   const owner=(S.planets[R.to]||{}).owner,md=owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null,foe={...it.ships,...(it.turrets?{turret:it.turrets}:{})},mods=rallyMods(R.owner,R.cmd,R.rb??rallyBonus(R.owner,R.cmd)),fl={flag:R.cmd?1:0};
   const solo={...R.ships,...fl},all={...R.ships,...fl};for(const x of rallyMembers(R.fid))addShips(all,x.ships);if(extra)addShips(all,extra);const n=rallyMembers(R.fid).length+(extra&&count(extra)?1:0);
@@ -1920,8 +1927,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=zeroShips();addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await holdAt(f,fref,A,{m:0,c:0,f:0}); // l'escorte reste en orbite, rattachée à sa planète d'origine
         for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
         reps.push({news:'conquest',to:[...atkUids,victim],tone:'win',loser:victim,title:`${tn} annexé${body?'':'e'} par ${pname(f.owner)}`,lines,battle:rec(B,victim,{planet:true})});return}
-      await ref.set(p);await finish(G.surv,loots);
-      reps.push({news:'battle',to:[...atkUids,victim],tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won?victim:isEmpty(B.a)?f.owner:null,title:won?`${atkName} remporte la bataille de ${tn}`:!isEmpty(B.a)?`Combat indécis à ${tn} : il reste ${unitLine(B.d)}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
+      p.lb=Date.now();await ref.set(p);await finish(G.surv,loots);
+      reps.push({intel:{pid:f.to,at:Date.now()+1000,owner:victim,ships:Object.fromEntries(Object.entries(B.d).filter(([k,v])=>k!=='turret'&&v>0)),turrets:B.d.turret||0,after:true},news:'battle',to:[...atkUids,victim],tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won?victim:isEmpty(B.a)?f.owner:null,title:won?`${atkName} remporte la bataille de ${tn}`:!isEmpty(B.a)?`Combat indécis à ${tn} : il reste ${unitLine(B.d)}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
     // cible neutre (pirates)
     const frac=killedDef/(worth(B.id)||1),loots=splitLoot(Object.fromEntries(Object.entries(treasureOf(B.id)).map(([k,v])=>[k,v*frac])),G.surv,shares(forces));
     await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})));lines.push(`Butin : ${lootTxt(sumLoot(loots))} · ${Math.round(killedDef)} points de combat.`);
@@ -1929,8 +1936,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
       if(d&&d.pbase&&S.events[d.pbase]&&S.events[d.pbase].pid===f.to)pbKilled(d.pbase,atkUids,f.to).catch(()=>{});
       reps.push({news:'conquest',to:atkUids,tone:'win',title:`${tn} libéré${body?'':'e'} et ${body?'équipé d’un avant-poste':'colonisée'}`,lines,battle:rec(B,'pirates',{planet:!body})});return}
-    const pbId=d&&d.pbase,pbBase=pbId&&S.events[pbId]&&S.events[pbId].pid===f.to;await ref.set({kind:'planet',pid:f.to,owner:null,garrison:won?{}:B.d,...(pbId&&!won?{pbase:pbId,pill:true}:{})});await finish(G.surv,loots);if(won&&pbBase)pbKilled(pbId,atkUids,f.to).catch(()=>{});
-    reps.push({to:atkUids,tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won||!isEmpty(B.a)?null:f.owner,title:won?`Pirates chassés de ${tn}`:!isEmpty(B.a)?`Combat indécis contre les pirates de ${tn} : il en reste ${unitLine(B.d)}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
+    const pbId=d&&d.pbase,pbBase=pbId&&S.events[pbId]&&S.events[pbId].pid===f.to;await ref.set({kind:'planet',pid:f.to,owner:null,lb:Date.now(),garrison:won?{}:B.d,...(pbId&&!won?{pbase:pbId,pill:true}:{})});await finish(G.surv,loots);if(won&&pbBase)pbKilled(pbId,atkUids,f.to).catch(()=>{});
+    reps.push({intel:{pid:f.to,at:Date.now()+1000,owner:null,ships:won?{}:Object.fromEntries(Object.entries(B.d).filter(([k,v])=>v>0)),turrets:0,after:true},to:atkUids,tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won||!isEmpty(B.a)?null:f.owner,title:won?`Pirates chassés de ${tn}`:!isEmpty(B.a)?`Combat indécis contre les pirates de ${tn} : il en reste ${unitLine(B.d)}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
   });
   for(const r of reps)await report(r)}
 async function homecoming(f,fref){let dest=f.from;const o=S.planets[dest];
@@ -2137,26 +2144,34 @@ function renderHangar0(){if(S.hcls==='flag')return flagHtml();const p=view(S.sel
     <div class="chips">${known.length?known.filter(x=>x!==w).map(x=>`<button class="chip" data-act="mount" data-c="${cls}" data-s="${i}" data-w="${x}" ${(mods[x]||0)>=MOUNT[cls]?'':'disabled'}>${WEAP[x].n} <span class="eff">(${mods[x]||0}/${MOUNT[cls]})</span></button>`).join(''):'<span class="eff">Recherche une arme au Labo pour équiper cet emplacement.</span>'}${w?`<button class="chip" data-act="mount" data-c="${cls}" data-s="${i}" data-w="">Retirer</button>`:''}</div></div>`).join('')}</div></section>
   <section style="display:grid;gap:10px"><h2>Peinture</h2><p class="meta" style="margin:0">Purement esthétique : aucun effet en combat.</p>
   <div class="card" style="display:grid;gap:10px">${[['hull','Coque',HULLS],['trim','Liserés',COLORS],['glow','Réacteurs',GLOWS]].map(([part,lab,pal])=>`<div style="display:grid;gap:6px"><span class="eff">${lab}</span><div class="swatches">${pal.map(c=>`<button class="sw" data-act="paint" data-p="${part}" data-c="${c}" aria-label="${lab} ${c}" aria-pressed="${pt[part]===c}" style="background:${c}"></button>`).join('')}</div></div>`).join('')}</div></section>`}
-function intelBox(pid){const it=latestIntel(pid);if(!it)return'';const parts=[];parts.push(it.ships?`flotte : ${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue');if(it.res)parts.push(`stocks : ${fmt(it.res.m)} métal, ${fmt(it.res.c)} cristal, ${fmt(it.res.f)} hélium-3`);
+const guardName=pid=>discTag(pid)&&RELIC_AT[pid]?'Gardiens de la relique':discTag(pid)&&JEWELS[pid]?'Gardiens de la planète joyau':'Pirates';
+function intelBox(pid){const it=latestIntel(pid);if(!it)return'';if(intelStale(pid,it))return`<span class="intel" style="color:#ffb38a;border-color:#ff9b6b88;background:#ff9b6b14">🔍 Renseignement périmé (${ago(it.at)}) : ${staleWhy(pid,it)}. Espionne à nouveau.</span>`;
+  if(it.after){const e=!it.ships||!count(it.ships)&&!it.turrets;return`<span class="intel">⚔ Après ta bataille ${ago(it.at)} · ${e?'plus aucune défense':`il reste ${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`}</span>`}
+  const parts=[];parts.push(it.ships?`flotte : ${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue');if(it.res)parts.push(`stocks : ${fmt(it.res.m)} métal, ${fmt(it.res.c)} cristal, ${fmt(it.res.f)} hélium-3`);
   return`<span class="intel">🔭 Espionné ${ago(it.at)} · ${parts.join(' · ')}</span>`}
-function modalIntel(to,ships){const it0=latestIntel(to),stale=it0&&PLANETS[to]&&PLANETS[to].raid&&raidIntelStale(to,it0),it=stale?null:it0;if(stale)return`<p class="eff" style="margin:0">Armée en face : <b>renseignement périmé</b> (le groupe est réapparu ou a changé depuis ton espionnage ${ago(it0.at)}). Espionne-le à nouveau.</p>`;const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
+function modalIntel(to,ships){const it0=latestIntel(to),stale=it0&&intelStale(to,it0),it=stale?null:it0;if(stale)return`<p class="eff" style="margin:0">Armée en face : <b>renseignement périmé</b> (espionnage ${ago(it0.at)} : ${PLANETS[to]&&PLANETS[to].raid?'le groupe est réapparu ou a changé depuis':staleWhy(to,it0)}). Espionne à nouveau.</p>`;const M=S.modal||{},att={...ships,...(M.cmd?{flag:1}:{})},owner=(S.planets[to]||{}).owner,md=it&&owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null;if(!it)return`<p class="eff" style="margin:0">Armée en face : <b>inconnue</b>. Espionne d’abord la cible pour la voir ici.</p>`;
   const foe={...(it.ships||{}),...(it.turrets?{turret:it.turrets}:{})},wf=worth(foe),wm=worth(ships),r=wf?wm/wf:0;
   return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${it.ships?`${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}`:'flotte inconnue (pas assez de sondes)'}</span>${it.ships&&wm?`<span class="eff">Rapport de force : <b style="color:${r>=1.5?'var(--good)':r>=.9?'var(--warn)':'var(--bad)'}">${r>=1.5?'à ton avantage':r>=.9?'serré':'défavorable'}</b> (${fmt(wm)} contre ${fmt(wf)})</span>${['attack','colonize','salvage'].includes(M.mission)?pctHtml(winChance(att,foe,forceMods(ME,M.cmd),md),'Chance de victoire'):M.mission==='rally'&&M.cmd?pctHtml(winChance(att,foe,rallyMods(ME,M.cmd,rallyBonus(ME,M.cmd)),md),'Chance de victoire sans soutien'):''}`:''}</div>`}
 // mot sous le nom sur la carte : espionnée récemment, ou à re-espionner si la cible a changé depuis (nouveau maître, repaire des Écumeurs, flotte détruite)
 // renseignement sur des Écumeurs périmé : groupe réapparu depuis, combat après l'espionnage, ou plus de 6 h (ils grossissent)
 function raidIntelStale(pid,it){const R=RAIDS[pid];if(!R||!it)return false;const ev=S.events[pid],now=Date.now();if(ev){if(ev.done){const back=(ev.doneAt||0)+respawnOf(R);if(now>=back&&it.at<back)return true}else if((ev.doneAt||0)>it.at||(ev.at||0)>it.at)return true}
   return R.local&&now-it.at>6*HR}
-function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);if(v.owner===ME)return'';let old=!P.raid&&(it.owner||null)!==(v.owner||null);
-  if(!old&&!P.raid&&SYSTEMS[P.sys]&&SYSTEMS[P.sys].lair){const L=lairInfoAt(SYSTEMS[P.sys]);if(L&&L.pid===pid&&L.founded>it.at)old=true}
-  if(!old&&P.raid&&raidIntelStale(pid,it))old=true;
+// renseignement périmé : combat sur place depuis, changement de propriétaire, repaire installé, ou trop ancien chez un joueur
+function intelStale(pid,it){const P=PLANETS[pid];if(!P||!it)return false;if(P.raid)return raidIntelStale(pid,it);const v=view(pid);if((it.owner||null)!==(v.owner||null))return true;
+  const sy=SYSTEMS[P.sys];if(sy&&sy.lair){const L=lairInfoAt(sy);if(L&&L.pid===pid&&L.founded>it.at)return true}
+  const d=S.planets[pid];if(d&&d.lb&&d.lb>it.at)return true;const eb=S.events[btId(pid)];if(eb&&eb.battle&&((eb.doneAt||0)>it.at||(!eb.done&&(eb.at||0)>it.at)))return true;
+  return!!(v.owner&&Date.now()-it.at>INTEL_OLD)}
+const INTEL_OLD=6*HR;
+function staleWhy(pid,it){const P=PLANETS[pid];if(P&&!P.raid&&view(pid).owner&&Date.now()-it.at>INTEL_OLD&&!((S.planets[pid]||{}).lb>it.at))return'il date de plus de 6 h, la cible a pu construire depuis';return'un combat a eu lieu ou la cible a changé depuis'}
+function spyTag(pid){const it=latestIntel(pid);if(!it)return'';const P=PLANETS[pid],v=view(pid);if(v.owner===ME)return'';let old=intelStale(pid,it);
   return old?'<i class="sub2" style="color:#ff9b6b">🔍 à re-espionner</i>':`<i class="sub2" style="color:#9fe0a8">🔍 espionnée ${ago(it.at)}</i>`}
 // rapports : les pertes en rouge
 const repLine=l=>esc(l).replace(/(pertes\s*:\s*)([^.—·]+)/gi,(m,a,b)=>/^aucune/i.test(b.trim())?m:`${a}<b style="color:var(--bad,#ff6b6b)">${b}</b>`);
-function intelLine(pid){const it=latestIntel(pid);if(!it)return null;return`Renseignement ${ago(it.at)} : ${it.ships?`${unitLine(it.ships)}${it.turrets?`, ${it.turrets} tourelles`:''}`:'flotte inconnue'}`}
+function intelLine(pid){const it=latestIntel(pid);if(!it||intelStale(pid,it))return null;return`Renseignement ${ago(it.at)} : ${it.ships?`${unitLine(it.ships)}${it.turrets?`, ${it.turrets} tourelles`:''}`:'flotte inconnue'}`}
 function planetRow(pid,joined){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type];let who,btn='';const cm=cometAt(),hv=hiveAt();
   const il=intelLine(pid),lr=lairInfoAt(SYSTEMS[m.sys]);
   if(v.owner){const raw=S.planets[pid];who=`<span class="owner"><span class="dot" style="background:${esc(pcolor(v.owner))}"></span>${esc(pname(v.owner))}${raw.capital?' · capitale':raw.outpost?' · avant-poste':''}${v.owner!==ME&&!il?' · flotte inconnue, envoie une sonde':''}</span>${v.owner!==ME?intelBox(pid):''}${raw.capital&&v.owner!==ME&&cmdsOf(v.owner).length?`<span class="eff" style="display:block;font-size:12px">🎖 ${cmdsOf(v.owner).slice().sort((a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)).slice(0,4).map(c=>`<b style="color:${RAR[cmdInfo(c).r].col}">${esc(cmdInfo(c).n)}</b>`).join(' · ')}${cmdsOf(v.owner).length>4?` +${cmdsOf(v.owner).length-4}`:''}</span>`:''}`}
-  else{const n=worth(v.garrison);who=`<span class="eff">${lr&&lr.pid===pid?'<b style="color:var(--bad)">Repaire des Écumeurs installé ici</b>':hv&&hv.pid===pid?'<b style="color:var(--bad)">La Ruche occupe l’orbite</b>':n?`Pirates · menace ${threat(n)}`:isBody(pid)?'Libre · avant-poste possible':'Orbite libre, colonisable'}</span>${n?intelBox(pid):''}`}
+  else{const n=worth(v.garrison);who=`<span class="eff">${lr&&lr.pid===pid?'<b style="color:var(--bad)">Repaire des Écumeurs installé ici</b>':hv&&hv.pid===pid?'<b style="color:var(--bad)">La Ruche occupe l’orbite</b>':n?`${guardName(pid)} · menace ${threat(n)}`:isBody(pid)?'Libre · avant-poste possible':'Orbite libre, colonisable'}</span>${n?intelBox(pid):''}`}
   if(cm&&cm.pid===pid&&!(S.events[cm.id]&&S.events[cm.id].claimedBy))who+=` <b style="color:var(--warn)">· Comète à récolter</b>`;
   if(joined){if(v.owner===ME)btn=pid===S.sel?'<span class="lv">sélectionnée</span>':`<button class="btn ghost sm" data-act="selp" data-p="${pid}">Gérer</button>`;btn+=pid!==S.sel?` <button class="btn sm" data-act="send" data-p="${pid}">Envoyer</button>`:''}
   return`<div class="item" ${pid===S.pickP?'style="box-shadow:inset 3px 0 0 var(--brass)"':''}><div class="ihead"><b>${esc(m.name)}</b><span class="lv">${T.n}${isBody(pid)?` · ${RARE[T.rare]}`:''}</span></div>${joined&&pid!==S.sel?`<div class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</div>`:''}<div class="foot">${who}<div>${btn}</div></div>${joined&&v.owner!==ME?spyHintHtml(spyNeedPid(pid)):''}</div>`}
@@ -2637,7 +2652,7 @@ function mpPopHtml(pid){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type],joined
     acts.push(`<button class="btn sm" data-act="selp" data-p="${pid}">Gérer</button>`);if(pid!==S.sel)acts.push(B('reinforce','🛡 Soutenir','ghost'))}
   else if(v.owner){const npc=isNpc(v.owner);who=`<span class="dot" style="background:${esc(npc?NPC_COL:pcolor(v.owner))}"></span>${esc(npc?NPC_NAME:pname(v.owner))}${raw.capital?' · capitale':raw.outpost?' · avant-poste':''}`;
     acts.push(B('attack','⚔ Attaquer'),B('spy','👁 Espionner','ghost'));if(!npc)acts.push(B('reinforce','🛡 Renfort','ghost'))}
-  else{const n=worth(v.garrison||{}),wreck=m.type==='wreck';who=!vis?'Système dans le brouillard':n?`Pirates · menace ${threat(n)}`:wreck?'Épave à récupérer':body?'Libre · avant-poste possible':'Orbite libre';
+  else{const n=worth(v.garrison||{}),wreck=m.type==='wreck';who=!vis?'Système dans le brouillard':n?`${guardName(pid)} · menace ${threat(n)}`:wreck?'Épave à récupérer':body?'Libre · avant-poste possible':'Orbite libre';
     if(n)acts.push(B('attack','⚔ Attaquer'));acts.push(B('spy','👁 Espionner','ghost'));
     if(!n&&wreck)acts.push(B('salvage','Récupérer'));else if(!n&&vis)acts.push(B('colonize','🪐 Coloniser'));
     if(cm&&cm.pid===pid)acts.push(B('harvest','☄ Récolter'))}
@@ -2649,7 +2664,7 @@ function mpPopHtml(pid){const v=view(pid),m=PLANETS[pid],T=PTYPES[m.type],joined
   if(m.raid&&!v.owner&&!worth(v.garrison||{})){acts=[];who='Écumeurs vaincus : il n’y a plus rien à attaquer ici pour l’instant.'}
   const eta=joined&&S.sel&&pid!==S.sel?`<span class="eff">Trajet : ${fmtDur(etaOf(S.sel,pid,{fighter:1}))} en chasseurs</span>`:'';
   return`<div class="mppop" role="dialog" aria-label="${esc(plName(pid))}"><div class="ihead"><b>${esc(plName(pid))}</b><span class="lv">${T.n}${body?` · ${RARE[T.rare]}`:''}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
-    <span class="eff mpwho">${who}</span>${v.owner&&v.owner!==ME?intelBox(pid):''}${eta}${fleetsToHtml(pid,true)}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}${v.owner!==ME&&!m.comet&&!m.sig?spyHintHtml(spyNeedPid(pid)):''}</div>`}
+    <span class="eff mpwho">${who}</span>${v.owner!==ME&&!m.sig&&!m.comet&&(v.owner||worth(v.garrison||{}))?intelBox(pid):''}${eta}${fleetsToHtml(pid,true)}${joined?`<div class="mpacts">${acts.join('')}</div>`:''}${v.owner!==ME&&!m.comet&&!m.sig?spyHintHtml(spyNeedPid(pid)):''}</div>`}
 function mpFleetPopHtml(f){const C=f.cmd&&cmdById(ME,f.cmd),m=PLANETS[f.to],where=m.raid?`près de ${esc(SYSTEMS[m.sys].name)}`:`à ${esc(plName(f.to))}`,nx=ambushNext(f);
   return`<div class="mppop" role="dialog" aria-label="Ta flotte"><div class="ihead"><b>🚀 Ta flotte · en position</b><span class="lv">depuis ${fmtDur((Date.now()-(f.holdAt||Date.now()))/1000)}</span><button class="mppx" data-act="mppopx" aria-label="Fermer">✕</button></div>
     <span class="eff mpwho">En orbite ${where} · ${unitShort(f.ships)}</span>${C?`<span class="eff">${cmdBadge(C,16)} <b style="color:${RAR[cmdInfo(C).r].col}">Commandant ${esc(cmdInfo(C).n)}</b> · niv. ${cmdLvl(C.xp)}</span>`:'<span class="eff">Sans commandant</span>'}
@@ -3678,7 +3693,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='152';
+const APP_VERSION='153';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

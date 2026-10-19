@@ -291,7 +291,7 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 #mp.v3full #mpc{height:100%;touch-action:none}
 #mp.v3full .v3btn{top:calc(10px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px))}
 #mp.v3full .mpnav{top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px))}
-.mplab{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.mplab{position:absolute;inset:0;pointer-events:none;overflow:hidden}.ml.go{pointer-events:auto;cursor:pointer}
 .mlo{pointer-events:auto;cursor:pointer;display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:var(--brass);color:#14100a;font:700 10px/16px system-ui}
 .mlq{pointer-events:auto;cursor:pointer;display:inline-grid;place-items:center;width:13px;height:13px;margin-left:4px;border-radius:50%;background:#ffffff26;border:1px solid #ffffff55;color:#fff;font:700 9px/1 system-ui;vertical-align:1px}
 #mhelp .sheet{display:grid;gap:10px}
@@ -2662,8 +2662,10 @@ function mpLabels(){const L=[],owners=MP.owners||{},cm=cometAt(),hv=hiveAt();
     if(MP.dist<75)mpFleetLabels(L,'short',null);
     if(MP.dist<85){const cx=mpc.clientWidth/2,cy=mpc.clientHeight/2;const near=SYSTEMS.filter(s=>s.gal===MP.gal&&!s.deep&&!shown.has(s.i)&&sysVisible(s.i)).map(s=>{const p=mpProject(s.w);return p?{s,d:Math.hypot(p[0]-cx,p[1]-cy)}:null}).filter(Boolean).sort((a,b)=>a.d-b.d).slice(0,MP.dist<40?28:14);for(const{s}of near)L.push({w:s.w,cls:'dim',h:esc(s.name)})}}
   else if(MP.level==='system'){const vis=sysVisible(MP.sys);MP.orbs.forEach(o=>{if(o.ghost)return;const v=vis?view(o.pid):{};L.push({o,cls:o.pid===S.pickP?'me':'',h:vis?`${esc(plName(o.pid))}${v.owner?` <b style="color:${esc(pcolor(v.owner))}">●</b>`:''}<i class="sub">${PLANETS[o.pid].core&&!v.owner?(coreKnown()?'tenue par les Écumeurs · production +25 %, vaisseaux 2× plus vite':'inconnue · espionne-la (beaucoup de sondes)'):PLANETS[o.pid].sig?discTag(o.pid)+hq('sig'):discTag(o.pid)?discTag(o.pid)+(isBody(o.pid)?' · satellite':' · planète')+hq(helpKeyOf(o.pid)):PLANETS[o.pid].comet?'comète libre · à récolter':isBody(o.pid)?'satellite':PLANETS[o.pid].raid?'Écumeurs':'planète'}${!discTag(o.pid)&&!PLANETS[o.pid].sig?hq(helpKeyOf(o.pid)):''}</i>${spyTag(o.pid)}`:PLANETS[o.pid].sig?'📡 Signal inconnu'+hq('sig')+'<i class="sub">envoie '+SIG_NEED+' sondes</i>':(helpKeyOf(o.pid)?'?'+hq(helpKeyOf(o.pid)):'?')})});for(const q of SYSTEMS)if(sysNear(q)&&sysVisible(q.i)){const os=owners[q.i];L.push({w:q.w,cls:'dim',h:`${os?[...os].sort((x,y)=>(y===ME)-(x===ME)).map(o=>`<b style="color:${esc(pcolor(o))}">●</b>`).join('')+' ':''}${esc(q.name)}`})}if(MP.dist<1.8)mpFleetLabels(L,true,MP.sys)}
+  // vue galaxie : chaque étiquette (artefact, base, Armada, Léviathan, signal, nom…) mène au système le plus proche
+  if(MP.level==='galaxy'){const SS=SYS_BY_GAL[MP.gal].filter(q=>!q.deep);for(const l of L){if(l.go!=null||!l.w)continue;let b=null,bd=2.2;for(const q of SS){const d=Math.hypot(q.w[0]-l.w[0],q.w[1]-l.w[1],q.w[2]-l.w[2]);if(d<bd){bd=d;b=q}}if(b)l.go=b.i}}
   L.forEach((l,i)=>{if(l.pr==null)l.pr=l.cls.includes('bad')?0:l.cls.includes('me')||l.cls.includes('ev')?1:l.cls.includes('mini')?3:l.cls.includes('dim')?4:2;l.k=i});L.sort((a,b)=>a.pr-b.pr||a.k-b.k);
-  MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}" data-i="${i}">${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
+  MP.labels=L;const html=L.map((l,i)=>`<span class="ml ${l.cls}${l.go!=null?' go':''}" data-i="${i}"${l.go!=null?` data-act="mlgo" data-s="${l.go}"`:''}>${l.h}</span>`).join('');if(html!==MP.labSig){MP.labSig=html;mplab.innerHTML=html;MP.labSz=[...mplab.children].map(e=>[e.offsetWidth,e.offsetHeight])}}
 function mpNav(){const nav=document.getElementById('mpnav');const G=GALS[MP.gal];const parts=[`<button class="tgl" data-act="mapuni" aria-pressed="${MP.level==='universe'}">Univers</button>`];
   if(MP.level!=='universe')parts.push(`<button class="tgl" data-act="mapgal" data-g="${MP.gal}" aria-pressed="${MP.level==='galaxy'}">${esc(G.name)}</button>`);
   if(MP.level==='system')parts.push(`<button class="tgl" aria-pressed="true">${sysVisible(MP.sys)?esc(SYSTEMS[MP.sys].name):'Inexploré'}</button>`);
@@ -3032,6 +3034,7 @@ document.addEventListener('click',e=>{
   else if(a==='pmap'){const si=+b.dataset.s,pk=b.dataset.p;S.tab='galaxy';render();window.scrollTo(0,0);setTimeout(()=>{if(MP.ok){const R=pk&&RAIDS[pk];if(R&&(R.mid||R.bounty||!R.local)){mpGoGalaxy(R.gal,raidPos(pk),14)}else{mpGoSystem(si);if(pk&&PLANETS[pk]){S.pickP=pk;render()}}}const el=document.getElementById('mp');if(el)el.scrollIntoView({block:'start'})},80)}
   else if(a==='maphome'){mpGoSystem(PLANETS[S.sel].sys)}
   else if(a==='flygo'){flyStart()}
+  else if(a==='mlgo'){const i=+b.dataset.s;if(SYSTEMS[i]){sfx.click();mpGoSystem(i)}}
   else if(a==='mappl'){S.mpPl=!S.mpPl;mpNav()}
   else if(a==='mapplgo'){S.mpPl=false;const pm=PLANETS[b.dataset.p];if(pm){mpGoSystem(pm.sys);S.pickP=b.dataset.p;render()}}
   else if(a==='selp'){S.sel=b.dataset.p;S.tab='planet';render();window.scrollTo(0,0)}
@@ -4012,7 +4015,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='171';
+const APP_VERSION='172';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

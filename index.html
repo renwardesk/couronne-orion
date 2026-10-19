@@ -305,14 +305,20 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 .fl-top{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:8px;align-items:center}
 .fl-loc{flex:1;text-align:center;font-size:13px;color:#dbe8ff;text-shadow:0 1px 4px #000;line-height:1.3}
 .fl-spd{position:absolute;top:calc(56px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;font-size:11px;letter-spacing:.08em;color:#9fd8ff;text-shadow:0 1px 3px #000}
-.fl-thr{position:absolute;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:58px;height:190px;border-radius:29px;background:#0b1430b0;border:1px solid #5ec8ff55}
-.fl-thr i{position:absolute;left:6px;right:6px;bottom:6px;border-radius:23px;background:linear-gradient(#ffcf6b,#ff8a3d);opacity:.85}
-.fl-thr b{position:absolute;left:4px;right:4px;height:14px;border-radius:7px;background:#fff;box-shadow:0 0 10px #fff9}
-.fl-thr span{position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3d9}
-.fl-boost{position:absolute;left:calc(max(20px,env(safe-area-inset-left,0px)) + 72px);bottom:calc(30px + env(safe-area-inset-bottom,0px));width:62px;height:62px;border-radius:50%;border:1px solid #ffcf6b88;background:#2a1a08c0;color:#ffcf6b;font:700 11px/1 inherit;letter-spacing:.06em}
-.fl-boost.on{background:#ffcf6b;color:#2a1a08;box-shadow:0 0 18px #ffcf6b}
-.fl-joy{position:absolute;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#0b143060,#0b1430c0);border:1px solid #5ec8ff55}
+.fl-joy{position:absolute;left:max(22px,env(safe-area-inset-left,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#0b143060,#0b1430c0);border:1px solid #5ec8ff55}
 .fl-joy b{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:#5ec8ff44;border:2px solid #9fd8ff;box-shadow:0 0 12px #5ec8ff66}
+.fl-gas,.fl-boost{position:absolute;border-radius:50%;font:700 12px/1 inherit;letter-spacing:.08em;-webkit-tap-highlight-color:transparent}
+.fl-gas{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(34px + env(safe-area-inset-bottom,0px));width:96px;height:96px;border:1px solid #5ec8ff99;background:#0b2440c8;color:#9fd8ff}
+.fl-boost{right:calc(max(22px,env(safe-area-inset-right,0px)) + 104px);bottom:calc(96px + env(safe-area-inset-bottom,0px));width:66px;height:66px;border:1px solid #ffcf6b88;background:#2a1a08c0;color:#ffcf6b}
+.fl-gas.on{background:#5ec8ff;color:#04101e;box-shadow:0 0 20px #5ec8ff}.fl-boost.on{background:#ffcf6b;color:#2a1a08;box-shadow:0 0 20px #ffcf6b}
+.fl-gas.dis,.fl-boost.dis{opacity:.35;filter:grayscale(1)}
+.fl-heat{position:absolute;right:max(10px,env(safe-area-inset-right,0px));bottom:calc(150px + env(safe-area-inset-bottom,0px));width:12px;height:120px;border-radius:6px;background:#0b1430c0;border:1px solid #ffffff33}
+.fl-heat i{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:6px;transition:height .15s}
+.fl-heat span{position:absolute;bottom:126px;right:-6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3d9;white-space:nowrap}
+.fl-over{position:absolute;right:max(22px,env(safe-area-inset-right,0px));bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-24px);font:700 12px/1 inherit;letter-spacing:.12em;color:#ff5a5a;text-shadow:0 0 8px #ff000088;animation:flblink .6s infinite alternate}
+@keyframes flblink{from{opacity:1}to{opacity:.35}}
+.fl-cap{position:absolute;transform:translate(-50%,-120%);font-size:11.5px;line-height:1.2;text-align:center;color:#e8f0ff;text-shadow:0 1px 3px #000,0 0 6px #000;white-space:nowrap;pointer-events:none}
+.fl-cap i{display:block;font-style:normal;font-size:10.5px}
 .fl-peer{position:absolute;transform:translate(-50%,-130%);font-size:12px;padding:2px 8px;border-radius:10px;background:#0b1430d0;border:1px solid;color:#e8f0ff;white-space:nowrap}
 .fl-peer.edge{transform:translate(-50%,-50%)}
 .mpnav{position:absolute;top:10px;left:10px;right:110px;display:flex;flex-wrap:wrap;gap:6px}
@@ -2690,102 +2696,145 @@ function mpLoop(t){if(FLY.on){MP.running=false;return}MP.raf=requestAnimationFra
   MP.r.render(MP.scene,MP.cam);
   const spans=mplab.children,placed=[];for(let i=0;i<spans.length;i++){const l=MP.labels[i];if(!l)continue;let w=l.w;if(l.o){const v=new THREE.Vector3();l.o.mesh.getWorldPosition(v);w=[v.x,v.y,v.z]}if(l.fl){const fp=fleetPos(l.fl,Date.now());if(fp)w=fp.p}const p=mpProject(w);const el=spans[i];if(!p){el.style.visibility='hidden';continue}let z=(MP.labSz||(MP.labSz=[]))[i];if(!z||!z[0])z=MP.labSz[i]=[el.offsetWidth,el.offsetHeight];const R=[p[0]-z[0]/2-3,p[1]-z[1]*1.5-2,p[0]+z[0]/2+3,p[1]-z[1]*.5+2];if(placed.some(q=>R[0]<q[2]&&R[2]>q[0]&&R[1]<q[3]&&R[3]>q[1])){el.style.visibility='hidden';continue}placed.push(R);el.style.visibility='visible';el.style.transform=`translate(${p[0]|0}px,${p[1]|0}px) translate(-50%,-150%)`}}
 // ---------- navigation libre : piloter son vaisseau amiral dans la galaxie (pour le plaisir, aucun effet sur la partie) ----------
-const FLY={on:false,peers:new Map()};const FLY_LEN=.03,FLY_LOD=3.2;
+const FLY={on:false,peers:new Map(),lods:new Map()};
+// échelle : le vaisseau est petit devant les planètes ; vitesse de croisière lente, boost limité par la surchauffe
+const FLY_LEN=.011,FLY_LOD=7,FLY_LODN=6,FLY_CRUISE=.1,FLY_BOOST=.6,FLY_HEAT={gas:.045,boost:.2,cool:.16};
 function flyKey(uid){const cp=capitalOf(uid),c=cp&&planetCmd(uid,cp.pid);if(c&&c.key&&CMDK[c.key])return c.key;const L=cmdsOf(uid).filter(c=>c.key&&CMDK[c.key]).sort(cmdRank);return L[0]?L[0].key:null}
 // modèle normalisé : longueur FLY_LEN, nez vers +z ; bank = groupe de roulis visuel
 function flyModel(uid,key){const pt=paintOf(uid);let m=null;try{m=key?buildFlag(key,pt):null}catch(e){}if(!m)m=buildShip('battleship',pt,null);
   const b=new THREE.Box3().setFromObject(m),v=new THREE.Vector3(),c=new THREE.Vector3();b.getSize(v);b.getCenter(c);const k=FLY_LEN/(Math.max(v.x,v.z)||1);m.scale.multiplyScalar(k);m.position.sub(c.multiplyScalar(k));
   const inner=new THREE.Group();inner.add(m);inner.rotation.y=-Math.PI/2;const bank=new THREE.Group();bank.add(inner);const g=new THREE.Group();g.add(bank);
-  const ex=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:pcolor(uid)||0x8fd8ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.9}));ex.position.z=-FLY_LEN*.55;ex.scale.setScalar(.01);g.add(ex);
+  const ex=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:pcolor(uid)||0x8fd8ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.9}));ex.position.z=-FLY_LEN*.55;ex.scale.setScalar(.003);g.add(ex);
   g.userData={bank,ex,ver:SHIPLIB.ver,key,uid};return g}
 function flySwapModel(g){const n=flyModel(g.userData.uid,g.userData.key);g.remove(g.userData.bank);v3Clear(g.userData.bank);g.remove(g.userData.ex);g.add(n.userData.bank);g.add(n.userData.ex);g.userData.bank=n.userData.bank;g.userData.ex=n.userData.ex;g.userData.ver=SHIPLIB.ver}
+const flyEx=(g,v,b)=>g.userData.ex.scale.setScalar(.003+Math.min(.016,v*.05)*(b?1.7:1));
 function flyGalUp(g){const a=galToWorld(g,500,500,10),b=galToWorld(g,500,500,0);return new THREE.Vector3(a[0]-b[0],a[1]-b[1],a[2]-b[2]).normalize()}
 function flyStart(){if(!MP.ok||FLY.on)return;const cp=capitalOf(ME);if(!cp)return toast('Il te faut une capitale pour décoller.','bad');
   const g=galOf(cp.pid);S.pickP=null;S.pickF=null;MP.level='galaxy';MP.gal=g;MP.sys=null;mpClearSystem();MP.dist=MP.distT=60;MP.dataSig=null;mpData();
   FLY.on=true;FLY.gal=g;mpStop();MP.full=true;mpel.classList.add('flying');document.body.style.overflow='hidden';
-  FLY.hid=[MP.orbL,MP.ownPts,MP.raidPts,MP.fleetLines,MP.fleetDots,MP.trail,MP.fog,...(MP.fm?[...MP.fm.values()]:[]),...(MP.lev?[...MP.lev.values()]:[])].filter(o=>o&&o.visible);for(const o of FLY.hid)o.visible=false;
-  MP.clouds.forEach((c,i)=>{c.material.uniforms.op.value=i===g?.06:.5});MP.pPts.material.uniforms.op.value=1;
-  const cam=MP.cam;FLY.cam0={near:cam.near,fov:cam.fov};cam.near=.002;cam.updateProjectionMatrix();
+  FLY.hid=[MP.orbL,MP.ownPts,MP.raidPts,MP.fleetLines,MP.fleetDots,MP.trail,MP.fog,...(MP.fm?[...MP.fm.values()]:[]),...(MP.lev?[...MP.lev.values()]:[]),...MP.scene.children.filter(o=>o.isSprite&&o.scale.x===26)].filter(o=>o&&o.visible);for(const o of FLY.hid)o.visible=false;
+  MP.clouds.forEach((c,i)=>{c.material.uniforms.op.value=i===g?.05:.45});MP.pPts.material.uniforms.op.value=1;
+  const cam=MP.cam;FLY.cam0={near:cam.near,fov:cam.fov};cam.near=.0005;cam.updateProjectionMatrix();
   // le vaisseau décolle de la capitale, dos à l'étoile
   const i=MP.pList.findIndex(q=>q.pid===cp.pid),now=Date.now(),pw=i>=0?orbPos(MP.pOrb[i],now/1000):SYSTEMS[PLANETS[cp.pid].sys].w,P=new THREE.Vector3(...pw),sw=new THREE.Vector3(...SYSTEMS[PLANETS[cp.pid].sys].w),up=flyGalUp(g);
-  const out=P.clone().sub(sw).normalize();FLY.pos=P.clone().addScaledVector(out,.07).addScaledVector(up,.015);FLY.q=new THREE.Quaternion();{const m=new THREE.Object3D();m.position.copy(FLY.pos);m.up.copy(up);m.lookAt(FLY.pos.clone().add(out).addScaledVector(up,.25));FLY.q.copy(m.quaternion)}
-  FLY.up=up;FLY.v=0;FLY.thr=.3;FLY.boost=false;FLY.jx=0;FLY.jy=0;FLY.ry=0;FLY.rp=0;FLY.bk=0;FLY.key=flyKey(ME);FLY.t0=performance.now();FLY.last=FLY.t0;FLY.sent=0;FLY.lod=null;
+  const out=P.clone().sub(sw).normalize();FLY.pos=P.clone().addScaledVector(out,.09).addScaledVector(up,.012);FLY.q=new THREE.Quaternion();{const m=new THREE.Object3D();m.position.copy(FLY.pos);m.up.copy(up);m.lookAt(FLY.pos.clone().add(out).addScaledVector(up,.2));FLY.q.copy(m.quaternion)}
+  Object.assign(FLY,{up,v:0,gas:false,boost:false,heat:0,over:false,jx:0,jy:0,ry:0,rp:0,bk:0,key:flyKey(ME),t0:performance.now(),sent:0,near:null,lf:0,hf:0,tags:null,tagT:0});FLY.last=FLY.t0;FLY.lods.clear();
   FLY.ship=flyModel(ME,FLY.key);FLY.ship.position.copy(FLY.pos);FLY.ship.quaternion.copy(FLY.q);MP.scene.add(FLY.ship);
   FLY.dl=new THREE.DirectionalLight(0xfff4e8,1.25);FLY.dl.target=FLY.ship;MP.scene.add(FLY.dl);FLY.hemi=new THREE.HemisphereLight(0x9fb8ff,0x1a1426,.55);MP.scene.add(FLY.hemi);
-  {const n=420,a=new Float32Array(n*3),r=rng(7);for(let k=0;k<n*3;k++)a[k]=(r()-.5)*.8;const gd=new THREE.BufferGeometry();gd.setAttribute('position',new THREE.BufferAttribute(a,3));FLY.dust=new THREE.Points(gd,new THREE.PointsMaterial({color:0xbfd4ff,size:.0035,transparent:true,opacity:.55,depthWrite:false}));FLY.dust.frustumCulled=false;FLY.dust.userData.base=a.slice();MP.scene.add(FLY.dust)}
-  cam.position.copy(FLY.pos).addScaledVector(out,-.35).addScaledVector(up,.12);cam.up.copy(up);
-  flyUi();flyNetStart();sfx.launch();toast(`Décollage depuis ${plName(cp.pid)}${FLY.key?` · ${cmdInfo({key:FLY.key}).n} aux commandes`:''}`);
+  {const n=380,a=new Float32Array(n*3),r=rng(7);for(let k=0;k<n*3;k++)a[k]=(r()-.5)*.3;const gd=new THREE.BufferGeometry();gd.setAttribute('position',new THREE.BufferAttribute(a,3));FLY.dust=new THREE.Points(gd,new THREE.PointsMaterial({color:0xbfd4ff,size:.0011,map:MP.glow,transparent:true,opacity:.4,depthWrite:false,blending:THREE.AdditiveBlending}));FLY.dust.frustumCulled=false;MP.scene.add(FLY.dust)}
+  cam.position.copy(FLY.pos).addScaledVector(out,-.14).addScaledVector(up,.05);cam.up.copy(up);
+  flyUi();flyNetStart();flyAudio(true);sfx.launch();toast(`Décollage depuis ${plName(cp.pid)}${FLY.key?` · ${cmdInfo({key:FLY.key}).n} aux commandes`:''}`);
   FLY.raf=requestAnimationFrame(flyLoop)}
-function flyStop(){if(!FLY.on)return;FLY.on=false;cancelAnimationFrame(FLY.raf);flyNetStop();
-  for(const o of[FLY.ship,FLY.dust,FLY.dl,FLY.hemi,FLY.lod&&FLY.lod.g])if(o){MP.scene.remove(o);if(o.children)v3Clear(o);if(o.geometry)o.geometry.dispose()}
-  for(const p of FLY.peers.values()){MP.scene.remove(p.g);v3Clear(p.g)}FLY.peers.clear();FLY.lod=null;
+function flyStop(){if(!FLY.on)return;FLY.on=false;cancelAnimationFrame(FLY.raf);flyNetStop();flyAudio(false);
+  for(const o of[FLY.ship,FLY.dust,FLY.dl,FLY.hemi])if(o){MP.scene.remove(o);if(o.children)v3Clear(o);if(o.geometry)o.geometry.dispose()}
+  for(const i of[...FLY.lods.keys()])flyLodDrop(i);for(const p of FLY.peers.values()){MP.scene.remove(p.g);v3Clear(p.g)}FLY.peers.clear();
   for(const o of FLY.hid||[])o.visible=true;const cam=MP.cam;cam.near=FLY.cam0.near;cam.fov=FLY.cam0.fov;cam.up.set(0,1,0);cam.updateProjectionMatrix();
   const ui=document.getElementById('flyui');if(ui)ui.remove();mpel.classList.remove('flying');MP.full=mpel.classList.contains('v3full');document.body.style.overflow=MP.full?'hidden':'';
   MP.dataSig=null;MP.tgt=[FLY.pos.x,FLY.pos.y,FLY.pos.z];MP.tgtT=[...MP.tgt];MP.dist=MP.distT=40;mpData();mpStart();render()}
-function flyUi(){const d=document.createElement('div');d.id='flyui';d.innerHTML=`<div class="fl-top"><button class="tgl" id="flback">↩ Rentrer</button><span class="fl-loc" id="flloc"></span><button class="tgl" id="flwave" aria-label="Saluer">👋</button></div><span class="fl-spd" id="flspd"></span><div id="flpeers"></div>
-  <div class="fl-thr" id="flthr" aria-label="Moteur : glisse vers le haut pour accélérer"><i id="flthri"></i><b id="flthrb"></b><span>moteur</span></div><button class="fl-boost" id="flboost">BOOST</button>
-  <div class="fl-joy" id="fljoy" aria-label="Direction"><b id="fljoyb"></b></div>`;mpel.querySelector('.v3box').appendChild(d);
+function flyUi(){const d=document.createElement('div');d.id='flyui';d.innerHTML=`<div class="fl-top"><button class="tgl" id="flback">↩ Rentrer</button><span class="fl-loc" id="flloc"></span><button class="tgl" id="flwave" aria-label="Saluer">👋</button></div><span class="fl-spd" id="flspd"></span><div id="fltags"></div>
+  <div class="fl-joy" id="fljoy" aria-label="Direction"><b id="fljoyb"></b></div>
+  <div class="fl-heat" id="flheat" aria-label="Température du moteur"><i id="flheati"></i><span>chaleur</span></div><button class="fl-gas" id="flgas">GAZ</button><button class="fl-boost" id="flboost">BOOST</button><span class="fl-over" id="flover" hidden>SURCHAUFFE</span>`;mpel.querySelector('.v3box').appendChild(d);
   const cap=(el,fn,end)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(x){}el._p=e.pointerId;fn(e)});el.addEventListener('pointermove',e=>{if(el._p===e.pointerId)fn(e)});const u=e=>{if(el._p!==e.pointerId)return;el._p=null;end&&end(e)};el.addEventListener('pointerup',u);el.addEventListener('pointercancel',u)};
-  const thr=document.getElementById('flthr');cap(thr,e=>{const r=thr.getBoundingClientRect();FLY.thr=Math.max(0,Math.min(1,(r.bottom-12-e.clientY)/(r.height-24)))});
-  const bo=document.getElementById('flboost');cap(bo,()=>{FLY.boost=true;bo.classList.add('on')},()=>{FLY.boost=false;bo.classList.remove('on')});
+  const hold=(id,k)=>{const el=document.getElementById(id);cap(el,()=>{FLY[k]=true;el.classList.add('on')},()=>{FLY[k]=false;el.classList.remove('on')})};hold('flgas','gas');hold('flboost','boost');
   const joy=document.getElementById('fljoy');cap(joy,e=>{const r=joy.getBoundingClientRect(),R=r.width/2-14;let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const L=Math.hypot(dx,dy);if(L>R){dx*=R/L;dy*=R/L}FLY.jx=dx/R;FLY.jy=-dy/R},()=>{FLY.jx=0;FLY.jy=0});
   document.getElementById('flback').onclick=()=>{sfx.click();flyStop()};document.getElementById('flwave').onclick=()=>{sfx.click();flyWaveSend()};
   if(!FLY.keys){FLY.keys=new Set();addEventListener('keydown',e=>{if(FLY.on)FLY.keys.add(e.key.toLowerCase())});addEventListener('keyup',e=>FLY.keys.delete(e.key.toLowerCase()))}}
 const flyCurve=x=>Math.sign(x)*Math.pow(Math.max(0,Math.abs(x)-.06)/.94,1.5);
 function flyLoop(t){if(!FLY.on)return;FLY.raf=requestAnimationFrame(flyLoop);const dt=Math.min(.05,(t-FLY.last)/1000||0);FLY.last=t;const now=Date.now(),K=FLY.keys||new Set();
-  // commandes (joystick à droite : direction ; à gauche : moteur)
-  let jx=FLY.jx,jy=FLY.jy;if(K.has('arrowleft')||K.has('q')||K.has('a'))jx=-1;if(K.has('arrowright')||K.has('d'))jx=1;if(K.has('arrowup')||K.has('z')||K.has('w'))jy=1;if(K.has('arrowdown')||K.has('s'))jy=-1;if(K.has('shift'))FLY.boost=true;else if(FLY.keys&&!document.getElementById('flboost').classList.contains('on'))FLY.boost=false;
-  if(K.has('+')||K.has('='))FLY.thr=Math.min(1,FLY.thr+dt*.6);if(K.has('-'))FLY.thr=Math.max(0,FLY.thr-dt*.6);
-  const ty=-flyCurve(jx)*1.35,tp=-flyCurve(jy)*1.05,sm=Math.min(1,dt*3.5);FLY.ry+=(ty-FLY.ry)*sm;FLY.rp+=(tp-FLY.rp)*sm;
+  // commandes : joystick à gauche (direction), gaz et boost à droite
+  let jx=FLY.jx,jy=FLY.jy;if(K.has('arrowleft')||K.has('q')||K.has('a'))jx=-1;if(K.has('arrowright')||K.has('d'))jx=1;if(K.has('arrowup')||K.has('z')||K.has('w'))jy=1;if(K.has('arrowdown')||K.has('s'))jy=-1;
+  const gasK=K.has(' ')||K.has('e'),boostK=K.has('shift');
+  const ty=-flyCurve(jx)*1.25,tp=-flyCurve(jy)*1,sm=Math.min(1,dt*3.5);FLY.ry+=(ty-FLY.ry)*sm;FLY.rp+=(tp-FLY.rp)*sm;
   const q=FLY.q,Y=new THREE.Vector3(0,1,0),X=new THREE.Vector3(1,0,0),Z=new THREE.Vector3(0,0,1);q.multiply(new THREE.Quaternion().setFromAxisAngle(Y,FLY.ry*dt)).multiply(new THREE.Quaternion().setFromAxisAngle(X,FLY.rp*dt));
   // le vaisseau se remet doucement à plat par rapport au plan de la galaxie
   {const f=Z.clone().applyQuaternion(q),u=Y.clone().applyQuaternion(q),N=FLY.up.clone().addScaledVector(f,-FLY.up.dot(f));if(N.lengthSq()>.01){N.normalize();const ang=Math.atan2(u.clone().cross(N).dot(f),u.dot(N));q.multiply(new THREE.Quaternion().setFromAxisAngle(Z,ang*Math.min(1,dt*1.1)))}}
   q.normalize();
-  const vT=FLY.boost?3.2:.012+.55*FLY.thr*FLY.thr;FLY.v+=(vT-FLY.v)*Math.min(1,dt*(FLY.boost?.9:FLY.v>vT?1.2:1.6));
+  // moteur par impulsions : le gaz chauffe un peu, le boost beaucoup ; à 100 % le moteur coupe jusqu'à refroidir
+  const wantB=(FLY.boost||boostK)&&!FLY.over,wantG=(FLY.gas||gasK||FLY.boost||boostK)&&!FLY.over;
+  FLY.heat=Math.max(0,Math.min(1,FLY.heat+dt*(wantB?FLY_HEAT.boost:wantG?FLY_HEAT.gas:-FLY_HEAT.cool*(FLY.over?.8:1))));
+  if(!FLY.over&&FLY.heat>=1){FLY.over=true;flySnd('over')}else if(FLY.over&&FLY.heat<=.3){FLY.over=false;flySnd('ok')}
+  FLY.thr=wantB?1:wantG?.55:0;FLY.boosting=wantB;
+  if(wantB)FLY.v+=(FLY_BOOST-FLY.v)*Math.min(1,dt*.9);else if(wantG)FLY.v+=(FLY_CRUISE-FLY.v)*Math.min(1,dt*(FLY.v>FLY_CRUISE?.7:1.1));else FLY.v*=Math.exp(-dt*.35);
   const f=Z.clone().applyQuaternion(q),u=Y.clone().applyQuaternion(q);FLY.pos.addScaledVector(f,FLY.v*dt);
   {const G=new THREE.Vector3(...GALS[FLY.gal].c),dv=FLY.pos.clone().sub(G),L=dv.length();if(L>64){FLY.pos.copy(G).addScaledVector(dv,64/L);FLY.edge=now}}
-  const S0=FLY.ship;S0.position.copy(FLY.pos);S0.quaternion.copy(q);FLY.bk+=(-FLY.ry*.45-FLY.bk)*Math.min(1,dt*4);S0.userData.bank.rotation.z=FLY.bk;S0.userData.ex.scale.setScalar(.008+Math.min(.05,FLY.v*.05+FLY.thr*.012)*(FLY.boost?1.6:1));
+  const S0=FLY.ship;S0.position.copy(FLY.pos);S0.quaternion.copy(q);FLY.bk+=(-FLY.ry*.45-FLY.bk)*Math.min(1,dt*4);S0.userData.bank.rotation.z=FLY.bk;flyEx(S0,FLY.v,wantB);
   if(S0.userData.ver!==SHIPLIB.ver)flySwapModel(S0);
   // caméra à la troisième personne, avec un léger retard
-  const cam=MP.cam,D=.085+Math.min(.07,FLY.v*.03),tk=performance.now()-FLY.t0<2500?1.6:5.5,cp=FLY.pos.clone().addScaledVector(f,-D).addScaledVector(u,.026);cam.position.lerp(cp,1-Math.exp(-dt*tk));cam.up.lerp(u,1-Math.exp(-dt*4)).normalize();cam.lookAt(FLY.pos.clone().addScaledVector(f,.12));
-  const fov=54+Math.min(16,FLY.v*5);if(Math.abs(cam.fov-fov)>.05){cam.fov+=(fov-cam.fov)*Math.min(1,dt*3);cam.updateProjectionMatrix()}
-  FLY.dl.position.copy(FLY.pos).addScaledVector(u,.6).addScaledVector(f,-.2).add(new THREE.Vector3(.3,0,.2));
+  const cam=MP.cam;cam.position.addScaledVector(f,FLY.v*dt);const D=.032+Math.min(.012,FLY.v*.02),tk=performance.now()-FLY.t0<2500?1.6:5.5,cp=FLY.pos.clone().addScaledVector(f,-D).addScaledVector(u,.0095);cam.position.lerp(cp,1-Math.exp(-dt*tk));cam.up.lerp(u,1-Math.exp(-dt*4)).normalize();cam.lookAt(FLY.pos.clone().addScaledVector(f,.045));
+  const fov=50+Math.min(10,FLY.v*16);if(Math.abs(cam.fov-fov)>.05){cam.fov+=(fov-cam.fov)*Math.min(1,dt*3);cam.updateProjectionMatrix()}
+  FLY.dl.position.copy(FLY.pos).addScaledVector(u,.3).addScaledVector(f,-.1).add(new THREE.Vector3(.15,0,.1));
   // poussière spatiale autour de la caméra : donne la sensation de vitesse
-  {const a=FLY.dust.geometry.attributes.position.array,h=.4,c=cam.position;for(let k=0;k<a.length;k+=3){for(let j=0;j<3;j++){let d=a[k+j]-c.getComponent(j);if(d>h)a[k+j]-=2*h;else if(d<-h)a[k+j]+=2*h}}FLY.dust.geometry.attributes.position.needsUpdate=true;FLY.dust.material.opacity=Math.min(.6,.15+FLY.v*.5)}
-  mpOrbitStep(now);if(MP.orbL)MP.orbL.visible=false;MP.pPts.material.uniforms.op.value=1;flyLod(now);flyPeers(dt,now);flyNet(now);
-  MP.r.render(MP.scene,cam);if((FLY.hf=(FLY.hf||0)+1)%6===1)flyHud(now);flyPeerLabels()}
-// le système le plus proche prend du relief : étoile et planètes en vraies sphères, sans orbites dessinées
-function flyLod(now){if(!((FLY.lf=(FLY.lf||0)+1)%15)||!FLY.lod){let best=null,bd=FLY_LOD;for(const s of SYS_BY_GAL[FLY.gal]){if(s.deep||!sysVisible(s.i))continue;const d=Math.hypot(s.w[0]-FLY.pos.x,s.w[1]-FLY.pos.y,s.w[2]-FLY.pos.z);if(d<bd){bd=d;best=s}}FLY.near=best;FLY.nearD=bd;
-    if((best&&best.i)!==(FLY.lod&&FLY.lod.i)){if(FLY.lod){MP.scene.remove(FLY.lod.g);v3Clear(FLY.lod.g);MP.sysPts.geometry.attributes.sz.array[FLY.lod.i]=FLY.lod.sz0;MP.sysPts.geometry.attributes.sz.needsUpdate=true;MP.dataSig=null;mpData();MP.pPts.material.uniforms.op.value=1}FLY.lod=null;
-      if(best){const g=new THREE.Group(),sc=new THREE.Color(STARC[hash('s'+best.i)%STARC.length]),st=new THREE.Group();st.position.set(...best.w);st.add(new THREE.Mesh(new THREE.SphereGeometry(.09,28,18),new THREE.MeshBasicMaterial({color:sc})));const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:sc,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.95}));gl.scale.set(.8,.8,1);st.add(gl);st.add(new THREE.PointLight(sc,2.2,7));g.add(st);
-        const pl=[];MP.pList.forEach((q,ix)=>{if(q.sys!==best.i)return;const T=PTYPES[PLANETS[q.pid].type],body=isBody(q.pid),r=body?.016:.034+(hash(q.pid+'z')%25)/1000,own=(S.planets[q.pid]||{}).owner;
-          const m=new THREE.Mesh(new THREE.SphereGeometry(r,22,16),new THREE.MeshStandardMaterial({color:T.col,roughness:.85,emissive:T.col,emissiveIntensity:.07}));if(own){const ring=new THREE.Mesh(new THREE.TorusGeometry(r*1.55,r*.06,6,40),new THREE.MeshBasicMaterial({color:isNpc(own)?NPC_COL:pcolor(own),transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;m.add(ring)}
-          if(PLANETS[q.pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(r*1.4,r*2.1,36),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}g.add(m);pl.push({m,ix,pid:q.pid})});
-        MP.scene.add(g);const a=MP.sysPts.geometry.attributes.sz;FLY.lod={i:best.i,g,pl,sz0:a.array[best.i]};a.array[best.i]=0;a.needsUpdate=true}}}
-  if(FLY.lod){const a=MP.pPts.geometry.attributes.sz;let ch=false;for(const p of FLY.lod.pl){const w=MP.pList[p.ix]&&MP.pList[p.ix].pid===p.pid?MP.pList[p.ix].w:null;if(w)p.m.position.set(w[0],w[1],w[2]);p.m.rotation.y+=.003;if(a.array[p.ix]){a.array[p.ix]=0;ch=true}}if(ch)a.needsUpdate=true;const sa=MP.sysPts.geometry.attributes.sz;if(sa.array[FLY.lod.i]){sa.array[FLY.lod.i]=0;sa.needsUpdate=true}}}
-function flyHud(now){const s=FLY.near,el=document.getElementById('flloc');if(el){let h='';if(now-(FLY.edge||0)<1500)h='<b style="color:var(--warn)">Bord de la galaxie</b>';else if(s){const os=MP.owners&&MP.owners[s.i];h=`${esc(s.name)}${os?' '+[...os].map(o=>`<b style="color:${esc(isNpc(o)?NPC_COL:pcolor(o))}">●</b>`).join(''):''}`;if(FLY.lod){let bp=null,bd=.35;for(const p of FLY.lod.pl){const d=p.m.position.distanceTo(FLY.pos);if(d<bd){bd=d;bp=p}}if(bp){const o=(S.planets[bp.pid]||{}).owner;h=`${esc(plName(bp.pid))}${o?` · <b style="color:${esc(isNpc(o)?NPC_COL:pcolor(o))}">${esc(isNpc(o)?NPC_NAME:pname(o))}</b>`:''}`}}}else h=`<span style="opacity:.7">Espace profond · ${esc(GALS[FLY.gal].name)}</span>`;if(el.innerHTML!==h)el.innerHTML=h}
-  const sp=document.getElementById('flspd');if(sp)sp.textContent=`${Math.round(FLY.v*2400)} km/s${FLY.boost?' · BOOST':''}`;const ti=document.getElementById('flthri'),tb=document.getElementById('flthrb');if(ti){ti.style.height=`calc(${FLY.thr*100}% - ${FLY.thr*12}px)`;tb.style.bottom=`calc(${FLY.thr*100}% - ${FLY.thr*24}px + 5px)`}const jb=document.getElementById('fljoyb');if(jb)jb.style.transform=`translate(${FLY.jx*44}px,${-FLY.jy*44}px)`}
+  {const a=FLY.dust.geometry.attributes.position.array,h=.15,c=cam.position;for(let k=0;k<a.length;k+=3){for(let j=0;j<3;j++){const d=a[k+j]-c.getComponent(j);if(d>h)a[k+j]-=2*h;else if(d<-h)a[k+j]+=2*h}}FLY.dust.geometry.attributes.position.needsUpdate=true;FLY.dust.material.opacity=Math.min(.6,.15+FLY.v*1.4)}
+  mpOrbitStep(now);if(MP.orbL)MP.orbL.visible=false;MP.pPts.material.uniforms.op.value=1;flyLod();flyPeers(dt,now);flyNet(now);flyAudioTick();
+  MP.r.render(MP.scene,cam);if((FLY.hf=FLY.hf+1)%6===1)flyHud(now);flyTags(now)}
+// les systèmes proches prennent du relief (étoile et planètes en vraies sphères, sans orbites dessinées), préparés de loin
+function flyLodMake(s){const g=new THREE.Group(),sc=new THREE.Color(STARC[hash('s'+s.i)%STARC.length]),st=new THREE.Group();st.position.set(...s.w);st.add(new THREE.Mesh(new THREE.SphereGeometry(.1,28,18),new THREE.MeshBasicMaterial({color:sc})));const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:sc,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.95}));gl.scale.set(.9,.9,1);st.add(gl);st.add(new THREE.PointLight(sc,2.2,6));g.add(st);
+  const pl=[],pa=MP.pPts.geometry.attributes.sz.array;MP.pList.forEach((q,ix)=>{if(q.sys!==s.i)return;const T=PTYPES[PLANETS[q.pid].type],body=isBody(q.pid),r=body?.018:.04+(hash(q.pid+'z')%25)/1000,own=(S.planets[q.pid]||{}).owner;
+    const m=new THREE.Mesh(new THREE.SphereGeometry(r,24,16),new THREE.MeshStandardMaterial({color:T.col,roughness:.85,emissive:T.col,emissiveIntensity:.08}));if(own){const ring=new THREE.Mesh(new THREE.TorusGeometry(r*1.5,r*.05,6,48),new THREE.MeshBasicMaterial({color:isNpc(own)?NPC_COL:pcolor(own),transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;m.add(ring)}
+    if(PLANETS[q.pid].type==='gaz'){const rg=new THREE.Mesh(new THREE.RingGeometry(r*1.4,r*2.1,40),new THREE.MeshBasicMaterial({color:0xe8d2b0,side:THREE.DoubleSide,transparent:true,opacity:.45}));rg.rotation.x=Math.PI/2-.4;m.add(rg)}m.position.set(...q.w);g.add(m);pl.push({m,ix,pid:q.pid,sz0:pa[ix]})});
+  MP.scene.add(g);FLY.lods.set(s.i,{i:s.i,g,pl,sz0:MP.sysPts.geometry.attributes.sz.array[s.i]})}
+function flyLodDrop(i){const L=FLY.lods.get(i);if(!L)return;MP.scene.remove(L.g);v3Clear(L.g);const sa=MP.sysPts.geometry.attributes.sz,pa=MP.pPts.geometry.attributes.sz;sa.array[i]=L.sz0;sa.needsUpdate=true;for(const p of L.pl)if(MP.pList[p.ix]&&MP.pList[p.ix].pid===p.pid)pa.array[p.ix]=p.sz0;pa.needsUpdate=true;FLY.lods.delete(i)}
+function flyLod(){if(FLY.lf++%20===0){const near=[];for(const s of SYS_BY_GAL[FLY.gal]){if(s.deep||!sysVisible(s.i))continue;const d=Math.hypot(s.w[0]-FLY.pos.x,s.w[1]-FLY.pos.y,s.w[2]-FLY.pos.z);if(d<FLY_LOD+1)near.push([d,s])}near.sort((a,b)=>a[0]-b[0]);FLY.near=near[0]&&near[0][0]<FLY_LOD?near[0][1]:null;
+    const want=new Set(near.filter(x=>x[0]<FLY_LOD).slice(0,FLY_LODN).map(x=>x[1].i));for(const i of[...FLY.lods.keys()])if(!want.has(i)&&!near.slice(0,FLY_LODN+2).some(x=>x[1].i===i))flyLodDrop(i);
+    let made=0;for(const[,s]of near)if(want.has(s.i)&&!FLY.lods.has(s.i)&&made<2){flyLodMake(s);made++}}
+  const pa=MP.pPts.geometry.attributes.sz,sa=MP.sysPts.geometry.attributes.sz;let pc=false,sc=false;
+  for(const L of FLY.lods.values()){for(const p of L.pl){const q=MP.pList[p.ix];if(q&&q.pid===p.pid){p.m.position.set(q.w[0],q.w[1],q.w[2]);if(pa.array[p.ix]){if(!p.sz0)p.sz0=pa.array[p.ix];pa.array[p.ix]=0;pc=true}}p.m.rotation.y+=.003}if(sa.array[L.i]){L.sz0=sa.array[L.i]||L.sz0;sa.array[L.i]=0;sc=true}}if(pc)pa.needsUpdate=true;if(sc)sa.needsUpdate=true}
+function flyHud(now){const s=FLY.near,el=document.getElementById('flloc');if(el){let h='';if(now-(FLY.edge||0)<1500)h='<b style="color:var(--warn)">Bord de la galaxie</b>';else if(s){const os=MP.owners&&MP.owners[s.i];h=`${esc(s.name)}${os?' '+[...os].map(o=>`<b style="color:${esc(isNpc(o)?NPC_COL:pcolor(o))}">●</b>`).join(''):''}`;const L=FLY.lods.get(s.i);if(L){let bp=null,bd=.3;for(const p of L.pl){const d=p.m.position.distanceTo(FLY.pos);if(d<bd){bd=d;bp=p}}if(bp){const o=(S.planets[bp.pid]||{}).owner;h=`${esc(plName(bp.pid))}${o?` · <b style="color:${esc(isNpc(o)?NPC_COL:pcolor(o))}">${esc(isNpc(o)?NPC_NAME:pname(o))}</b>`:''}`}}}else h=`<span style="opacity:.7">Espace profond · ${esc(GALS[FLY.gal].name)}</span>`;if(el.innerHTML!==h)el.innerHTML=h}
+  const sp=document.getElementById('flspd');if(sp)sp.textContent=`${Math.round(FLY.v*6000)} km/s${FLY.boosting?' · BOOST':''}`;
+  const hi=document.getElementById('flheati');if(hi){hi.style.height=`${Math.round(FLY.heat*100)}%`;hi.style.background=FLY.over?'#ff4d4d':FLY.heat>.75?'linear-gradient(#ff6b4a,#ffb347)':'linear-gradient(#ffcf6b,#5ec8ff)'}
+  const ov=document.getElementById('flover');if(ov)ov.hidden=!FLY.over;for(const id of['flgas','flboost']){const b=document.getElementById(id);if(b)b.classList.toggle('dis',FLY.over)}
+  const jb=document.getElementById('fljoyb');if(jb)jb.style.transform=`translate(${FLY.jx*44}px,${-FLY.jy*44}px)`}
+// ---------- repères : capitales au loin (nom + joueur) et autres pilotes ----------
+function flyTagList(now){if(FLY.tags&&now-FLY.tagT<4000)return FLY.tags;FLY.tagT=now;const out=[];for(const p of Object.values(S.planets)){if(!p.capital||!p.owner||isNpc(p.owner)||!PLANETS[p.pid]||galOf(p.pid)!==FLY.gal)continue;const ix=MP.pList.findIndex(q=>q.pid===p.pid);out.push({pid:p.pid,ix,u:p.owner})}return FLY.tags=out}
+function flyTags(now){const box=document.getElementById('fltags');if(!box)return;const W=mpc.clientWidth,H=mpc.clientHeight,cam=MP.cam;let h='';const V=new THREE.Vector3();
+  for(const c of flyTagList(now)){const q=MP.pList[c.ix];const w=q&&q.pid===c.pid?q.w:SYSTEMS[PLANETS[c.pid].sys].w;V.set(w[0],w[1],w[2]);const d=V.distanceTo(FLY.pos);if(d<.12)continue;V.project(cam);if(V.z>1||V.x<-1.05||V.x>1.05||V.y<-1.05||V.y>1.05)continue;const x=(V.x+1)/2*W,y=(1-V.y)/2*H,col=esc(pcolor(c.u));
+    h+=`<span class="fl-cap" style="left:${x|0}px;top:${y|0}px;opacity:${d>25?.55:1}"><b style="color:${col}">◆</b> ${esc(plName(c.pid))}<i style="color:${col}">${esc(pname(c.u))}${c.u===ME?' (toi)':''} · ${flyDist(d)}</i></span>`}
+  for(const[u,p]of FLY.peers){V.copy(p.g.position).add(new THREE.Vector3(0,.004,0).applyQuaternion(cam.quaternion));const d=p.g.position.distanceTo(FLY.pos);V.project(cam);const behind=V.z>1;let x=(V.x+1)/2*W,y=(1-V.y)/2*H;const edge=behind||x<20||x>W-20||y<60||y>H-60;
+    const col=esc(pcolor(u)),wv=p.wave&&Date.now()-p.wave<4000?' 👋':'';
+    if(edge){let dx=x-W/2,dy=y-H/2;if(behind){dx=-dx;dy=-dy}const a=Math.atan2(dy,dx),k=Math.min((W/2-34)/Math.abs(Math.cos(a)||1e-6),(H/2-90)/Math.abs(Math.sin(a)||1e-6));x=W/2+Math.cos(a)*k;y=H/2+Math.sin(a)*k;h+=`<span class="fl-peer edge" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="display:inline-block;transform:rotate(${a}rad);color:${col}">➤</b> ${esc(pname(u))} · ${flyDist(d)}${wv}</span>`}
+    else h+=`<span class="fl-peer" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="color:${col}">●</b> ${esc(pname(u))} · ${flyDist(d)}${wv}</span>`}
+  if(box.innerHTML!==h)box.innerHTML=h}
+const flyDist=d=>d<.5?`${Math.round(d*6000*60/1000)*1000} km`:`${(d*.4).toFixed(1).replace('.',',')} UA`;
 // ---------- les autres pilotes : positions en direct (canal sans écriture en base) ----------
 function flyNetStart(){FLY.net=null;try{if(!sb||!sb.channel)return;const ch=sb.channel('fly-'+FLY.gal,{config:{broadcast:{self:false}}});
   ch.on('broadcast',{event:'p'},({payload:m})=>flyRecv(m)).on('broadcast',{event:'w'},({payload:m})=>{if(m&&m.u&&m.u!==ME&&S.players[m.u]){toast(`👋 ${pname(m.u)} te salue !`);const p=FLY.peers.get(m.u);if(p)p.wave=Date.now()}}).on('broadcast',{event:'bye'},({payload:m})=>{const p=m&&FLY.peers.get(m.u);if(p){MP.scene.remove(p.g);v3Clear(p.g);FLY.peers.delete(m.u)}}).subscribe(st=>{FLY.netOk=st==='SUBSCRIBED'});FLY.net=ch}catch(e){FLY.net=null}}
 function flyNetStop(){const ch=FLY.net;FLY.net=null;FLY.netOk=false;if(!ch)return;try{ch.send({type:'broadcast',event:'bye',payload:{u:ME}})}catch(e){}setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},400)}
-const r4=x=>Math.round(x*1e4)/1e4;
+const r4=x=>Math.round(x*1e5)/1e5;
 function flyNet(now){if(!FLY.net||!FLY.netOk)return;const others=[...FLY.peers.values()].some(p=>now-p.at<8000),gap=others?200:2000;if(now-FLY.sent<gap)return;
   const P=[r4(FLY.pos.x),r4(FLY.pos.y),r4(FLY.pos.z)],Q=[r4(FLY.q.x),r4(FLY.q.y),r4(FLY.q.z),r4(FLY.q.w)],sig=P.join()+Q.join()+r4(FLY.v);if(sig===FLY.sig&&now-FLY.sent<1500)return;FLY.sig=sig;FLY.sent=now;
-  try{FLY.net.send({type:'broadcast',event:'p',payload:{u:ME,k:FLY.key,p:P,q:Q,v:r4(FLY.v),b:FLY.boost?1:0}})}catch(e){}}
+  try{FLY.net.send({type:'broadcast',event:'p',payload:{u:ME,k:FLY.key,p:P,q:Q,v:r4(FLY.v),b:FLY.boosting?1:0}})}catch(e){}}
 function flyWaveSend(){toast('👋 Salut envoyé aux pilotes de la galaxie');try{FLY.net&&FLY.net.send({type:'broadcast',event:'w',payload:{u:ME}})}catch(e){}}
 function flyRecv(m){if(!FLY.on||!m||!m.u||m.u===ME||!S.players[m.u]||!Array.isArray(m.p)||!Array.isArray(m.q))return;let p=FLY.peers.get(m.u);
   if(!p||p.key!==(m.k||null)){if(p){MP.scene.remove(p.g);v3Clear(p.g)}const g=flyModel(m.u,m.k||null);g.position.set(...m.p);g.quaternion.set(...m.q);MP.scene.add(g);p={g,key:m.k||null,P:new THREE.Vector3(...m.p),Q:new THREE.Quaternion(...m.q)};FLY.peers.set(m.u,p)}
   p.P.set(...m.p);p.Q.set(...m.q);p.v=+m.v||0;p.b=!!m.b;p.at=Date.now()}
 function flyPeers(dt,now){for(const[u,p]of FLY.peers){if(now-p.at>7000){MP.scene.remove(p.g);v3Clear(p.g);FLY.peers.delete(u);continue}
-  const f=new THREE.Vector3(0,0,1).applyQuaternion(p.Q),tgt=p.P.clone().addScaledVector(f,p.v*Math.min(1.5,(now-p.at)/1000));p.g.position.lerp(tgt,1-Math.exp(-dt*7));p.g.quaternion.slerp(p.Q,1-Math.exp(-dt*7));p.g.userData.ex.scale.setScalar(.008+Math.min(.05,p.v*.05)*(p.b?1.6:1));if(p.g.userData.ver!==SHIPLIB.ver)flySwapModel(p.g)}}
-// étiquettes des pilotes : au-dessus du vaisseau, ou flèche au bord de l'écran s'il est hors champ
-function flyPeerLabels(){const box=document.getElementById('flpeers');if(!box)return;const W=mpc.clientWidth,H=mpc.clientHeight,cam=MP.cam;let h='';
-  for(const[u,p]of FLY.peers){const v=p.g.position.clone().add(new THREE.Vector3(0,.012,0).applyQuaternion(cam.quaternion)).project(cam),d=p.g.position.distanceTo(FLY.pos),behind=v.z>1;let x=(v.x+1)/2*W,y=(1-v.y)/2*H,edge=behind||x<20||x>W-20||y<60||y>H-60;
-    const col=esc(pcolor(u)),dist=d<1?`${Math.round(d*2400*60)} km`:`${(d*.15).toFixed(1).replace('.',',')} UA`,wv=p.wave&&Date.now()-p.wave<4000?' 👋':'';
-    if(edge){let dx=x-W/2,dy=y-H/2;if(behind){dx=-dx;dy=-dy}const a=Math.atan2(dy,dx),k=Math.min((W/2-34)/Math.abs(Math.cos(a)||1e-6),(H/2-90)/Math.abs(Math.sin(a)||1e-6));x=W/2+Math.cos(a)*k;y=H/2+Math.sin(a)*k;h+=`<span class="fl-peer edge" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="display:inline-block;transform:rotate(${a}rad);color:${col}">➤</b> ${esc(pname(u))} · ${dist}${wv}</span>`}
-    else h+=`<span class="fl-peer" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="color:${col}">●</b> ${esc(pname(u))} · ${dist}${wv}</span>`}
-  if(box.innerHTML!==h)box.innerHTML=h}
+  const f=new THREE.Vector3(0,0,1).applyQuaternion(p.Q),tgt=p.P.clone().addScaledVector(f,p.v*Math.min(1.5,(now-p.at)/1000));p.g.position.lerp(tgt,1-Math.exp(-dt*7));p.g.quaternion.slerp(p.Q,1-Math.exp(-dt*7));flyEx(p.g,p.v,p.b);if(p.g.userData.ver!==SHIPLIB.ver)flySwapModel(p.g)}}
+// ---------- sons du mode navigation : moteur (grondement + souffle), boost, surchauffe, et sa propre musique spatiale ----------
+const FLYA={};
+function flyAudio(on){const c=audio();if(!c)return;
+  if(on){if(!SFX.on||FLYA.on)return;FLYA.on=true;FLYA.amb=!!MUS.playing;if(MUS.playing)ambient(false);
+    const out=c.createGain();out.gain.value=0;out.gain.linearRampToValueAtTime(1,c.currentTime+1.2);out.connect(c.destination);FLYA.out=out;
+    // moteur : deux dents de scie graves désaccordées + souffle filtré
+    const eng=c.createGain();eng.gain.value=0;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=220;lp.Q.value=4;lp.connect(eng).connect(out);FLYA.eng=eng;FLYA.lp=lp;FLYA.osc=[];
+    for(const[ty,f,dt2]of[['sawtooth',46,-7],['sawtooth',46.5,7],['triangle',92,0]]){const o=c.createOscillator();o.type=ty;o.frequency.value=f;o.detune.value=dt2;o.connect(lp);o.start();FLYA.osc.push([o,f])}
+    const nb=c.createBuffer(1,c.sampleRate*2,c.sampleRate),nd=nb.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;const ns=c.createBufferSource();ns.buffer=nb;ns.loop=true;const bp=c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=500;bp.Q.value=.8;const ng=c.createGain();ng.gain.value=0;ns.connect(bp).connect(ng).connect(out);ns.start();Object.assign(FLYA,{ns,bp,ng});
+    // musique : nappes lydiennes lentes, cloches lointaines dans un long écho
+    const mus=c.createGain();mus.gain.value=.0;mus.gain.linearRampToValueAtTime(.8,c.currentTime+4);mus.connect(out);const rv=c.createConvolver();rv.buffer=impulse(c,6);const wet=c.createGain();wet.gain.value=.7;rv.connect(wet).connect(mus);const dl=c.createDelay(2);dl.delayTime.value=.66;const fb=c.createGain();fb.gain.value=.45;const df=c.createBiquadFilter();df.type='lowpass';df.frequency.value=2200;dl.connect(df).connect(fb).connect(dl);df.connect(mus);df.connect(rv);
+    Object.assign(FLYA,{mus,rv,dl,next:c.currentTime+.3,step:0,ch:0});FLYA.timer=setInterval(flyMusic,250);flyMusic()}
+  else if(FLYA.on){FLYA.on=false;clearInterval(FLYA.timer);const o=FLYA.out,t=c.currentTime;o.gain.cancelScheduledValues(t);o.gain.setValueAtTime(o.gain.value,t);o.gain.linearRampToValueAtTime(0,t+.8);setTimeout(()=>{try{for(const[x]of FLYA.osc)x.stop();FLYA.ns.stop();o.disconnect()}catch(e){}},1000);if(FLYA.amb&&SFX.ambOn)setTimeout(()=>{if(!FLY.on)ambient(true)},900)}}
+// accords (fondamentale, notes) : ré lydien → si♭ → fa → do, très lents
+const FLY_CH=[[38,[62,66,69,73,76]],[34,[58,62,65,69,74]],[41,[60,65,69,72,79]],[36,[60,64,67,71,74]]],FLY_SC=[74,76,78,81,83,86,88,90];
+function flyMusic(){const c=SFX.ctx;if(!c||!FLYA.on)return;while(FLYA.next<c.currentTime+1){const t=FLYA.next;
+  if(FLYA.step%16===0){const[root,notes]=FLY_CH[FLYA.ch%FLY_CH.length];FLYA.ch++;
+    for(const n of notes)for(const det of[-6,6]){const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=1100;o.type='sawtooth';o.frequency.value=NOTE(n);o.detune.value=det;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.011,t+3);g.gain.setValueAtTime(.011,t+7);g.gain.linearRampToValueAtTime(0,t+10.5);o.connect(f).connect(g);g.connect(FLYA.mus);g.connect(FLYA.rv);o.start(t);o.stop(t+11)}
+    const b=c.createOscillator(),bg=c.createGain();b.type='sine';b.frequency.value=NOTE(root);bg.gain.setValueAtTime(0,t);bg.gain.linearRampToValueAtTime(.09,t+2);bg.gain.linearRampToValueAtTime(0,t+8.5);b.connect(bg).connect(FLYA.mus);b.start(t);b.stop(t+9)}
+  if(Math.random()<.22){const n=FLY_SC[Math.floor(Math.random()*FLY_SC.length)];for(const[ty,mul,v]of[['sine',1,.03],['sine',2.01,.012],['triangle',3,.006]]){const o=c.createOscillator(),g=c.createGain();o.type=ty;o.frequency.value=NOTE(n)*mul;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+3.5);o.connect(g);g.connect(FLYA.dl);g.connect(FLYA.rv);o.start(t);o.stop(t+3.6)}}
+  FLYA.next+=.5;FLYA.step++}}
+function flyAudioTick(){if(!FLYA.on||!SFX.ctx)return;const c=SFX.ctx,t=c.currentTime,v=FLY.v,th=FLY.thr||0,b=FLY.boosting;
+  FLYA.eng.gain.setTargetAtTime(.05+th*.1+(b?.06:0),t,.15);FLYA.lp.frequency.setTargetAtTime(160+v*900+th*260,t,.2);for(const[o,f]of FLYA.osc)o.frequency.setTargetAtTime(f*(1+v*1.6+th*.25),t,.25);
+  FLYA.ng.gain.setTargetAtTime(.012+v*.12+(b?.09:0),t,.2);FLYA.bp.frequency.setTargetAtTime(350+v*2600+(b?900:0),t,.25);
+  if(b&&!FLYA.wasB)noise(1.2,{f:250,f2:3200,vol:.16});FLYA.wasB=b}
+function flySnd(k){if(k==='over'){toast('Surchauffe ! Le moteur refroidit…','bad');tone(220,.5,{type:'square',vol:.05,slide:.5});noise(1.6,{f:4000,f2:900,vol:.12})}else tone(660,.12,{type:'triangle',vol:.05})}
 function mpStart(){if(!MP.ok||MP.running||FLY.on)return;MP.running=true;mpSize();MP.last=performance.now();MP.raf=requestAnimationFrame(mpLoop)}
 function mpStop(){if(!MP.running)return;MP.running=false;cancelAnimationFrame(MP.raf)}
 // petit menu d'actions quand on touche une planète sur la carte
@@ -3837,7 +3886,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='155';
+const APP_VERSION='156';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

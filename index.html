@@ -113,8 +113,13 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)
 .cat-feat{--cc:#ffcf6b}.cat-spy{--cc:#5ec8ff}.cat-exp{--cc:#c58cff}.cat-thr{--cc:#ff8a5c}.cat-war{--cc:#ff5a6e}.cat-eco{--cc:#6fe3a1}.cat-inf{--cc:#9aa3b5}
 .rep time{font-family:var(--f-data);font-size:12px;color:var(--dim)}
 .rank{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center}
-.tabs .wrap.many{grid-template-columns:repeat(5,1fr)!important}.tabs .wrap.many .tab{font-size:12.5px;letter-spacing:.02em;padding:7px 0 8px}.tabs .wrap.many .tab[aria-current="true"]::before{left:25%;right:25%}
-body.tabs2{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}body.tabs2 .chatbtn,body.tabs2 .toast{bottom:calc(122px + env(safe-area-inset-bottom,0px))}
+.tabs .wrap.many{grid-template-columns:repeat(6,1fr)!important}.tabs .wrap.many .tab{font-size:10.4px;letter-spacing:0;padding:5px 0 5px;white-space:nowrap;overflow:hidden}.tabs .wrap.many .tab .ti{width:17px;height:17px;margin-bottom:1px}.tabs .wrap.many .tab .n{top:2px;right:8%;min-width:14px;height:14px;line-height:14px;font-size:9px}.tabs .wrap.many .tab[aria-current="true"]::before{left:25%;right:25%}
+.empc{border:1px solid var(--line);border-left:3px solid var(--st,var(--line));border-radius:10px;padding:8px 10px;display:grid;gap:5px;background:var(--panel)}
+.empc .eh{display:flex;align-items:center;gap:8px}.empc .eh b{flex:1;font-size:14px}.empc .eh .btn{padding:3px 10px;font-size:12px;margin-left:auto}
+.empc .chips2{display:flex;flex-wrap:wrap;gap:4px}.empc .ch{font-size:11.5px;padding:2px 7px;border-radius:9px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);white-space:nowrap}
+.empc .rs{display:flex;gap:10px;font-family:var(--f-data);font-size:12px;font-variant-numeric:tabular-nums}.empc .rs span{display:flex;align-items:center;gap:4px}.empc .rs i{width:7px;height:7px;border-radius:50%;background:var(--c);display:inline-block}
+.empc .hb{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim)}.empc .hb .bar{flex:1;min-width:70px;height:5px;border-radius:3px;background:#ffffff14;overflow:hidden}.empc .hb .bar b{display:block;height:100%;background:var(--c)}
+body.tabs2{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}body.tabs2 .chatbtn,body.tabs2 .toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
 .pcard .owner{display:flex;align-items:center;gap:7px}.pcard .pos{font-family:var(--f-display);font-size:18px;color:var(--brass);min-width:18px}.pcard .sc{font-family:var(--f-data);font-variant-numeric:tabular-nums;color:var(--brass)}
 .pcard.me{outline:1px solid var(--brass)}
 .pstats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:6px 0 0}.pstats div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #ffffff10;padding-bottom:3px}.pstats dt{color:var(--dim);font-size:12px}.pstats dd{margin:0;font-family:var(--f-data);font-size:12.5px;text-align:right}
@@ -628,7 +633,7 @@ function battle(a0,d0,ma,md,RN,KD){const cl=s=>{const o={};for(const k in s)if(s
   return{a,d,ia,id,rounds,snaps}}
 const plur=(n,w)=>n>1?w.split(' ').map((x,i)=>i?x:(x.endsWith('au')?x+'x':x+'s')).join(' '):w;
 const unitLine=s=>{const parts=Object.keys(s||{}).filter(k=>s[k]>0).map(k=>`${s[k]} ${plur(s[k],UNIT[k].n.toLowerCase())}`);return parts.length?parts.join(', '):'aucune unité'};
-const lossLine=(i,f)=>{const parts=Object.keys(i).filter(k=>i[k]-(f[k]||0)>0).map(k=>`${i[k]-(f[k]||0)} ${plur(i[k]-(f[k]||0),UNIT[k].n.toLowerCase())}`);return parts.length?parts.join(', '):'aucune'};
+const lossLine=(i,f)=>{const parts=Object.keys(i).filter(k=>i[k]-(f[k]||0)>0).map(k=>{const n=i[k]-(f[k]||0);return k==='turret'?`${n} ${plur(n,'tourelle')} hors service (réparée${n>1?'s':''} après le combat)`:`${n} ${plur(n,UNIT[k].n.toLowerCase())}`});return parts.length?parts.join(', '):'aucune'};
 // estimation des chances de victoire : on rejoue le combat plusieurs fois et on lisse le résultat
 function winChance(att,def,ma,md){const A={},D={};for(const k in att||{})if(att[k]>0)A[k]=att[k];for(const k in def||{})if(def[k]>0)D[k]=def[k];if(isEmpty(A))return 0;if(isEmpty(D))return 100;
   const N=40,wa=worth(A),wd=worth(D);let w=0,sc=0;for(let i=0;i<N;i++){const B=battle(A,D,ma,md,8);if(isEmpty(B.d)&&!isEmpty(B.a))w++;sc+=worth(B.a)/wa-worth(B.d)/wd}
@@ -1990,6 +1995,9 @@ async function resolveDue(){if(!db||S.spectator)return;await battleTicks();await
 
 // ---------- rendu ----------
 const main=document.getElementById('main'),top_=document.getElementById('top'),tabsEl=document.getElementById('tabs');
+// iOS : après un retour d'arrière-plan, un clavier ou un changement de page, la barre fixe peut rester calée sur l'ancienne hauteur d'écran ; on force son recalcul
+function fixBars(){try{for(const el of[tabsEl,document.querySelector('.chatbtn')]){if(!el)continue;const d=el.style.display;el.style.display='none';void el.offsetHeight;el.style.display=d}const y=window.scrollY,mx=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);if(y>mx)window.scrollTo(0,mx)}catch(e){}}
+['pageshow','focus','orientationchange','resize'].forEach(ev=>addEventListener(ev,()=>setTimeout(fixBars,80)));document.addEventListener('visibilitychange',()=>{if(!document.hidden){setTimeout(fixBars,60);setTimeout(fixBars,400)}});document.addEventListener('focusout',()=>setTimeout(fixBars,150));if(window.visualViewport){visualViewport.addEventListener('resize',()=>setTimeout(fixBars,60))}
 let toastT=null;
 function toast(msg,kind){if(kind==='bad')sfx.error();const el=document.getElementById('toast');el.innerHTML=`<div class="toast ${kind==='bad'||kind==='alert'?'bad':''}" role="status"></div>`;el.firstChild.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.innerHTML='',3800)}
 const RS={m:'Mét',c:'Cri',f:'Hél',ir:'Iri',xe:'Xén',am:'Ant'};
@@ -2320,10 +2328,15 @@ function renderEmpire(){if(!empireOn())return`<h1>Empire</h1><p class="empty">L�
   const B=EMPB(),bp=empBuildPlan(),sp=empShipPlan(),bk=S.empB||'mine',st=S.empT||'fighter';
   setTimeout(()=>{const a=document.getElementById('empb'),b=document.getElementById('empt'),c=document.getElementById('empn');if(a)a.onchange=()=>{S.empB=a.value;render()};if(b)b.onchange=()=>{S.empT=b.value;render()};if(c)c.onchange=()=>{S.empN=Math.max(1,Math.min(999,+c.value||1));render()}},0);
   return`<section style="display:grid;gap:4px"><h1>Empire</h1><p class="meta" style="margin:0">${pl.length} planète${pl.length>1?'s':''} · ${sat.length} satellite${sat.length>1?'s':''} · flotte à quai : ${unitShort(tot)||'aucune'}</p></section>
-  <section style="display:grid;gap:10px"><h2>Planètes</h2><div class="list">${pl.map(p=>{const v=view(p.pid);return`<div class="item"><div class="ihead"><b>${esc(PLANETS[p.pid].name)}${v.capital?' <span class="badge">Capitale</span>':''}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
-    <div class="eff">${qTxt(v)}</div><div class="eff">${yTxt(v)}</div><div class="eff">${fmt(v.res.m)} métal · ${fmt(v.res.c)} cristal · ${fmt(v.res.f)} hélium-3</div><div class="eff">🛸 ${unitShort(Object.fromEntries(SK.filter(k=>(v.ships||{})[k]>0).map(k=>[k,v.ships[k]])))||'aucun vaisseau'} · Hangars ${bayUse(v,ME)}/${bayCap(v)}</div></div>`}).join('')}</div></section>
-  ${sat.length?`<section style="display:grid;gap:10px"><h2>Satellites</h2><div class="list">${sat.map(p=>{const v=view(p.pid),r=rareOf(ME,p.pid),k=v.rk||rkOf(v);return`<div class="item"><div class="ihead"><b>${esc(PLANETS[p.pid].name)}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
-    <div class="eff">${qTxt(v)}</div><div class="eff">Foreuse niv. ${v.lv.drill||0} · Réserves niv. ${v.lv.silo||0} · ${RARE[k]||''} ${fmt(r[k]||0)} / ${fmt(bodyRareCap(S.planets[p.pid]))}</div></div>`}).join('')}</div></section>`:''}
+  <section style="display:grid;gap:8px"><h2>Planètes</h2>${pl.map(p=>{const v=view(p.pid),bq=v.bq||[],q=v.shipQ||[],yd=v.lv.yard>=1,u=bayUse(v,ME),cap=bayCap(v),fr=cap?u/cap:0,idleB=!bq.length,idleY=yd&&!q.length,stc=idleB&&idleY?'var(--bad)':idleB||idleY?'var(--warn)':'var(--good)',yEnd=q.length?Math.max(...q.map(x=>x.start+x.n*x.per*1000)):0;
+    return`<div class="empc" style="--st:${stc}"><div class="eh"><b>${esc(PLANETS[p.pid].name)}${v.capital?' <span class="badge">Capitale</span>':''}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
+    <div class="chips2">${bq.length?`<span class="ch" style="--c:var(--good)">🔨 ${esc(lvBase(bq[0].k).n)} <span class="cd" data-cd="${bq[0].until}"></span>${bq.length>1?` +${bq.length-1}`:''}</span>`:'<span class="ch" style="--c:var(--bad)">🔨 file vide</span>'}${!yd?'<span class="ch" style="--c:#8a93a8">🚀 pas de chantier</span>':q.length?`<span class="ch" style="--c:#7fc8ff">🚀 ${q.length} lot${q.length>1?'s':''} · <span class="cd" data-cd="${yEnd}"></span></span>`:'<span class="ch" style="--c:var(--bad)">🚀 chantier à l’arrêt</span>'}</div>
+    <div class="rs"><span style="--c:#ff8f7a"><i></i>${fmt(v.res.m)}</span><span style="--c:#8fd8ff"><i></i>${fmt(v.res.c)}</span><span style="--c:#ffcf6b"><i></i>${fmt(v.res.f)}</span></div>
+    <div class="eff" style="font-size:12px">🛸 ${unitShort(Object.fromEntries(SK.filter(k=>(v.ships||{})[k]>0).map(k=>[k,v.ships[k]])))||'aucun vaisseau'}</div><div class="hb" style="--c:${fr>.95?'var(--bad)':fr>.8?'var(--warn)':'var(--good)'}"><span>Hangars</span><span class="bar"><b style="width:${Math.min(100,fr*100)}%"></b></span><span>${u}/${cap}</span></div></div>`}).join('')}</section>
+  ${sat.length?`<section style="display:grid;gap:8px"><h2>Satellites</h2>${sat.map(p=>{const v=view(p.pid),r=rareOf(ME,p.pid),k=v.rk||rkOf(v),bq=v.bq||[],cp=bodyRareCap(S.planets[p.pid]),fr=cp?(r[k]||0)/cp:0,col=k==='ir'?'#c9b6ff':k==='xe'?'#7ff0d0':'#ff9be0';
+    return`<div class="empc" style="--st:${bq.length?'var(--good)':'var(--bad)'}"><div class="eh"><b>${esc(PLANETS[p.pid].name)}</b><button class="btn ghost sm" data-act="empsel" data-p="${p.pid}">Gérer</button></div>
+    <div class="chips2">${bq.length?`<span class="ch" style="--c:var(--good)">🔨 ${esc(lvBase(bq[0].k).n)} <span class="cd" data-cd="${bq[0].until}"></span></span>`:'<span class="ch" style="--c:var(--bad)">🔨 file vide</span>'}<span class="ch" style="--c:#8a93a8">Foreuse ${v.lv.drill||0} · Réserves ${v.lv.silo||0}</span></div>
+    <div class="hb" style="--c:${fr>=1?'var(--warn)':col}"><span style="color:${col}">${RARE[k]||''}</span><span class="bar"><b style="width:${Math.min(100,fr*100)}%"></b></span><span>${fmt(r[k]||0)}/${fmt(cp)}${fr>=1?' · plein':''}</span></div></div>`}).join('')}</section>`:''}
   <section style="display:grid;gap:10px"><h2>Améliorer partout</h2><div class="card" style="display:grid;gap:8px">
     <select id="empb" class="srsel"><optgroup label="Planètes">${Object.keys(B).map(k=>`<option value="${k}" ${k===bk?'selected':''}>${B[k].n}</option>`).join('')}</optgroup>${sat.length?`<optgroup label="Satellites">${Object.keys(BUILD_OUT).map(k=>`<option value="o:${k}" ${'o:'+k===bk?'selected':''}>${BUILD_OUT[k].n}</option>`).join('')}</optgroup>`:''}</select>
     ${bp.map(x=>`<div class="foot" style="gap:6px"><span class="eff">${esc(plName(x.pid))} · niv. ${x.L} → ${x.L+1}</span><span class="eff" style="color:${x.why?'var(--bad)':'var(--good)'}">${x.why||`${fmt(x.c.m)} / ${fmt(x.c.c)} / ${fmt(x.c.f)}`}</span></div>`).join('')||'<span class="eff">Aucune planète concernée.</span>'}
@@ -2969,7 +2982,7 @@ document.addEventListener('click',e=>{
   if(a==='amx'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;amDone();return}
   if(a==='pmap'&&b.closest('#tut'))amDone();
   if(a==='mclose'){if(e.target!==b&&e.target.closest('[data-stop]')&&b.classList.contains('scrim'))return;S.modal=null;renderModal();return}
-  if(a==='tab'){S.tab=b.dataset.t;render();window.scrollTo(0,0)}
+  if(a==='tab'){S.tab=b.dataset.t;render();window.scrollTo(0,0);setTimeout(fixBars,30)}
   else if(a==='up')upgrade(S.sel,b.dataset.k);
   else if(a==='qmax'){const t=b.dataset.t,n=maxBuild(view(S.sel),t);if(n<1)toast(bayUse(view(S.sel),ME)+(PLACES[t]||1)>bayCap(view(S.sel))?'Hangars pleins : agrandis-les pour construire plus.':'Ressources insuffisantes.','bad');else{S.qty[t]=n;render()}}
   else if(a==='qty'){const t=b.dataset.t;S.qty[t]=Math.max(1,Math.min(9999,S.qty[t]+Number(b.dataset.d)));render()}
@@ -3973,7 +3986,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='160';
+const APP_VERSION='161';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

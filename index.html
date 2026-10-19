@@ -1621,7 +1621,11 @@ function guardsHtml(pid){const G=Object.values(S.fleets).filter(g=>g.phase==='ho
 function threatsHtml(pid){const L=Object.values(S.fleets).filter(f=>isNpc(f.owner)&&f.phase==='out'&&f.to===pid);if(!L.length)return'';
   return L.map(f=>`<div class="card" style="display:grid;gap:4px;border-color:var(--bad)"><b style="color:var(--bad)">☠ Les ${NPC_NAME} arrivent</b><span class="eff">Impact dans <span class="cd" data-cd="${f.arrive}"></span> (${clock(f.arrive)}) · ${(f.spied||[]).includes(ME)?unitLine(f.ships):'composition inconnue'}</span><span class="eff" style="font-size:12px">Prépare ta défense et appelle tes alliés en renfort. Détails dans l’onglet Flottes.</span></div>`).join('')}
 // verrou coopératif sur un document
-async function locked(path,fn){const ref=db.doc(path);
+// verrou local : le bail serveur est au nom de l'onglet, donc deux actions du même onglet sur le même document passaient en parallèle (double clic = vaisseaux dupliqués). On les met en file ici.
+const LLOCK=new Map();
+async function locked(path,fn){const prev=LLOCK.get(path)||Promise.resolve();let rel;const mine=new Promise(r=>rel=r),tail=prev.then(()=>mine);LLOCK.set(path,tail);
+  await Promise.race([prev,sleep(4000)]);try{return await locked0(path,fn)}finally{rel();if(LLOCK.get(path)===tail)LLOCK.delete(path)}}
+async function locked0(path,fn){const ref=db.doc(path);
   for(let i=0;i<10;i++){let r;try{r=await ref.acquire({holder:TAB_ID,ttlMs:2500})}catch(e){if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){await sleep(600);continue}throw e}
     if(r.acquired){const s=await ref.get();const d=s.exists?s.data():null;return await fn(d&&d.kind?clone(d):null,ref)}
     await sleep(250+Math.random()*600)}
@@ -1744,7 +1748,8 @@ async function recall(fid){await act(async()=>{await locked('fleets/'+fid,async(
 const jumpCost=(a,b,ships)=>{if(!PLANETS[a]||!PLANETS[b])return null;const n=Math.abs(galOf(a)-galOf(b));if(!n)return null;const P=Math.max(1,placesOf(ships));return{ir:Math.ceil(P*n),xe:Math.ceil(P*.4*n)}};
 const jumpPay=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};if(!affordR(d.rare,jc))throw err(`Saut hors de la galaxie : il faut ${fmt(jc.ir)} iridium et ${fmt(jc.xe)} xénite.`);payR(d.rare,jc)})};
 const jumpRefund=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};for(const k in jc)d.rare[k]=(d.rare[k]||0)+jc[k]}).catch(()=>{})};
-async function launch(){const M=S.modal;if(M.fleet)return launchHeld(M);fixMis(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
+async function launch(){if(S.launching)return;S.launching=true;try{await launch0()}finally{S.launching=false}}
+async function launch0(){const M=S.modal;if(!M)return;if(M.fleet)return launchHeld(M);fixMis(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
   await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
     if(M.mission==='spy'&&(!(ships.probe>0)||count(ships)!==ships.probe))throw err('Une mission d’espionnage n’emporte que des sondes.');
     if(M.mission==='reinforce'&&!activeBattle(M.to)&&!(S.planets[M.to]&&S.planets[M.to].owner))throw err('Le renfort se fait vers une planète habitée.');if(M.mission==='intercept'){const c=S.fleets[M.intercept];if(!c||c.phase!=='out')throw err('Cette cible est déjà arrivée.');if(c.owner===ME)throw err('Tu ne peux pas intercepter ta propre flotte.');if(c.mission!=='attack'&&Date.now()+etaOf(M.from,M.to,ships)*1000>c.arrive-5000)throw err('Trop lent : ta flotte arriverait après le convoi.')}if(M.cmd&&cmdBusy(ME,M.cmd))throw err('Ce commandant est déjà en mission.');if(M.cmd&&cmdHome(ME,cmdById(ME,M.cmd))!==M.from)throw err('Ce commandant n’est pas stationné sur cette planète.');
@@ -3986,7 +3991,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='162';
+const APP_VERSION='163';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

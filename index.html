@@ -1511,7 +1511,7 @@ function playerPower(uid){let w=0;for(const p of Object.values(S.planets))if(p.o
 function pillArmy(pid,uid,r){const p=S.planets[pid],g=galOf(pid);const W=Math.max(25,(worth(p.ships||{})+(p.lv.def||0)*4*VALUE.turret)*.9+playerPower(uid)*.25)*(.7+r()*.6)*(1+g*.15);
   const mix=r(),fw=W*(.5-.25*mix),cw=W*(.3+.1*mix),bw=W-fw-cw,sh={fighter:Math.max(3,Math.round(fw/VALUE.fighter)),cruiser:Math.round(cw/VALUE.cruiser),battleship:Math.round(bw/VALUE.battleship)};return sh}
 function pillOrigin(pid,r){const g=galOf(pid),s0=PLANETS[pid].sys,L=SYS_BY_GAL[g].filter(s=>!s.deep&&s.i!==s0&&s.planets.length);const s=L[Math.floor(r()*L.length)]||SYSTEMS[s0];return s.planets.find(q=>!(S.planets[q]&&S.planets[q].owner))||s.planets[0]}
-let LORD_T=0;const LORD_RAID=14*HR;
+let LORD_T=0;const LORD_RAID=24*HR;
 const lordCheer=n=>n>=5?'wow !':n>=4?'impressionnant !':n>=3?'pas mal !':'bien joué !';
 async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[ME])return;LORD_T=now;
   for(const s of SYSTEMS){if(s.deep||s.planets.length<2)continue;const id='lord-'+s.i,ev=S.events[id],cur=sysLordNow(s.i),prev=ev&&ev.uid||null;
@@ -3986,7 +3986,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='161';
+const APP_VERSION='162';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

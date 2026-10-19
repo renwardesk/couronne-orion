@@ -1722,7 +1722,7 @@ async function sendBack(x,xref,why){const now=Date.now();let nf;if(x.phase==='ou
   else{const eta=etaOf(x.to,x.from,x.ships);nf={...x,phase:'back',rally:null,group:null,arrive:now,depart:now-eta*1000,back:now+eta*1000}}await xref.set(nf);if(why)await report({rally:true,to:[x.owner],tone:'info',title:'Retour du ralliement',lines:[why]})}
 async function rallyLaunch(lid,auto){await act(async()=>{await locked('fleets/'+lid,async(L,lref)=>{if(!L||L.phase!=='rally')return;if(!auto&&L.owner!==ME)throw err('Seul l’organisateur lance le ralliement.');const now=Date.now(),mem=[];
     for(const x of Object.values(S.fleets)){if(x.rally!==lid)continue;await locked('fleets/'+x.fid,async(xd,xref)=>{if(!xd||xd.rally!==lid)return;if(xd.phase==='rwait'||(xd.phase==='out'&&xd.arrive<=(auto?Math.max(L.rallyUntil||0,0):now)))mem.push({x:xd,ref:xref});else if(xd.phase==='out')await sendBack(xd,xref,'Ta flotte n’est pas arrivée à temps au point de ralliement : elle rentre.')})}
-    const all={...L.ships};for(const m of mem)addShips(all,m.x.ships);const eta=etaOf(L.from,L.to,all)/cmdSpeed(L.owner,L.cmd),arrive=now+eta*1000;
+    const all={...L.ships};for(const m of mem)addShips(all,m.x.ships);const eta=etaOf(L.from,L.to,L.ships)/cmdSpeed(L.owner,L.cmd),arrive=now+eta*1000; // la vitesse est celle de la flotte du chef : tout le monde arrive avec lui
     const def=L.rmode==='def';for(const m of mem)await m.ref.set({...m.x,mission:def?'reinforce':'attack',...(def?{}:{group:lid}),rl:lid,rb:L.rb??rallyBonus(L.owner,L.cmd),rally:null,phase:'out',home:m.x.from,from:L.from,to:L.to,depart:now,arrive,lt:true});
     await lref.set({...L,...(def?{mission:'reinforce'}:{}),rb:L.rb??rallyBonus(L.owner,L.cmd),phase:'out',rallied:true,depart:now,arrive});
     await report({rally:true,to:[...new Set([L.owner,...mem.map(m=>m.x.owner)])],tone:'info',title:`⚑ Le ralliement part vers ${plName(L.to)}`,lines:[`${1+mem.length} flotte${mem.length?'s':''} engagée${mem.length?'s':''} · ${unitLine(all)} · bonus de ralliement +${Math.round((L.rb||0)*100)} %.`,def?`Arrivée à ${clock(arrive)} : les flottes montent la garde et défendent ${plName(L.to)}.`:`Impact à ${clock(arrive)}. Après une victoire, chacun garde ses survivants sur place ; le butin est partagé selon les dégâts infligés.`]})});if(!auto){sfx.launch();toast('Ralliement lancé !')}})}
@@ -4005,7 +4005,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='166';
+const APP_VERSION='167';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

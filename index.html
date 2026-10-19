@@ -2821,7 +2821,7 @@ function flyAudio(on){const c=audio();if(!c)return;
     // musique : nappes lydiennes lentes, cloches lointaines dans un long écho
     const mus=c.createGain();mus.gain.value=.0;mus.gain.linearRampToValueAtTime(.8,c.currentTime+4);mus.connect(out);const rv=c.createConvolver();rv.buffer=impulse(c,6);const wet=c.createGain();wet.gain.value=.7;rv.connect(wet).connect(mus);const dl=c.createDelay(2);dl.delayTime.value=.66;const fb=c.createGain();fb.gain.value=.45;const df=c.createBiquadFilter();df.type='lowpass';df.frequency.value=2200;dl.connect(df).connect(fb).connect(dl);df.connect(mus);df.connect(rv);
     Object.assign(FLYA,{mus,rv,dl,next:c.currentTime+.3,step:0,ch:0});FLYA.timer=setInterval(flyMusic,250);flyMusic()}
-  else if(FLYA.on){FLYA.on=false;clearInterval(FLYA.timer);const o=FLYA.out,t=c.currentTime;o.gain.cancelScheduledValues(t);o.gain.setValueAtTime(o.gain.value,t);o.gain.linearRampToValueAtTime(0,t+.8);setTimeout(()=>{try{for(const[x]of FLYA.osc)x.stop();FLYA.ns.stop();o.disconnect()}catch(e){}},1000);if(FLYA.amb&&SFX.ambOn)setTimeout(()=>{if(!FLY.on)ambient(true)},900)}}
+  else if(FLYA.on){FLYA.on=false;clearInterval(FLYA.timer);const o=FLYA.out,t=c.currentTime;o.gain.cancelScheduledValues(t);o.gain.setValueAtTime(o.gain.value,t);o.gain.linearRampToValueAtTime(0,t+.8);setTimeout(()=>{try{for(const[x]of FLYA.osc)x.stop();FLYA.ns.stop();o.disconnect()}catch(e){}},1000);if(SFX.ambOn&&SFX.on)setTimeout(()=>{if(!FLY.on)ambient(true)},900)}}
 // accords (fondamentale, notes) : ré lydien → si♭ → fa → do, très lents
 const FLY_CH=[[38,[62,66,69,73,76]],[34,[58,62,65,69,74]],[41,[60,65,69,72,79]],[36,[60,64,67,71,74]]],FLY_SC=[74,76,78,81,83,86,88,90];
 function flyMusic(){const c=SFX.ctx;if(!c||!FLYA.on)return;while(FLYA.next<c.currentTime+1){const t=FLYA.next;
@@ -3042,7 +3042,7 @@ function mSchedule(){const c=SFX.ctx;if(!c||!MUS.playing)return;if(BMUS.on){ambi
     if(Math.random()<(MUS.tension?.22:.3)){const s=P.scale;mPluck(c,s[Math.floor(Math.random()*s.length)],t+(Math.random()<.3?.25:0),MUS.tension?.045:.038)}
     if(MUS.tension&&MUS.step%2===0)mKick(c,t,MUS.step%8===0?.32:.18);
     MUS.next+=.5;MUS.step++;if(MUS.step>=steps){MUS.step=0;MUS.chord++}}}
-function ambient(on){const c=audio();if(!c)return;if(on&&(BMUS.on||(typeof btel!=='undefined'&&!btel.hidden)))return;
+function ambient(on){const c=audio();if(!c)return;if(on&&(BMUS.on||(typeof FLYA!=='undefined'&&FLYA.on)||(typeof btel!=='undefined'&&!btel.hidden)))return;
   if(on&&!MUS.playing){musicSetup(c);MUS.playing=true;MUS.next=c.currentTime+.1;MUS.step=0;MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(.9,c.currentTime+3);MUS.timer=setInterval(mSchedule,200);mSchedule();SFX.amb=true}
   else if(!on&&MUS.playing){MUS.playing=false;SFX.amb=null;clearInterval(MUS.timer);MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(0,c.currentTime+1.2)}}
 function musicTension(on){if(MUS.tension!==on){MUS.tension=on;MUS.step=0}}
@@ -3886,7 +3886,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='156';
+const APP_VERSION='157';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

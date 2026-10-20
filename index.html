@@ -47,7 +47,7 @@ button{font:inherit;color:inherit}
 .res .cap i{display:block;height:100%;background:var(--brass)}
 .res.full .cap i{background:var(--bad)}
 .psel{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
-.pselw{flex:1;min-width:0;position:relative;display:flex}.patk{position:absolute;right:30px;top:50%;transform:translateY(-50%);background:var(--bad);color:#fff;border:0;border-radius:6px;font:700 11px/1 inherit;padding:5px 7px;cursor:pointer;animation:patk 1.6s ease-in-out infinite}.patk.on{box-shadow:0 0 0 2px #fff4}@keyframes patk{50%{opacity:.65}}@media (prefers-reduced-motion:reduce){.patk{animation:none}}.psel select{flex:1;min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
+.psel select{flex:1;min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
 main.wrap{padding-block:18px;display:grid;gap:18px}
 h1,h2{font-family:var(--f-display);font-weight:600;letter-spacing:.02em;margin:0;text-wrap:balance}
 h1{font-size:30px;line-height:1.1}
@@ -2143,7 +2143,7 @@ function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
   let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span>${onlinePill()}</div><div class="tools"><button class="tgl ico" data-act="snd" aria-pressed="${SFX.on}" aria-label="Son" title="Son">${SFX.on?'🔊':'🔈'}</button><button class="tgl ico" data-act="amb" aria-pressed="${SFX.ambOn}" aria-label="Musique" title="Musique">🎵</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl ico" data-act="notif" aria-pressed="${notifOk()&&pushOn()}" aria-label="Alertes" title="Alertes">🔔</button>`:''}<button class="tgl ico" data-act="logout" aria-label="Quitter" title="Quitter">⏻</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>${!body?(()=>{const r=rareNow(ME);const rt=rareRates(ME),c=(S.players[ME]||{}).rare||{};return Object.keys(RARE).some(k=>r[k]>0||rt[k]>0)?`<div class="rarebar">${Object.keys(RARE).map(k=>`<span title="Somme des stocks de tes satellites">${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b>${rt[k]>0?` <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small>`:''}</span>`).join('')}</div>`:''})():''}
-    ${(()=>{const atk=myPlanets().filter(p=>underAttack(p.pid)).map(p=>p.pid),cur=atk.includes(S.sel);return`<div class="psel"><label for="psel">Lieu</label><span class="pselw"><select id="psel" ${atk.length?'style="padding-right:96px"':''}>${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${atk.includes(p.pid)?'⚔ ':''}${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}${atk.includes(p.pid)?' · attaquée':''}</option>`).join('')}</select>${atk.length?`<button class="patk${cur?' on':''}" data-act="patk" title="Planètes attaquées : touche pour passer de l’une à l’autre">⚔ ${atk.length>1?atk.length+' attaques':'attaque'}</button>`:''}</span></div>`})()}`}
+    ${(()=>{const atk=myPlanets().filter(p=>underAttack(p.pid)).map(p=>p.pid);return`<div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${atk.includes(p.pid)?'⚔ ':''}${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`})()}`}
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
@@ -3187,7 +3187,6 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='upg')upgradeShip(b.dataset.k,b.dataset.t);
   else if(a==='mflgo'){const f=S.fleets[b.dataset.f];if(f&&PLANETS[f.to]){if(!(MP.level==='system'&&MP.sys===PLANETS[f.to].sys))mpGoSystem(PLANETS[f.to].sys);S.pickP=null;S.pickF=f.fid;render()}}
-  else if(a==='patk'){const atk=myPlanets().filter(p=>underAttack(p.pid)).map(p=>p.pid);if(atk.length){const i=atk.indexOf(S.sel);S.sel=atk[(i+1)%atk.length];render()}}
   else if(a==='cmdopen'){S.cmdOpen=S.cmdOpen===b.dataset.c?null:b.dataset.c;render()}
   else if(a==='cmdbsel'){S.cmdBSel=S.cmdBSel===b.dataset.c?null:b.dataset.c;render()}
   else if(a==='chest')openChest(b.dataset.t);
@@ -4129,7 +4128,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='184';
+const APP_VERSION='185';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

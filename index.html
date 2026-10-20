@@ -1562,7 +1562,7 @@ const NPC='npc-pill',NPC_NAME='Pillards du Néant',NPC_COL='#ff5a3c';
 const PILL_FIRST=12*HR,PILL_MIN=20*HR,PILL_SPAN=20*HR,PILL_TRAVEL=3*HR,PILL_TRAVEL_SPAN=2*HR;
 const isNpc=uid=>uid===NPC;
 function playerPower(uid){let w=0;for(const p of Object.values(S.planets))if(p.owner===uid)w+=worth(p.ships||{});for(const f of Object.values(S.fleets))if(f.owner===uid)w+=worth(f.ships||{});return w}
-function pillArmy(pid,uid,r){const p=S.planets[pid],g=galOf(pid);const W=Math.max(25,playerPower(uid)*.15)*(.7+r()*.6)*(1+g*.15); // 15 % de la flotte totale du joueur visé
+function pillArmy(pid,uid,r){const p=S.planets[pid],g=galOf(pid);const W=Math.max(25,(worth(p.ships||{})+(p.lv.def||0)*4*VALUE.turret)*.9+playerPower(uid)*.25)*(.7+r()*.6)*(1+g*.15);
   const mix=r(),fw=W*(.5-.25*mix),cw=W*(.3+.1*mix),bw=W-fw-cw,sh={fighter:Math.max(3,Math.round(fw/VALUE.fighter)),cruiser:Math.round(cw/VALUE.cruiser),battleship:Math.round(bw/VALUE.battleship)};return sh}
 function pillOrigin(pid,r){const g=galOf(pid),s0=PLANETS[pid].sys,L=SYS_BY_GAL[g].filter(s=>!s.deep&&s.i!==s0&&s.planets.length);const s=L[Math.floor(r()*L.length)]||SYSTEMS[s0];return s.planets.find(q=>!(S.planets[q]&&S.planets[q].owner))||s.planets[0]}
 let LORD_T=0;const LORD_RAID=24*HR;
@@ -4128,7 +4128,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='186';
+const APP_VERSION='187';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

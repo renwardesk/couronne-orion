@@ -1490,7 +1490,7 @@ function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='o
     ${row('var(--bad)','Ennemis',seen?unitLine(f.ships):`inconnus · ${pillSpyNeed(f)} sondes pour espionner`)}
     ${hold!=null?pctHtml(hold,'Chance de tenir'):`<span class="eff" style="font-size:12px">Chance de tenir : inconnue, espionne l’attaque pour la calculer.</span>`}
     ${row('var(--warn)','Tu possèdes',`${count(mine)?unitLine(mine):'aucun vaisseau'}${tur?` · ${tur} tourelles`:''}`)}
-    ${guards.length||coming.length||icp.length?row('var(--good)','Soutiens',[...guards.map(g=>`${unitLine(g.ships)} (${esc(pname(g.owner))}, sur place)`),...coming.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, en route · ${clock(g.arrive)}${g.arrive>f.arrive?' ⚠ trop tard':''})`),...icp.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, interception à ${clock(g.arrive)})`)].join(' · ')):row('var(--good)','Soutiens','aucun pour l’instant')}
+    ${(()=>{const own=Object.values(S.fleets).filter(g=>g.phase==='hold'&&g.to===pid&&g.owner===ME);return guards.length||own.length||coming.length||icp.length?row('var(--good)','Soutiens',[...own.map(g=>`${unitLine(g.ships)} (toi, sur place${(g.home||g.from)!==pid?` · de ${esc(plName(g.home||g.from))}`:''})`),...guards.map(g=>`${unitLine(g.ships)} (${esc(pname(g.owner))}, sur place)`),...coming.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, en route · ${clock(g.arrive)}${g.arrive>f.arrive?' ⚠ trop tard':''})`),...icp.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, interception à ${clock(g.arrive)})`)].join(' · ')):row('var(--good)','Soutiens','aucun pour l’instant')})()}
     ${seen?'':spyHintHtml(spyNeedF(f))}
     <div class="mpacts"><button class="btn sm" data-act="icpt" data-f="${f.fid}">⚔ Intercepter</button>${seen?'':`<button class="btn ghost sm" data-act="spyin" data-f="${f.fid}">👁 Espionner (${pillSpyNeed(f)} sondes)</button>`}<button class="btn ghost sm" data-act="defsend" data-f="${f.fid}">🛡 Renforcer</button>${myHelp&&myHelp.fid===f.fid?'<span class="lv" style="align-self:center">Aide demandée ✓</span>':`<button class="btn ghost sm" data-act="callhelp" data-f="${f.fid}">🆘 Demander de l’aide</button>`}</div></div>`}).join('')+guardsHtml(pid)}
 // ---------- petites comètes : apparaissent dans les systèmes, se récoltent sans combat, puis disparaissent ----------
@@ -4130,7 +4130,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='189';
+const APP_VERSION='190';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

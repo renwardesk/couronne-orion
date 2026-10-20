@@ -1799,10 +1799,10 @@ async function rallyKick(fid){await act(async()=>{await locked('fleets/'+fid,asy
 function rallyMods(owner,cmd,rb){const m=forceMods(owner,cmd),o={};for(const k in m)o[k]={...m[k],att:m[k].att*(1+(rb||0))};return o}
 function rallyOddsHtml(R,extra){if(!R||!PLANETS[R.to])return'';const it0=latestIntel(R.to),stale=it0&&intelStale(R.to,it0),it=stale?null:it0;
   if(!it||!it.ships)return`<span class="eff" style="font-size:12px">🔭 Armée en face ${stale?'<b>à re-espionner</b> (renseignement périmé)':'inconnue'} : espionne la cible pour voir les chances de victoire.</span>`;
-  const owner=(S.planets[R.to]||{}).owner,md=owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):null,foe={...it.ships,...(it.turrets?{turret:it.turrets}:{})},mods=rallyMods(R.owner,R.cmd,R.rb??rallyBonus(R.owner,R.cmd)),fl={flag:R.cmd?1:0};
+  const owner=(S.planets[R.to]||{}).owner,P0=PLANETS[R.to],md=owner?applyShield(modsOf(owner),it.lv&&it.lv.shld):P0.raid&&RAIDS[R.to]?raidMods(R.to):null,ctx=P0.raid||vsPirates(owner)?'raid':null,foe={...it.ships,...(it.turrets?{turret:it.turrets}:{})},mods=rallyMods(R.owner,R.cmd,R.rb??rallyBonus(R.owner,R.cmd)),fl={flag:R.cmd?1:0};
   const solo={...R.ships,...fl},all={...R.ships,...fl};for(const x of rallyMembers(R.fid))addShips(all,x.ships);if(extra)addShips(all,extra);const n=rallyMembers(R.fid).length+(extra&&count(extra)?1:0);
   return`<div class="card" style="display:grid;gap:4px;border-color:#5ec8ff66"><b style="font-size:13px;color:#9fd8ff">🔭 Armée en face · espionnée ${ago(it.at)}</b><span class="eff">${unitLine(it.ships)}${it.turrets?` · ${it.turrets} tourelles`:''}</span>
-    ${pctHtml(winChance(solo,foe,mods,md),`${R.owner===ME?'Toi':esc(pname(R.owner))} seul`)}${n?pctHtml(winChance(all,foe,mods,md),`Avec ${n} soutien${n>1?'s':''}${extra&&count(extra)?' (dont le tien)':''}`):'<span class="eff" style="font-size:12px">Aucun soutien pour l’instant.</span>'}</div>`}
+    ${pctHtml(withCtx(ctx,()=>winChance(solo,foe,mods,md)),`${R.owner===ME?'Toi':esc(pname(R.owner))} seul`)}${n?pctHtml(withCtx(ctx,()=>winChance(all,foe,mods,md)),`Avec ${n} soutien${n>1?'s':''}${extra&&count(extra)?' (dont le tien)':''}`):'<span class="eff" style="font-size:12px">Aucun soutien pour l’instant.</span>'}</div>`}
 function ralliesHtml(){const L=Object.values(S.fleets).filter(f=>f.phase==='rally'&&PLANETS[f.to]&&!(S.planets[f.to]&&S.planets[f.to].owner===ME&&f.rmode!=='def'&&f.owner!==ME)).sort((a,b)=>a.rallyUntil-b.rallyUntil);if(!L.length)return'';
   const who=uid=>`<b style="color:${esc(pcolor(uid))}">${esc(pname(uid))}</b>`,cmdL=(uid,id,role)=>{const c=cmdById(uid,id);return c?`<span style="color:${RAR[cmdInfo(c).r].col}">${cmdBadge(c,14)} ${role} ${esc(cmdInfo(c).n)}</span> <span class="eff">(${esc(pname(uid))}) · niv. ${cmdLvl(c.xp)}</span>`:''};
   return`<section style="display:grid;gap:10px"><h2>⚑ Ralliements ouverts</h2><p class="meta" style="margin:0">Envoie des troupes au point de ralliement avant le départ, depuis la planète de ton choix. Elles partent ensemble ; chacun garde ses survivants. Contre les Écumeurs, le butin est livré directement sur la planète de départ de chacun, partagé selon les troupes engagées.</p><div class="list">${L.map(R=>{const mem=rallyMembers(R.fid),org=R.owner===ME,tot={...R.ships};for(const x of mem)if(x.phase==='rwait')addShips(tot,x.ships);const load=rallyLoad(R),cap=R.rcap||rallyCap(R.owner,R.cmd)||Math.max(load,350),def=R.rmode==='def',rb=R.rb??rallyBonus(R.owner,R.cmd);
@@ -4165,7 +4165,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='198';
+const APP_VERSION='199';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

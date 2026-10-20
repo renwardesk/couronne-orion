@@ -82,3 +82,7 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - Penser **mobile d'abord** : tout ajout dans les barres ou les sélecteurs doit tenir sur un écran étroit.
 - Les cotes de victoire en défense incluent les renforts et les flottes en soutien. Les prendre en compte avant de conclure à un bug.
 - Tests locaux : `python3 -m http.server 8777` + Playwright (Chromium dans `/opt/pw-browsers/chromium`) avec une base simulée en mémoire.
+- **Batterie de tests** dans `tests/` (base simulée et horloge avançable).
+  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline`.
+  - `node duo.js` teste deux clients connectés en même temps sur une même base, avec de vrais verrous.
+  - **La relancer après toute modification de la logique** (flottes, combats, ressources).

@@ -1296,13 +1296,13 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
     const lines=[...(cmdL.length?[`🎖 Commandants engagés : ${cmdL.join(', ')}.`]:[]),`Durée : ${dur} · ${e.rounds} échanges${e.dal.length?` · ${e.dal.length} renfort${e.dal.length>1?'s':''} en défense`:''}${A.length>1?` · ${A.length} flottes à l’attaque`:''}.`,
       `Attaque : ${unitLine(e.iA)} — pertes : ${lossLine(e.iA,fa)}.`,`Défense : ${unitLine(e.iD)} — pertes : ${lossLine(e.iD,fd)}.`,
       `Points de combat : ${Math.round(e.kA)} pour l’attaque, ${Math.round(e.kD)} pour la défense.`,
-      ...(won&&!body?[`Butin : ${lootTxt(sumLoot(loots))}.`]:[]),...(annex>=0?[`${tn} passe sous le contrôle de ${pname(A[annex].owner)}.`]:[]),...(npcTook?[`${tn} est tombée aux mains des Pillards du Néant : reprends-la avec un vaisseau colon.`]:[]),
+      ...(won&&!body?[`Butin : ${lootTxt(sumLoot(loots))}.`]:[]),...(annex>=0?[`${tn} passe sous le contrôle de ${pname(A[annex].owner)}.`]:[]),...(won&&mine&&!p.capital&&annex<0&&A.some(x=>(x.ships.colony||0)>0&&!isNpc(x.owner))?[body?`Le vaisseau colon ne peut pas s’installer : limite de ${MAXO} avant-postes atteinte.`:'Le vaisseau colon ne peut pas s’installer : aucun emplacement de planète libre (à débloquer avec la culture).']:[]),...(npcTook?[`${tn} est tombée aux mains des Pillards du Néant : reprends-la avec un vaisseau colon.`]:[]),
       ...(!won&&!isEmpty(fa)?['Le temps est écoulé : les attaquants restent en position autour de la planète.']:[])];
     e.done=true;e.doneAt=now;e.won=won;await eref.set(e);
+    if(won&&mine){const al=theftAlert(e.owner,annex>=0?[A[annex].owner]:atkU,tn,e.pid,{annexed:annex>=0,npcTook,lost:!body?sumLoot(loots):null});if(al)reps.push(al)}
     reps.push({news:annex>=0||npcTook?['battle','conquest']:'battle',to:[...new Set([...atkU,...defU])],tone:won?'win':'loss',loser:won?e.owner:atkU[0],title:won?`${atkU.map(pname).join(', ')} ${atkU.length>1?'remportent':'remporte'} la grande bataille de ${tn}`:`${pname(e.owner)} tient ${tn}`,lines,
       intel:(()=>{const rem={};for(const k in e.iD){if(k==='turret')continue;const v=Math.max(0,(fd||{})[k]||0);if(v)rem[k]=v}return{pid:e.pid,at:Date.now()+1000,owner:annex>=0?A[annex].owner:e.owner,ships:rem,turrets:(e.iD||{}).turret||0,after:true}})(),
       battle:{ia:e.iA,id:e.iD,rounds:e.snaps,att:A.map(x=>({uid:x.owner,ships:x.ships0,ck:(cmdById(x.owner,x.cmd)||{}).key||null})),def:e.owner,pid:e.pid,planet:true}})});
-    if(won&&mine){const al=theftAlert(e.owner,annex>=0?[A[annex].owner]:atkU,tn,e.pid,{annexed:annex>=0,npcTook,lost:!body?sumLoot(loots):null});if(al)reps.push(al)}
   for(const r of reps)await report(r)}
 // ---------- combats de boss : plusieurs échanges, les renforts entrent dans le combat ----------
 async function bossJoin(f,forces,R,tn,rem){const id=btId(f.to),now=Date.now(),maxR=bossMaxR(R),atkU=[...new Set(forces.map(x=>x.owner))];let created=false,joined=false;
@@ -1685,7 +1685,7 @@ function threatsHtml(pid){const L=Object.values(S.fleets).filter(f=>isNpc(f.owne
 const LLOCK=new Map();
 async function locked(path,fn){const prev=LLOCK.get(path)||Promise.resolve();let rel;const mine=new Promise(r=>rel=r),tail=prev.then(()=>mine);LLOCK.set(path,tail);
   await Promise.race([prev,sleep(4000)]);try{return await locked0(path,fn)}finally{rel();if(LLOCK.get(path)===tail)LLOCK.delete(path)}}
-async function locked0(path,fn){SUSP.active++;try{return await locked1(path,fn)}finally{SUSP.active--}}
+async function locked0(path,fn){suspTick();SUSP.active++;try{return await locked1(path,fn)}finally{SUSP.active--}}
 async function locked1(path,fn){const ref=db.doc(path);
   for(let i=0;i<10;i++){let r;try{r=await ref.acquire({holder:TAB_ID,ttlMs:2500})}catch(e){if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){await sleep(600);continue}throw e}
     if(r.acquired){const s=await ref.get();const d=s.exists?s.data():null;return await fn(d&&d.kind?clone(d):null,ref)}
@@ -1823,7 +1823,7 @@ const jumpPay=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};if(!aff
 const jumpRefund=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};for(const k in jc)d.rare[k]=(d.rare[k]||0)+jc[k]}).catch(()=>{})};
 async function launch(){if(S.launching)return;S.launching=true;try{await launch0()}finally{S.launching=false}}
 async function launch0(){const M=S.modal;if(!M)return;if(M.fleet)return launchHeld(M);fixMis(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
-  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
+  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');{const T0=PLANETS[M.to];if(!T0)throw err('Cible introuvable.');if(T0.comet&&M.mission!=='harvest')throw err('Une comète se récolte seulement.');if(T0.sig&&M.mission!=='spy')throw err('Un signal inconnu s’analyse avec des sondes.');if(T0.raid&&(M.mission==='colonize'||M.mission==='reinforce'))throw err('Impossible de s’installer sur une flotte d’Écumeurs.');if(T0.type==='wreck'&&(M.mission==='salvage'||M.mission==='colonize')){const sen=(SYSTEMS[T0.sys].packs||[])[0];if(sen&&!raidState(sen).done)throw err('Les Sentinelles défendent encore cette épave : anéantis-les d’abord (mission Attaque sur les Sentinelles), sinon le trajet serait perdu.')}}if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
     if(M.mission==='spy'&&(!(ships.probe>0)||count(ships)!==ships.probe))throw err('Une mission d’espionnage n’emporte que des sondes.');
     if(M.mission==='reinforce'&&!activeBattle(M.to)&&!(S.planets[M.to]&&S.planets[M.to].owner))throw err('Le renfort se fait vers une planète habitée.');if(M.mission==='intercept'){const c=S.fleets[M.intercept];if(!c||c.phase!=='out')throw err('Cette cible est déjà arrivée.');if(c.owner===ME)throw err('Tu ne peux pas intercepter ta propre flotte.');if(c.mission!=='attack'&&Date.now()+etaOf(M.from,M.to,ships)*1000>c.arrive-5000)throw err('Trop lent : ta flotte arriverait après le convoi.')}if(M.cmd&&cmdBusy(ME,M.cmd))throw err('Ce commandant est déjà en mission.');if(M.cmd&&cmdHome(ME,cmdById(ME,M.cmd))!==M.from)throw err('Ce commandant n’est pas stationné sur cette planète.');
     const IPc=M.mission==='intercept'&&S.fleets[M.intercept]&&S.fleets[M.intercept].mission==='attack'?S.fleets[M.intercept]:null,IP=IPc?interceptPlan(M.from,IPc,ships,cmdSpeed(ME,M.cmd)):null;if(IPc&&!IP)throw err('Trop lent : ta flotte ne peut pas rattraper cette attaque avant son arrivée.');
@@ -2064,6 +2064,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
       if(won&&G.surv[0].colony>0&&!p.capital&&limitOk&&await cultureOk()){if(body){await settleRare(victim);await settleRare(f.owner)}const A=G.surv[0];A.colony--;p.owner=f.owner;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships=zeroShips();addRes(p.res,loots[0]);p.capital=false;await ref.set(p);await holdAt(f,fref,A,{m:0,c:0,f:0}); // l'escorte reste en orbite, rattachée à sa planète d'origine
         for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
         reps.push({news:'conquest',to:[...atkUids,victim],tone:'win',loser:victim,title:`${tn} annexé${body?'':'e'} par ${pname(f.owner)}`,lines,battle:rec(B,victim,{planet:true})});{const al=theftAlert(victim,[f.owner],tn,f.to,{annexed:true});if(al)reps.push(al)}return}
+      if(won&&G.surv[0].colony>0&&!p.capital)lines.push(body?`Ton vaisseau colon ne peut pas s’installer : limite de ${MAXO} avant-postes atteinte.`:'Ton vaisseau colon ne peut pas s’installer : aucun emplacement de planète libre. Débloque-en un avec ta culture.');
       p.lb=Date.now();await ref.set(p);await finish(G.surv,loots);if(won&&!body){const al=theftAlert(victim,atkUids,tn,f.to,{lost:sumLoot(loots)});if(al)reps.push(al)}
       reps.push({intel:{pid:f.to,at:Date.now()+1000,owner:victim,ships:Object.fromEntries(Object.entries(B.d).filter(([k,v])=>k!=='turret'&&v>0)),turrets:B.d.turret||0,after:true},news:'battle',to:[...atkUids,victim],tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won?victim:isEmpty(B.a)?f.owner:null,title:won?`${atkName} remporte la bataille de ${tn}`:!isEmpty(B.a)?`Combat indécis à ${tn} : il reste ${unitLine(B.d)}`:`${pname(victim)} repousse l’assaut sur ${tn}`,lines:won&&!body?[...lines,`Butin : ${lootTxt(sumLoot(loots))}.`]:lines,battle:rec(B,victim,{planet:true})});return}
     // cible neutre (pirates)
@@ -4153,7 +4154,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='196';
+const APP_VERSION='197';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

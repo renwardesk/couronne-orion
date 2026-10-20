@@ -1031,7 +1031,7 @@ async function ambush(f,fref){const si=PLANETS[f.to].sys,alive=sysPacksAlive(si)
   const n=(f.amb||0)+1,chance=Math.min(.9,.35+.15*Math.floor((now-(f.holdAt||now))/AMB_INT)),roll=(hash(f.fid+':'+n)%1000)/1000;
   if(roll>chance){await fref.set({...f,lastAmb:now,amb:n});return}
   const roam=alive.filter(x=>!RAIDS[x].lair&&!RAIDS[x].boss);if(!roam.length){await fref.set({...f,lastAmb:now,amb:n});return}const pid=roam.sort((a,b)=>worth(raidState(b).garrison)-worth(raidState(a).garrison))[0],R=RAIDS[pid];let B=null;
-  await locked('events/'+pid,async(ev,eref)=>{const t=Date.now(),gar=raidGarrison(pid,ev&&ev.done?null:ev,t),party=scaleShips(gar,.5),rest={};for(const k in gar)rest[k]=(gar[k]||0)-(party[k]||0);CMDCTX.vs='raid';B=battle(party,f.ships,raidMods(pid),forceMods(f.owner,f.cmd));CMDCTX.vs=null;
+  await locked('events/'+pid,async(ev,eref)=>{const t=Date.now(),gar=raidGarrison(pid,ev&&ev.done?null:ev,t),party=scaleShips(gar,.5),rest={};for(const k in gar)rest[k]=(gar[k]||0)-(party[k]||0);CMDCTX.vs='raid';B=battle(party,f.ships,raidMods(pid),withDef(()=>forceMods(f.owner,f.cmd)));CMDCTX.vs=null;
     const left={};for(const k in gar)left[k]=(rest[k]||0)+(B.a[k]||0);const e2={...(ev||{}),kind:'event',id:pid,remaining:left,at:t};if(R.lair){const L=lairInfoAt(SYSTEMS[si],t);if(L)e2.founded=L.founded}if(isEmpty(left)){e2.done=true;e2.doneAt=t}await eref.set(e2)});
   const surv=zeroShips();addShips(surv,B.d);const dead=isEmpty(surv),tn=plName(f.to);
   await award([{uid:f.owner,cmd:f.cmd,v:worth(B.ia)-worth(B.a)}],`embuscade près de ${plName(f.to)}`);
@@ -1064,7 +1064,7 @@ async function launchHeld(M){const ships={};for(const k of SK)if(M.ships[k]>0)sh
 const RAR={c:{n:'Commun',col:'#a9b4c8',sp:.04,inj:2},r:{n:'Rare',col:'#5ec8ff',sp:.07,inj:4},e:{n:'Épique',col:'#b98cff',sp:.11,inj:6},l:{n:'Légendaire',col:'#ffcf6b',sp:.16,inj:8}};
 const SPEC={att:{n:'Assaut',d:v=>`+${v} % attaque de toute la flotte`},hp:{n:'Blindage',d:v=>`+${v} % PV de toute la flotte`},
   fighter:{n:'As des chasseurs',d:v=>`+${v*2} % attaque des chasseurs`},cruiser:{n:'Tacticien',d:v=>`+${v*2} % attaque des croiseurs`},battleship:{n:'Amiral de ligne',d:v=>`+${v*2} % attaque des cuirassés`},
-  pirates:{n:'Chasseur de pirates',d:v=>`+${v*2} % attaque contre Écumeurs et Pillards`},spd:{n:'Éclaireur',d:v=>`+${v} % vitesse de la flotte`},amb:{n:'Fantôme',d:v=>`−${Math.min(70,v*2)} % de sondes pour espionner les ennemis du jeu · embuscades ${v*4} % plus rares`},gard:{n:'Gardien',d:v=>`en défense de sa planète : tourelles et mines +${v*2} %`},loot:{n:'Pillard',d:v=>`+${v*2} % de butin et d’Éclats du Vide`},xp:{n:'Mentor',d:v=>`+${v*4} % d’expérience gagnée`}};
+  pirates:{n:'Chasseur de pirates',d:v=>`+${v*2} % attaque contre Écumeurs et Pillards (en attaque)`},spd:{n:'Éclaireur',d:v=>`+${v} % vitesse de la flotte`},amb:{n:'Fantôme',d:v=>`−${Math.min(70,v*2)} % de sondes pour espionner les ennemis du jeu · embuscades ${v*4} % plus rares`},gard:{n:'Gardien',d:v=>`en défense de sa planète : +${v} % attaque et PV de tous les défenseurs (renforts compris), tourelles et mines +${v*2} %`},loot:{n:'Pillard',d:v=>`+${v*2} % de butin et d’Éclats du Vide`},xp:{n:'Mentor',d:v=>`+${v*4} % d’expérience gagnée`}};
 const CMDDB=[
   ['c1','Sergent Brann','c','att'],['c2','Lieutenant Orsk','c','hp'],['c3','Pilote Talia','c','fighter'],['c4','Vigie Kade','c','spd'],['c5','Canonnière Mirelle','c','cruiser'],['c6','Garde Doran','c','hp'],
   ['c7','Éclaireuse Ilka','c','amb'],['c8','Instructeur Torvin','c','xp'],['c9','Traqueur Varek','c','pirates'],['c10','Pilote Nyra','c','fighter'],['c11','Officier Lioré','c','att'],['c12','Maître Roderic','c','battleship'],
@@ -1095,10 +1095,10 @@ function cmdHome(uid,c){if(!c)return null;const ok=pid=>pid&&S.planets[pid]&&S.p
 const cmdRank=(a,b)=>'lerc'.indexOf(cmdInfo(a).r)-'lerc'.indexOf(cmdInfo(b).r)||(b.xp||0)-(a.xp||0);
 // un seul commandant défend chaque planète : celui désigné, sinon le plus gradé présent
 function planetCmd(uid,pid){if(!uid||!pid)return null;const L=cmdsOf(uid).filter(c=>cmdHome(uid,c)===pid&&!cmdBusy(uid,c.id));if(!L.length)return null;return L.find(c=>c.guard)||L.sort(cmdRank)[0]}
-let CMDCTX={vs:null};
+let CMDCTX={vs:null,def:false};
 function applyCmd(m,L){if(!L)return m;const o={};for(const k in m)o[k]={...m[k],att:m[k].att*(1+.05*L),hp:m[k].hp*(1+.04*L)};return o}
 function forceMods(owner,cmd){const m=modsOf(owner),c=cmdById(owner,cmd);if(!c)return m;const L=cmdLvl(c.xp),i=cmdInfo(c),v=cmdSpecVal(c)/100,o={};
-  const FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1;for(const k in m){let a=m[k].att*(1+.02*L),h=m[k].hp*(1+.015*L);if(k==='flag'){a*=FM;h*=FM}if(i.sp==='att')a*=1+v;if(i.sp==='hp')h*=1+v;if(i.sp===k)a*=1+2*v;if(i.sp==='pirates'&&CMDCTX.vs==='raid')a*=1+2*v;if(i.sp==='gard'&&k==='turret')a*=1+2*v;o[k]={...m[k],att:a,hp:h}}return o}
+  const FM={c:1,r:1.3,e:1.7,l:2.2}[i.r]||1;for(const k in m){let a=m[k].att*(1+.02*L),h=m[k].hp*(1+.015*L);if(k==='flag'){a*=FM;h*=FM}if(i.sp==='att')a*=1+v;if(i.sp==='hp')h*=1+v;if(i.sp===k)a*=1+2*v;if(i.sp==='pirates'&&CMDCTX.vs==='raid'&&!CMDCTX.def)a*=1+2*v;if(i.sp==='gard'&&k==='turret')a*=1+2*v;o[k]={...m[k],att:a,hp:h}}return o}
 const cmdSpeed=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='spd'?1+cmdSpecVal(c)/100:1};
 const cmdAmb=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='amb'?1+cmdSpecVal(c)*4/100:1};
 const cmdSpyRed=(uid,id)=>{const c=cmdById(uid,id);return c&&cmdInfo(c).sp==='amb'?Math.min(.7,cmdSpecVal(c)*2/100):0};
@@ -1882,9 +1882,11 @@ async function gatherJoiners(f){const out=[];for(const j of Object.values(S.flee
   try{await locked('fleets/'+j.fid,async(jd,jref)=>{if(jd&&jd.phase==='out'&&jd.group===f.fid&&jd.to===f.to)out.push({f:jd,ref:jref})})}catch(e){}}return out}
 function avgMods(list){return blendMods(list.map(x=>({m:forceMods(x.owner,x.cmd||(x.f&&x.f.cmd)),ships:x.ships,rb:(x.f&&x.f.rb)||0})))}
 // défense d’une planète : la garnison avec les bonus de la planète (bouclier, commandant en poste, seigneur), chaque flotte en orbite avec son propre commandant et ses propres technologies, sous le bouclier
-function defMods(p,ships,guards){if(!p)return null;const sh=p.lv&&p.lv.shld;return blendMods([{m:planetMods(p),ships},...(guards||[]).map(g=>({m:applyShield(forceMods(g.owner,g.cmd||(g.f&&g.f.cmd)),sh),ships:g.ships}))])}
+function defMods(p,ships,guards){if(!p)return null;const sh=p.lv&&p.lv.shld,o0=CMDCTX.def;CMDCTX.def=true;try{const m=blendMods([{m:planetMods(p),ships},...(guards||[]).map(g=>({m:applyShield(forceMods(g.owner,g.cmd||(g.f&&g.f.cmd)),sh),ships:g.ships}))]);
+  const pc=p.owner&&!isNpc(p.owner)&&planetCmd(p.owner,p.pid),c=pc&&cmdById(p.owner,pc.id);if(!c||cmdInfo(c).sp!=='gard')return m;const g=1+cmdSpecVal(c)/100,o={};for(const k in m)o[k]={...m[k],att:m[k].att*g,hp:m[k].hp*g};return o}finally{CMDCTX.def=o0}} // Gardien : tous les défenseurs, renforts compris
 // contexte « contre Écumeurs et Pillards » pour le commandant Chasseur de pirates
 const vsPirates=(...uids)=>uids.some(u=>!u||isNpc(u));
+function withDef(fn){const o=CMDCTX.def;CMDCTX.def=true;try{return fn()}finally{CMDCTX.def=o}}
 function withCtx(vs,fn){const o=CMDCTX.vs;CMDCTX.vs=vs;try{return fn()}finally{CMDCTX.vs=o}}
 function blendMods(list){const acc={};for(const x of list){const m=x.m,sh=x.ships||{},rb=x.rb||0;
   for(const k in m){const w=(sh[k]||0)*(VALUE[k]||1)||1e-6,a=acc[k]=acc[k]||{att:0,hp:0,vs:{},red:0,W:0};a.W+=w;a.att+=m[k].att*(1+rb)*w;a.hp+=m[k].hp*(1+rb/2)*w;a.red+=m[k].red*w;for(const t in m[k].vs)a.vs[t]=(a.vs[t]||0)+m[k].vs[t]*w}}
@@ -2286,7 +2288,7 @@ function cmdBonusHtml(c,mis,to,rb){if(!c)return'';const i=cmdInfo(c),L=cmdLvl(c.
   if(fight){on.push(`+${pctFr(2*L)} % attaque et +${pctFr(1.5*L)} % PV pour toute la flotte (niveau ${L})`);if(FM>1)on.push(`vaisseau amiral ×${pctFr(FM)} (rang ${RAR[i.r].n.toLowerCase()})`);if(mis==='rally'&&rb)on.push(`+${Math.round(rb*100)} % attaque et +${pctFr(rb*50)} % PV pour toute l’armée ralliée`)}
   const t=SPEC[i.sp].d(v),sp=i.sp;let ok,why='';
   if(['att','hp','fighter','cruiser','battleship','xp'].includes(sp)){ok=fight;why='pas de combat prévu'}
-  else if(sp==='pirates'){ok=fight&&vsP;why=fight?'la cible n’est ni Écumeurs ni Pillards':'pas de combat prévu'}
+  else if(sp==='pirates'){ok=fight&&vsP&&mis!=='reinforce';why=mis==='reinforce'?'seulement en attaque':fight?'la cible n’est ni Écumeurs ni Pillards':'pas de combat prévu'}
   else if(sp==='loot'){ok=['attack','colonize','salvage','rally'].includes(mis);why='pas de butin sur cette mission'}
   else if(sp==='gard'){ok=false;why='seulement quand il défend sa planète'}
   else if(sp==='amb'){ok=true}
@@ -4128,7 +4130,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='187';
+const APP_VERSION='188';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

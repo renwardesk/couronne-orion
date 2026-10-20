@@ -47,7 +47,7 @@ button{font:inherit;color:inherit}
 .res .cap i{display:block;height:100%;background:var(--brass)}
 .res.full .cap i{background:var(--bad)}
 .psel{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
-.psel select{flex:1;min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
+.pselw{flex:1;min-width:0;position:relative;display:flex}.patk{position:absolute;right:30px;top:50%;transform:translateY(-50%);background:var(--bad);color:#fff;border:0;border-radius:6px;font:700 11px/1 inherit;padding:5px 7px;cursor:pointer;animation:patk 1.6s ease-in-out infinite}.patk.on{box-shadow:0 0 0 2px #fff4}@keyframes patk{50%{opacity:.65}}@media (prefers-reduced-motion:reduce){.patk{animation:none}}.psel select{flex:1;min-width:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
 main.wrap{padding-block:18px;display:grid;gap:18px}
 h1,h2{font-family:var(--f-display);font-weight:600;letter-spacing:.02em;margin:0;text-wrap:balance}
 h1{font-size:30px;line-height:1.1}
@@ -246,7 +246,7 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 .mppl{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 .who{flex-wrap:wrap}.emp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:10px;font-size:12.5px;color:var(--dim)}.emp b{color:var(--ink)}.empcu{display:grid;gap:3px;min-width:150px}.slotup{width:28px;height:28px;border-radius:8px;border:1px solid var(--line,#2a3354);background:#141a30;color:var(--dim);font-size:13px;line-height:1;cursor:pointer}.slotup.on{border-color:var(--good);color:#06120b;background:var(--good);box-shadow:0 0 10px color-mix(in srgb,var(--good) 60%,transparent);animation:slotp 1.6s ease-in-out infinite}@keyframes slotp{50%{transform:scale(1.12)}}.empcu .prog{height:4px}
 .cav{display:inline-grid;place-items:center;width:38px;height:38px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--rc) 55%,#fff 0%),#10172c 75%);border:2px solid var(--rc);font-family:var(--f-display);font-size:13px;color:#fff;letter-spacing:.03em}
-.cmdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.cmdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;grid-auto-flow:row dense}.cmdsub{grid-column:1/-1;min-width:0}
 .cmdt{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-left:3px solid var(--rc);border-radius:9px;background:#0d1428;text-align:left;color:var(--ink);font:inherit;cursor:pointer;min-width:0}
 .cmdt[aria-pressed="true"]{border-color:var(--rc);background:color-mix(in srgb,var(--rc) 14%,#0d1428)}
 .cmdt .cmdb{grid-row:span 2}.cmdt b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cmdt small{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1191,6 +1191,7 @@ function flagHtml(){const L=cmdsOf(ME),FM={c:1,r:1.3,e:1.7,l:2.2};
   <span class="eff" style="font-size:12px">À comparer : cuirassé ${SHIPS.battleship.att} att · ${SHIPS.battleship.hp} PV. Les niveaux du commandant renforcent aussi son vaisseau.</span></div>
   ${L.length?`<div class="list">${L.map(c=>{const i=cmdInfo(c),lv=cmdLvl(c.xp),f=FM[i.r]*(1+.02*lv),h=FM[i.r]*(1+.015*lv);return`<button class="item cmdc flagpick" data-act="hflag" data-k="${c.key||''}" aria-pressed="${c.key&&c.key===flagKey()}" style="--rc:${RAR[i.r].col}"><div class="ihead"><span class="shiphd">${cmdAvatar(c)}<b>${esc(i.n)}</b></span><span class="lv">${Math.round(UNIT.flag.att*f)} att · ${Math.round(UNIT.flag.hp*h)} PV</span></div><span class="eff">${c.key?(c.key===flagKey()?'Affiché dans le hangar 3D ci-dessus':'Touche pour voir son vaisseau'):'Vaisseau standard'}</span></button>`}).join('')}</div>`:'<p class="empty">Ouvre ton coffre de départ (onglet Flottes) pour obtenir ton premier commandant.</p>'}</section>`}
 // liste compacte de commandants : tuiles sur plusieurs colonnes, la fiche détaillée s'ouvre sous la grille
+const underAttack=pid=>!!activeBattle(pid)||Object.values(S.fleets).some(f=>f.phase==='out'&&f.mission==='attack'&&f.to===pid&&f.owner!==ME);
 function cmdWhere(c,long){const f=Object.values(S.fleets).find(x=>x.owner===ME&&x.cmd===c.id);
   if(f)return long?`⚔ en mission avec sa flotte · ${esc(plName(f.to))}`:`⚔ ${esc(plName(f.to))}`;
   if(cmdMoving(c))return long?`➜ en route de ${esc(plName(c.move.from))} vers ${esc(plName(c.move.to))} · arrivée dans <span class="cd" data-cd="${c.move.until}"></span>${c.move.back?' (demi-tour)':''}`:`➜ ${esc(plName(c.move.to))}`;
@@ -1198,7 +1199,7 @@ function cmdWhere(c,long){const f=Object.values(S.fleets).find(x=>x.owner===ME&&
 function cmdState(c){return cmdHurt(c)?['hurt','blessé']:Object.values(S.fleets).some(f=>f.owner===ME&&f.cmd===c.id)?['busy','en mission']:cmdMoving(c)?['busy','en route']:['ok','disponible']}
 function cmdTile(c,act,sel,stTxt){const i=cmdInfo(c),lv=cmdLvl(c.xp),nx=cmdNext(lv),pc=lv>=CMD_LMAX?100:Math.min(100,(c.xp||0)/nx*100),st=cmdState(c);
   return`<button class="cmdt" data-act="${act}" data-c="${c.id}" aria-pressed="${sel===c.id}" style="--rc:${RAR[i.r].col}"><span class="cmdb">${cmdBadge(c,30)}</span><b>${esc(i.n)}</b><small>niv. ${lv} · ${stTxt?stTxt(c):`<i class="st ${st[0]}">${st[1]}</i>`}</small>${act==='cmdopen'?`<small class="loc">${cmdWhere(c)}</small>`:''}<span class="prog"><b style="width:${pc}%;background:var(--rc)"></b></span></button>`}
-function cmdGridHtml(L,act,sel,detail,stTxt,bare){const S0=L.find(c=>c.id===sel);return`<div class="cmdgrid">${L.map(c=>cmdTile(c,act,sel,stTxt)).join('')}</div>${S0?(bare?detail(S0):`<div class="list">${detail(S0)}</div>`):`<p class="eff" style="margin:0;font-size:12px">Touche un commandant pour voir sa fiche.</p>`}`}
+function cmdGridHtml(L,act,sel,detail,stTxt,bare){const S0=L.find(c=>c.id===sel);return`<div class="cmdgrid">${L.map(c=>cmdTile(c,act,sel,stTxt)+(S0&&c.id===S0.id?`<div class="cmdsub">${bare?detail(S0):`<div class="list">${detail(S0)}</div>`}</div>`:'')).join('')}</div>${S0?'':`<p class="eff" style="margin:0;font-size:12px">Touche un commandant pour voir sa fiche.</p>`}`}
 function cmdsHtml(){const pl=S.players[ME];if(!pl)return'';const L=cmdsOf(ME),ch=chestsOf(ME),ins=insOf(ME),list=[...(pl.starter?[]:[['st',1]]),...['b','s','g'].filter(t=>ch[t]>0).map(t=>[t,ch[t]])],show=S.chestShow;S.chestShow=null;
   const owned=new Set(cmdsOf(ME).map(c=>c.key).filter(k=>CMDK[k]&&!CMDDB.find(x=>x[0]===k)[4])).size;
   return`<section style="display:grid;gap:10px"><h2>Commandants</h2><p class="meta" style="margin:0">Un commandant par flotte, choisi au moment de l’envoyer. Ils se gagnent dans des coffres : <b>chaque coffre donne un commandant</b>, la rareté dépend du coffre (bronze 70 % commun · 25 % rare · 5 % épique ; argent 40 / 40 / 17 % · 3 % légendaire ; or 10 / 40 / 38 % · 12 % légendaire). Si tu tires un commandant que tu as déjà, c’est un doublon : il gagne beaucoup d’expérience. Si son vaisseau amiral est détruit, il est blessé quelques heures. (${owned}/${CMDDB.filter(x=>!x[4]).length} commandants dans ta collection.)</p>
@@ -2142,7 +2143,7 @@ function renderTop(joined){top_.hidden=false;
   const me=S.players[ME],body=joined&&isBody(S.sel),keys=body?Object.keys(RARE):Object.keys(RES),names={...RES,...RARE};
   let html=`<div class="wrap"><div class="row1"><div class="brand">Couronne <span>d'Orion</span>${onlinePill()}</div><div class="tools"><button class="tgl ico" data-act="snd" aria-pressed="${SFX.on}" aria-label="Son" title="Son">${SFX.on?'🔊':'🔈'}</button><button class="tgl ico" data-act="amb" aria-pressed="${SFX.ambOn}" aria-label="Musique" title="Musique">🎵</button>${typeof Notification!=='undefined'&&('PushManager' in window)?`<button class="tgl ico" data-act="notif" aria-pressed="${notifOk()&&pushOn()}" aria-label="Alertes" title="Alertes">🔔</button>`:''}<button class="tgl ico" data-act="logout" aria-label="Quitter" title="Quitter">⏻</button></div></div>${me?`<div class="who"><span class="dot" style="background:${esc(me.color)}"></span><b>${esc(me.name)}</b>${joined?empireBar():''}</div>`:`<div class="who">Mode spectateur</div>`}`;
   if(joined){html+=`<div class="resbar">${keys.map(k=>`<div class="res" data-resbox="${k}"><span class="lbl">${names[k]}</span><b data-res="${k}">–</b><small data-rate="${k}"></small><span class="cap"><i data-capbar="${k}"></i></span></div>`).join('')}</div>${!body?(()=>{const r=rareNow(ME);const rt=rareRates(ME),c=(S.players[ME]||{}).rare||{};return Object.keys(RARE).some(k=>r[k]>0||rt[k]>0)?`<div class="rarebar">${Object.keys(RARE).map(k=>`<span title="Somme des stocks de tes satellites">${RARE[k]} <b data-rare="${k}">${fmt(r[k])}</b>${rt[k]>0?` <small style="color:var(--good)">+${rt[k].toFixed(1)}/min</small>`:''}</span>`).join('')}</div>`:''})():''}
-    <div class="psel"><label for="psel">Lieu</label><select id="psel">${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}</option>`).join('')}</select></div>`}
+    ${(()=>{const atk=myPlanets().filter(p=>underAttack(p.pid)).map(p=>p.pid),cur=atk.includes(S.sel);return`<div class="psel"><label for="psel">Lieu</label><span class="pselw"><select id="psel" ${atk.length?'style="padding-right:96px"':''}>${myPlanets().map(p=>`<option value="${p.pid}" ${p.pid===S.sel?'selected':''}>${atk.includes(p.pid)?'⚔ ':''}${esc(PLANETS[p.pid].name)}${p.capital?' (capitale)':isBody(p.pid)?' (avant-poste)':''}${atk.includes(p.pid)?' · attaquée':''}</option>`).join('')}</select>${atk.length?`<button class="patk${cur?' on':''}" data-act="patk" title="Planètes attaquées : touche pour passer de l’une à l’autre">⚔ ${atk.length>1?atk.length+' attaques':'attaque'}</button>`:''}</span></div>`})()}`}
   top_.innerHTML=html+'</div>';
   const sel=document.getElementById('psel');if(sel)sel.onchange=()=>{S.sel=sel.value;render()};
 }
@@ -3186,6 +3187,7 @@ document.addEventListener('click',e=>{
   else if(a==='fretaskx'){S.retask=null;render()}
   else if(a==='upg')upgradeShip(b.dataset.k,b.dataset.t);
   else if(a==='mflgo'){const f=S.fleets[b.dataset.f];if(f&&PLANETS[f.to]){if(!(MP.level==='system'&&MP.sys===PLANETS[f.to].sys))mpGoSystem(PLANETS[f.to].sys);S.pickP=null;S.pickF=f.fid;render()}}
+  else if(a==='patk'){const atk=myPlanets().filter(p=>underAttack(p.pid)).map(p=>p.pid);if(atk.length){const i=atk.indexOf(S.sel);S.sel=atk[(i+1)%atk.length];render()}}
   else if(a==='cmdopen'){S.cmdOpen=S.cmdOpen===b.dataset.c?null:b.dataset.c;render()}
   else if(a==='cmdbsel'){S.cmdBSel=S.cmdBSel===b.dataset.c?null:b.dataset.c;render()}
   else if(a==='chest')openChest(b.dataset.t);
@@ -4127,7 +4129,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='183';
+const APP_VERSION='184';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

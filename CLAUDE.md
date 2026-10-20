@@ -59,6 +59,8 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
   - sentinelle 60 %, légende 90 %, gardien 110 %, Empereur 200 %
 
   Lissage : au plus +25 % ou −20 % par jour. **Le Léviathan est moins fort que l'Armada et que les sentinelles.**
+- **Coût des bâtiments** : il augmente de 75 % par niveau (`bCost`, auparavant 55 %, l'ancien barème reste dans `bCostOld`). Les stocks des joueurs ont été gardés tels quels. Une annulation rembourse ce qui a réellement été payé (`paid` dans la file de construction).
+- **Butin des PNJ réduit de 30 %** (`LOOT_K=.7`) : pirates, Écumeurs, boss et épaves. Le pillage entre joueurs n'est pas concerné.
 - **Pillards** : on garde l'ancienne formule de `pillArmy`. Le passage à 15 % a été refusé.
 - **Combats de boss longs** : Léviathan 30 rounds (10 min), sentinelles et capitaines légendaires 45 (15 min), gardiens de trou noir et Empereur 60 (20 min). Les renforts arrivés pendant le combat le rejoignent.
 - **Étiquette « combat en cours »** : visible seulement en vue système, jamais en vue galaxie ou univers, et elle nomme les combattants.

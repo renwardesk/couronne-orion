@@ -429,9 +429,10 @@ const SLOTS={fighter:1,cruiser:2,battleship:3,colony:1};
 const MOUNT={fighter:2,cruiser:3,battleship:4,colony:2};
 const DEFONLY=['armor','shield'];
 const BQ_MAX=5;
-const MAXP=10,MAXO=8,TECHMAX=5;
+const MAXP=10,MAXO=8,LOOT_K=.7,TECHMAX=5;
 const lvBase=k=>BUILD[k]||BUILD_OUT[k];
-const bCost=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
+const bCostOld=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
+const bCost=(k,L)=>{const b=lvBase(k).cost,x=1.75**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
 // rythme d'une à deux connexions par jour (mine : niv. 5 ≈ 45 min, niv. 10 ≈ 3 h 15, niv. 15 ≈ 7 h 30)
 const bTime=(k,L)=>Math.round(lvBase(k).t*4.6*(L+1)**2.1);
 const g=l=>l*1.12**l;
@@ -674,7 +675,7 @@ const latestIntel=pid=>{let b=null;for(const x of S.reports)if(x.intel&&x.intel.
 const RAIDS={};const RTIERS=[{n:'Meute'},{n:'Horde'},{n:'Armada'}];
 const respawnOf=R=>!R?RESPAWN:R.bounty?(R.leg?72*HR:12*HR):R.emp?72*HR:(R.guard||R.boss)?24*HR:R.mid?(R.esc?12*HR:24*HR):RESPAWN;const RESPAWN=3*HR,RAIDW=3*HR,RAID_GALS=[0,0,0,0,1,1,2,3,4,5,6],EPOCH=Date.UTC(2026,9,15,20,0),LAIR_DELAY=6*HR;
 const SYS_BY_GAL=GALS.map((G,g)=>SYSTEMS.filter(s=>s.gal===g));
-const raidLoot=kk=>({treasure:{m:Math.round(1500*kk),c:Math.round(1100*kk),f:Math.round(600*kk)},frag:Math.round(5*kk)});
+const raidLoot=kk=>({treasure:{m:Math.round(1500*kk*LOOT_K),c:Math.round(1100*kk*LOOT_K),f:Math.round(600*kk*LOOT_K)},frag:Math.round(5*kk)});
 const scaleShips=(s,f)=>{const o={};for(const k in s)o[k]=Math.round((s[k]||0)*f);return o};
 (function registerPacks(){for(const s of SYSTEMS){if(s.deep)continue;
   // comètes libres dans le système (petite et grande), sans planète d'attache
@@ -686,7 +687,7 @@ const scaleShips=(s,f)=>{const o={};for(const k in s)o[k]=Math.round((s[k]||0)*f
   PLANETS[lid]={pid:lid,sys:s.i,slot:11,name:`Repaire des Écumeurs · ${s.name}`,type:'raid',raid:true,local:true,lair:true}}})();
 // gardiens des trous noirs et sentinelles des épaves
 (function registerDeep(){for(const D of DEEP){const g=D.g,k=Math.pow(1.85,g);
-  const bid='bh'+g;RAIDS[bid]={pid:bid,sys:D.hole.i,gal:g,tier:2,local:true,boss:true,gate:g,start:0,end:Infinity,ships:{fighter:Math.round(400*k),cruiser:Math.round(150*k),battleship:Math.round(45*k)},treasure:{m:Math.round(30000*k),c:Math.round(22000*k),f:Math.round(12000*k)},frag:Math.round(150*k)};
+  const bid='bh'+g;RAIDS[bid]={pid:bid,sys:D.hole.i,gal:g,tier:2,local:true,boss:true,gate:g,start:0,end:Infinity,ships:{fighter:Math.round(400*k),cruiser:Math.round(150*k),battleship:Math.round(45*k)},treasure:{m:Math.round(30000*k*LOOT_K),c:Math.round(22000*k*LOOT_K),f:Math.round(12000*k*LOOT_K)},frag:Math.round(150*k)};
   PLANETS[bid]={pid:bid,sys:D.hole.i,slot:0,name:`${HOLES[g].boss}, gardien du ${HOLES[g].n}`,type:'raid',raid:true,local:true,boss:true};D.hole.packs.push(bid);
   const sid='sn'+g,kk=GALS[g].rich*(1+g*.5);RAIDS[sid]={pid:sid,sys:D.wreck.i,gal:g,tier:2,local:true,guard:true,start:0,end:Infinity,ships:{fighter:Math.round(250*kk),cruiser:Math.round(100*kk),battleship:Math.round(40*kk)},...raidLoot(kk*12)};
   PLANETS[sid]={pid:sid,sys:D.wreck.i,slot:8,name:`Sentinelles de l’épave · ${WRECKN[g]}`,type:'raid',raid:true,local:true};D.wreck.packs.push(sid)}})();
@@ -706,7 +707,7 @@ function deepHtml(joined){const s=SYSTEMS[MP.sys],g=s.gate,un=S.players[ME]?unlo
     <h2>Gardiens${hq('sentinel')}</h2><div class="list">${packRow(sen,joined)}</div><h2>Épaves${hq('wreck')}</h2><div class="list">${s.bodies.map(p=>planetRow(p,joined)).join('')}</div></section>`}
 async function salvageArrival(f,fref,meta,tn){let got=null;const s=SYSTEMS[meta.sys];
   await locked('events/salv-'+meta.sys,async(ev,eref)=>{const nw=Date.now(),fr=Math.min(1,(nw-(ev&&ev.at||0))/(6*HR)),k=GALS[s.gal].rich*(1+s.gate*.4);if(fr<.05)return;
-    const capT=cargoCap(f.ships),pool={m:5000*k*fr,c:3800*k*fr,f:1800*k*fr},ratio=Math.min(1,capT/(pool.m+pool.c+pool.f)),r=rng(hash(f.fid+'salv')),avail=WK.filter(w=>WEAP[w].tier<=1+Math.floor(s.gate/2)),mods={};
+    const capT=cargoCap(f.ships),pool={m:5000*k*fr*LOOT_K,c:3800*k*fr*LOOT_K,f:1800*k*fr*LOOT_K},ratio=Math.min(1,capT/(pool.m+pool.c+pool.f)),r=rng(hash(f.fid+'salv')),avail=WK.filter(w=>WEAP[w].tier<=1+Math.floor(s.gate/2)),mods={};
     for(let i=0;i<Math.round((2+r()*3)*fr);i++){const w=avail[Math.floor(r()*avail.length)];mods[w]=(mods[w]||0)+1+Math.floor(r()*2)}
     got={res:{m:Math.floor(pool.m*ratio),c:Math.floor(pool.c*ratio),f:Math.floor(pool.f*ratio)},rare:{ir:Math.round(30*k*fr),xe:Math.round(20*k*fr),am:Math.round(8*k*fr)},mods};await eref.set({kind:'event',id:'salv-'+meta.sys,at:nw})});
   if(!got){await holdAt(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`${tn} déjà fouillée`,lines:['D’autres équipes viennent de passer. L’épave se reconstitue en 6 heures.']});return}
@@ -749,7 +750,7 @@ LEV_SWAP(0);for(const k in RAIDS){if(LEV_K0.has(k))continue;const R=RAIDS[k],h=S
 const CORE_N=['Bastion','Citadelle','Forge','Arsenal','Trône'],EMP_NAME='l’Empereur Vorgath le Dévoreur';
 const CORE=(()=>{const g=0,w=galToWorld(g,500,500,0),s={i:SYSTEMS.length,li:-1,gal:g,x:500,y:500,z:0,rad:0,ang:0,name:'Cœur d’Orion',planets:[],bodies:[],packs:[],w,core:true};SYSTEMS.push(s);
   const types=['vol','tel','vol','tel','vol'];CORE_N.forEach((n,k)=>{const pid='o'+g+'-'+k;PLANETS[pid]={pid,sys:s.i,slot:k,name:`${n} d’Orion`,type:PTYPES[types[k]]?types[k]:Object.keys(PTYPES)[0],core:true};s.planets.push(pid)});
-  const eid='emp'+g;RAIDS[eid]={pid:eid,sys:s.i,gal:g,tier:2,local:true,emp:true,start:0,end:Infinity,ships:{fighter:1500,cruiser:600,battleship:200},treasure:{m:120000,c:90000,f:50000},frag:600};
+  const eid='emp'+g;RAIDS[eid]={pid:eid,sys:s.i,gal:g,tier:2,local:true,emp:true,start:0,end:Infinity,ships:{fighter:1500,cruiser:600,battleship:200},treasure:{m:Math.round(120000*LOOT_K),c:Math.round(90000*LOOT_K),f:Math.round(50000*LOOT_K)},frag:600};
   PLANETS[eid]={pid:eid,sys:s.i,slot:9,name:`Repaire d’Orion · ${EMP_NAME.replace(/^l’/,'')}`,type:'raid',raid:true,local:true,emp:true};s.packs.push(eid);return s})();
 // ---------- exploration : signaux inconnus, planètes joyaux, reliques, cartographe ----------
 // planètes joyaux : quelques mondes lointains au bonus permanent, qu'il faut espionner pour savoir ce qu'ils valent
@@ -1722,17 +1723,17 @@ async function upgrade(pid,k){await act(async()=>{
   if(isBody(pid)){const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');if(k==='drill')await withPlayer(ME,()=>{});
     await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now),bq=p.bq;if(bq.length>=BQ_MAX)throw err('File de construction pleine (3 max).');
       const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L);if(k==='drill'&&!p.rk)p.rk=rkOf(p);if(Object.keys(rc).length)await withPlayer(ME,d=>{if(!affordR(d.rare,rc))throw err('Minerais rares insuffisants pour ce niveau.');payR(d.rare,rc)});await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
-      const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000});await ref.set(p)})}
+      const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000,paid:c});await ref.set(p)})}
   else await locked('planets/'+pid,async(d,ref)=>{
     if(!d||d.owner!==ME)throw err('Cette planète ne t’appartient plus.');const now=Date.now();const p=settle(d,now);
     const bq=p.bq;if(bq.length>=BQ_MAX)throw err(`File de construction pleine (${BQ_MAX} max).`);const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L);if(!afford(p.res,c))throw err('Ressources insuffisantes.');
     if(Object.keys(rc).length)await withPlayer(ME,d=>{if(!affordR(d.rare,rc))throw err('Minerais rares insuffisants pour ce niveau.');payR(d.rare,rc)});
-    pay(p.res,c);const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000});await ref.set(p)});
+    pay(p.res,c);const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000,paid:c});await ref.set(p)});
   sfx.build();toast(`${lvBase(k).n} : travaux lancés.`)})}
 // ---------- annuler une construction ou une production (remboursement complet) ----------
 async function cancelBuild(pid,i){if(!confirm('Annuler cette construction ? Les ressources sont remboursées.'))return;await act(async()=>{const body=isBody(pid);let refund=null,rr=null,k=null;
   await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Cette planète ne t’appartient plus.');const now=Date.now(),p=settle(d,now),bq=p.bq||[],it=bq[i];if(!it)throw err('Cette construction est déjà terminée.');k=it.k;
-    const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length-1;refund=bCost(k,L);rr=bRare(k,L);bq.splice(i,1);
+    const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length-1;refund=it.paid||bCostOld(k,L);rr=bRare(k,L);bq.splice(i,1);
     const cnt={};let t=now;for(let j=0;j<bq.length;j++){const x=bq[j],Lj=(p.lv[x.k]||0)+(cnt[x.k]||0);cnt[x.k]=(cnt[x.k]||0)+1;if(j===0&&i!==0){t=x.until;continue}x.start=t;x.until=t+bTime(x.k,Lj)*1000;t=x.until}
     p.bq=bq;if(!body)addRes(p.res,refund);await ref.set(p)});
   if(body){const cap=capitalOf(ME);if(cap)await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,Date.now());addRes(q.res,refund);await cref.set(q)})}
@@ -1911,7 +1912,7 @@ function splitLoot(avail,surv,wt){const caps=surv.map(s=>cargoCap(s)),C=caps.red
     return got.map(g=>({m:Math.floor(avail.m*g/tot),c:Math.floor(avail.c*g/tot),f:Math.floor(avail.f*g/tot)}))}
   const take=Math.min(1,C/tot);return caps.map(c=>({m:Math.floor(avail.m*take*c/C),c:Math.floor(avail.c*take*c/C),f:Math.floor(avail.f*take*c/C)}))}
 const sumLoot=a=>a.reduce((t,x)=>({m:t.m+x.m,c:t.c+x.c,f:t.f+x.f}),{m:0,c:0,f:0});
-const treasureOf=units=>{const w=worth(units);return{m:Math.round(w*55),c:Math.round(w*40),f:Math.round(w*20)}};
+const treasureOf=units=>{const w=worth(units)*LOOT_K;return{m:Math.round(w*55),c:Math.round(w*40),f:Math.round(w*20)}};
 const lootTxt=l=>`${fmt(l.m)} métal, ${fmt(l.c)} cristal, ${fmt(l.f)} hélium-3`;
 // alerte téléphone pour la victime d'un vol : planète annexée, prise par les pillards ou ressources pillées
 const theftAlert=(victim,byUids,tn,pid,{annexed,npcTook,lost})=>{if(!victim||isNpc(victim))return null;const by=[...new Set(byUids)].map(pname).join(', '),l=lost&&(lost.m+lost.c+lost.f)>=1?lost:null;if(!annexed&&!npcTook&&!l)return null;
@@ -4152,7 +4153,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='195';
+const APP_VERSION='196';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

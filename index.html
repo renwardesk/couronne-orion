@@ -1493,10 +1493,11 @@ function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='o
   return L.map(f=>{const npc=isNpc(f.owner),who=npc?NPC_NAME:pname(f.owner),seen=(f.spied||[]).includes(ME),icp=Object.values(S.fleets).filter(g=>g.mission==='intercept'&&g.target===f.fid&&(g.phase==='out'||g.phase==='wait'));
     const row=(col,lbl,txt)=>`<div class="atkrow" style="--c:${col}"><span>${lbl}</span><b>${txt}</b></div>`;
     const allG=[...Object.values(S.fleets).filter(g=>g.phase==='hold'&&g.to===pid&&(g.mission==='reinforce'||g.owner===ME)),...coming.filter(g=>g.arrive<f.arrive)],defS=sumShips([v.ships,...allG.map(g=>g.ships)]);delete defS.probe;if(tur)defS.turret=tur;
-    const hold=seen?withCtx(npc?'raid':null,()=>100-winChance(f.ships,defS,forceMods(f.owner,f.cmd),S.planets[pid]?defMods(v,{...v.ships,turret:tur},allG):null)):null;
+    const grpF=[f,...Object.values(S.fleets).filter(j=>j.group===f.fid&&j.phase==='out'&&j.fid!==f.fid)],atkS=sumShips(grpF.map(x=>x.ships));
+    const hold=seen?withCtx(npc?'raid':null,()=>100-winChance(atkS,defS,avgMods(grpF.map(x=>({owner:x.owner,cmd:x.cmd,ships:x.ships,f:x}))),S.planets[pid]?defMods(v,{...v.ships,turret:tur},allG):null)):null;
     return`<div class="card atkcard"><div class="ihead"><b style="color:var(--bad)">⚔ ${esc(who)} attaque ${esc(plName(pid))}</b><span class="cd" data-cd="${f.arrive}"></span></div>
     <span class="eff" style="font-size:12px">Impact à ${clock(f.arrive)}</span>
-    ${row('var(--bad)','Ennemis',seen?unitLine(f.ships):`inconnus · ${pillSpyNeed(f)} sondes pour espionner`)}
+    ${row('var(--bad)','Ennemis',seen?unitLine(atkS)+(grpF.length>1?` (ralliement : ${grpF.length} flottes)`:''):`inconnus · ${pillSpyNeed(f)} sondes pour espionner`)}
     ${hold!=null?pctHtml(hold,'Chance de tenir'):`<span class="eff" style="font-size:12px">Chance de tenir : inconnue, espionne l’attaque pour la calculer.</span>`}
     ${row('var(--warn)','Tu possèdes',`${count(mine)?unitLine(mine):'aucun vaisseau'}${tur?` · ${tur} tourelles`:''}`)}
     ${(()=>{const own=Object.values(S.fleets).filter(g=>g.phase==='hold'&&g.to===pid&&g.owner===ME);return guards.length||own.length||coming.length||icp.length?row('var(--good)','Soutiens',[...own.map(g=>`${unitLine(g.ships)} (toi, sur place${(g.home||g.from)!==pid?` · de ${esc(plName(g.home||g.from))}`:''})`),...guards.map(g=>`${unitLine(g.ships)} (${esc(pname(g.owner))}, sur place)`),...coming.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, en route · ${clock(g.arrive)}${g.arrive>f.arrive?' ⚠ trop tard':''})`),...icp.map(g=>`${unitLine(g.ships)} (${g.owner===ME?'toi':esc(pname(g.owner))}, interception à ${clock(g.arrive)})`)].join(' · ')):row('var(--good)','Soutiens','aucun pour l’instant')})()}
@@ -4165,7 +4166,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='199';
+const APP_VERSION='200';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

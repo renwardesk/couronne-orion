@@ -70,6 +70,7 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
   - Gardien : +% d'attaque et de PV à tous les défenseurs.
 - **Espace profond** : compté comme une demi-galaxie. L'aller coûte 1 iridium et 0,4 xénite par place de hangar, le retour est gratuit. Le coût est affiché dans la fenêtre d'envoi.
 - **Ralliements** : un soutien qui arriverait après le départ est refusé. L'interface affiche « ⚠ Trop loin » et nomme les vaisseaux trop lents.
+- **Satellites et planètes : un seul propriétaire.** Le premier vaisseau colon arrivé s'installe. Une mission « installer » qui trouve la cible déjà prise par un joueur l'attaque, et l'annexe si elle gagne. Règle confirmée par l'utilisateur (option A) : pas de demi-tour automatique.
 - **Sélecteur de planète** : préfixe « ⚔ » sur les planètes attaquées. La pastille « attaque » a été retirée (débordait sur mobile).
 
 ## Pièges connus

@@ -1679,7 +1679,8 @@ function threatsHtml(pid){const L=Object.values(S.fleets).filter(f=>isNpc(f.owne
 const LLOCK=new Map();
 async function locked(path,fn){const prev=LLOCK.get(path)||Promise.resolve();let rel;const mine=new Promise(r=>rel=r),tail=prev.then(()=>mine);LLOCK.set(path,tail);
   await Promise.race([prev,sleep(4000)]);try{return await locked0(path,fn)}finally{rel();if(LLOCK.get(path)===tail)LLOCK.delete(path)}}
-async function locked0(path,fn){const ref=db.doc(path);
+async function locked0(path,fn){SUSP.active++;try{return await locked1(path,fn)}finally{SUSP.active--}}
+async function locked1(path,fn){const ref=db.doc(path);
   for(let i=0;i<10;i++){let r;try{r=await ref.acquire({holder:TAB_ID,ttlMs:2500})}catch(e){if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){await sleep(600);continue}throw e}
     if(r.acquired){const s=await ref.get();const d=s.exists?s.data():null;return await fn(d&&d.kind?clone(d):null,ref)}
     await sleep(250+Math.random()*600)}
@@ -4010,12 +4011,18 @@ const RT={listeners:new Map(),ch:null};
 function rtStart(){if(RT.ch)return;RT.ch=sb.channel('docs-all').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
     const path=(p.new&&p.new.path)||(p.old&&p.old.path);if(!path)return;const col=pcolOf(path);const ls=RT.listeners.get(col);if(!ls)return;
     for(const l of ls)l.apply(p.eventType==='DELETE'?{path,row:null}:{path,row:p.new})}).subscribe(st=>{if(st==='SUBSCRIBED')for(const ls of RT.listeners.values())for(const l of ls)l.resync()})}
+// téléphone en veille au milieu d'une résolution : au réveil, le code reprendrait avec des données vieilles de plusieurs minutes et écraserait le travail des autres joueurs.
+// On détecte la pause (horloge qui saute) : tant que les opérations commencées avant la pause ne sont pas terminées, leurs écritures sont refusées.
+const SUSP={beat:Date.now(),poison:0,active:0};
+const suspTick=()=>{const n=Date.now();if(n-SUSP.beat>4000&&SUSP.active>0)SUSP.poison=n;SUSP.beat=n;if(SUSP.poison&&(SUSP.active<=0||n-SUSP.poison>20000))SUSP.poison=0};
+setInterval(suspTick,1000);
+const suspGuard=()=>{suspTick();if(SUSP.poison){const x=new Error('Appli reprise après une pause : opération annulée, elle sera refaite.');x.code='aborted';throw x}};
 function docRef(path){return{id:path.split('/').pop(),path,
   async get(){const{data,error}=await sb.from('docs').select('path,data').eq('path',path).maybeSingle();sbErr(error);return dsnap(path,data)},
-  async set(d){const{error}=await sb.from('docs').upsert({path,col:pcolOf(path),data:d,updated_at:new Date().toISOString()},{onConflict:'path'});sbErr(error)},
+  async set(d){suspGuard();const{error}=await sb.from('docs').upsert({path,col:pcolOf(path),data:d,updated_at:new Date().toISOString()},{onConflict:'path'});sbErr(error)},
   async update(d){const cur=await this.get();if(!cur.exists){const x=new Error('Document introuvable');x.code='invalid_argument';throw x}await this.set({...cur.data(),...d})},
-  async delete(){const{error}=await sb.from('docs').delete().eq('path',path);sbErr(error)},
-  async acquire({holder,ttlMs=30000}){const{data,error}=await sb.rpc('acquire_lease',{p_path:path,p_holder:holder,p_ttl_ms:Math.max(1000,ttlMs)});sbErr(error);return{acquired:!!data}},
+  async delete(){suspGuard();const{error}=await sb.from('docs').delete().eq('path',path);sbErr(error)},
+  async acquire({holder,ttlMs=30000}){suspGuard();const{data,error}=await sb.rpc('acquire_lease',{p_path:path,p_holder:holder,p_ttl_ms:Math.max(1000,ttlMs)});sbErr(error);return{acquired:!!data}},
   onSnapshot(n,e){let row=null;const l={apply:({row:r})=>{row=r;n(dsnap(path,row))},resync:async()=>{try{const s=await docRef(path).get();n(s)}catch(x){e&&e(x)}}};
     const col=pcolOf(path);if(!RT.listeners.has(col))RT.listeners.set(col,new Set());const filt={apply:x=>{if(x.path===path)l.apply(x)},resync:l.resync};RT.listeners.get(col).add(filt);rtStart();l.resync();return()=>RT.listeners.get(col).delete(filt)},
   collection:p=>colRef(path+'/'+p)}}
@@ -4131,7 +4138,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='191';
+const APP_VERSION='192';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

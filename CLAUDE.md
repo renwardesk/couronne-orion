@@ -71,6 +71,10 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
   - Chasseur de pirates : bonus contre tous les Écumeurs (boss compris, sauf la Ruche), **en attaque seulement**.
   - Gardien : +% d'attaque et de PV à tous les défenseurs.
 - **Espace profond** : compté comme une demi-galaxie. L'aller coûte 1 iridium et 0,4 xénite par place de hangar, le retour est gratuit. Le coût est affiché dans la fenêtre d'envoi.
+- **Épaves** : en mission Récupérer, le saut coûte moitié prix. Les minerais rares rapportés augmentent avec la soute (×1 jusqu'à 1 500 de soute, jusqu'à ×4).
+- **Butin** : il peut dépasser le plafond des entrepôts (choix validé). Le joueur choisit la planète de livraison (« 📦 Butin livré à », champ `drop` de la flotte). Le butin d'une flotte rattachée à un avant-poste va à la capitale.
+- **Rappel de ralliement** : notif au chef et aux soutiens 5 min avant le départ (`rallyRemind`, une seule fois). Pas de rappel pour les ralliements de 6 min ou moins.
+- **Serveur qui fait avancer le jeu hors ligne** : à discuter plus tard avec l'utilisateur.
 - **Ralliements** : un soutien qui arriverait après le départ est refusé. L'interface affiche « ⚠ Trop loin » et nomme les vaisseaux trop lents.
 - **Satellites et planètes : un seul propriétaire.** Le premier vaisseau colon arrivé s'installe. Une mission « installer » qui trouve la cible déjà prise par un joueur l'attaque, et l'annexe si elle gagne. Règle confirmée par l'utilisateur (option A) : pas de demi-tour automatique.
 - **Sélecteur de planète** : préfixe « ⚔ » sur les planètes attaquées. La pastille « attaque » a été retirée (débordait sur mobile).

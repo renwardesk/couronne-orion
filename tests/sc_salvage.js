@@ -5,7 +5,7 @@ const P1=window.__P1,me='u1';const wk=Object.keys(PLANETS).find(p=>PLANETS[p].ty
 const sen=(SYSTEMS[PLANETS[wk].sys].packs||[])[0];S.events[sen]={kind:'event',id:sen,done:true,doneAt:Date.now(),at:Date.now(),raid:true};T.sync();T.L('   état sentinelles',JSON.stringify(raidState(sen)).slice(0,80));
 S.planets[wk]={kind:'planet',pid:wk,owner:null,garrison:{},lb:Date.now()};T.sync();
 S.players[me].rare={ir:200,xe:100,am:0};T.sync();
-const jc=jumpCost(P1,wk,{fighter:100});T.L('coût du saut',JSON.stringify(jc));
+const jc=jumpCost(P1,wk,{fighter:100},'salvage');T.L('coût du saut',JSON.stringify(jc));
 let t=await T.send({from:P1,to:wk,mission:'salvage',ships:{fighter:100}});T.ok(!t.length,'récupération lancée '+t.join('|'));
 T.ok(S.players[me].rare.ir===200-jc.ir&&S.players[me].rare.xe===100-jc.xe,'minerais du saut payés');
 // sans assez de minerai

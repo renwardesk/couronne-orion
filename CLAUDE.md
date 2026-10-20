@@ -84,9 +84,10 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - **Commentaires `//` inline** : le script est très compact, souvent plusieurs instructions par ligne. Un `//` en milieu de ligne avale tout le code qui suit. Mettre les commentaires uniquement en fin de ligne, après la dernière instruction.
 - **Téléphone mis en veille en pleine résolution** : au réveil, le code repartait avec des données vieilles de plusieurs minutes et refaisait un combat déjà joué. Par exemple, l'avant-poste de l'Anomalie d'Ontaphe a été effacé de cette façon. Garde-fou `SUSP` / `suspGuard` dans la couche Supabase : après une pause de l'horloge, les écritures des opérations en cours sont refusées. Ne pas contourner ce garde-fou.
 - Penser **mobile d'abord** : tout ajout dans les barres ou les sélecteurs doit tenir sur un écran étroit.
+- **Chances de victoire affichées** (`winChance`) : chaque affichage doit reprendre exactement les bonus du vrai combat (commandant ennemi via `raidMods`, contexte `withCtx('raid')`, bonus de ralliement `rb`, flottes groupées). Il y a trois endroits : `modalIntel`, `rallyOddsHtml`, `attackCards`. Tests : `sc_odds`, `sc_defodds`.
 - Les cotes de victoire en défense incluent les renforts et les flottes en soutien. Les prendre en compte avant de conclure à un bug.
 - Tests locaux : `python3 -m http.server 8777` + Playwright (Chromium dans `/opt/pw-browsers/chromium`) avec une base simulée en mémoire.
 - **Batterie de tests** dans `tests/` (base simulée et horloge avançable).
-  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline`.
+  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline wreck remind drop odds defodds`.
   - `node duo.js` teste deux clients connectés en même temps sur une même base, avec de vrais verrous.
   - **La relancer après toute modification de la logique** (flottes, combats, ressources).

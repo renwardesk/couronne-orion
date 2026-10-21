@@ -428,7 +428,7 @@ const WK=Object.keys(WEAP);
 const SLOTS={fighter:1,cruiser:2,battleship:3,colony:1};
 const MOUNT={fighter:2,cruiser:3,battleship:4,colony:2};
 const DEFONLY=['armor','shield'];
-const BQ_MAX=5;
+const BQ_MAX=5,SQ_MAX=5;
 const MAXP=10,MAXO=8,LOOT_K=.7,TECHMAX=5;
 const lvBase=k=>BUILD[k]||BUILD_OUT[k];
 const bCostOld=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
@@ -1725,7 +1725,7 @@ async function act(fn){try{await fn()}catch(e){if(e&&e.code==='invalid_argument'
 // ---------- actions joueur ----------
 async function upgrade(pid,k){await act(async()=>{
   if(isBody(pid)){const cap=capitalOf(ME);if(!cap)throw err('Capitale introuvable.');if(k==='drill')await withPlayer(ME,()=>{});
-    await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now),bq=p.bq;if(bq.length>=BQ_MAX)throw err('File de construction pleine (3 max).');
+    await locked('planets/'+pid,async(d,ref)=>{if(!d||d.owner!==ME)throw err('Cet avant-poste ne t’appartient plus.');const now=Date.now(),p=settle(d,now),bq=p.bq;if(bq.length>=BQ_MAX)throw err(`File de construction pleine (${BQ_MAX} max).`);
       const L=(p.lv[k]||0)+bq.filter(x=>x.k===k).length,c=bCost(k,L),rc=bRare(k,L);if(k==='drill'&&!p.rk)p.rk=rkOf(p);if(Object.keys(rc).length)await withPlayer(ME,d=>{if(!affordR(d.rare,rc))throw err('Minerais rares insuffisants pour ce niveau.');payR(d.rare,rc)});await locked('planets/'+cap.pid,async(cd,cref)=>{const q=settle(cd,now);if(!afford(q.res,c))throw err('Ta capitale n’a pas assez de ressources.');pay(q.res,c);await cref.set(q)});
       const st=bq.length?bq[bq.length-1].until:now;bq.push({k,start:st,until:st+bTime(k,L)*1000,paid:c});await ref.set(p)})}
   else await locked('planets/'+pid,async(d,ref)=>{
@@ -1750,7 +1750,7 @@ async function cancelShips(pid,i){if(!confirm('Annuler cette production ? Les va
 async function buildShips(pid,t,n){await act(async()=>{await locked('planets/'+pid,async(d,ref)=>{
   if(!d||d.owner!==ME)throw err('Cette planète ne t’appartient plus.');const now=Date.now();const p=settle(d,now);
   if(p.lv.yard<SHIPS[t].yard)throw err(`Chantier niveau ${SHIPS[t].yard} requis.`);if(!afford(p.res,SHIPS[t].cost,n))throw err('Ressources insuffisantes.');
-  if((p.shipQ||[]).length>=3)throw err('File du chantier pleine (3 lots max).');
+  if((p.shipQ||[]).length>=SQ_MAX)throw err(`File du chantier pleine (${SQ_MAX} lots max).`);
   {const u=bayUse(p,ME),c=bayCap(p),need=n*(PLACES[t]||1);if(u+need>c)throw err(`Hangars pleins : ${u}/${c} places, il en faut ${need}. Améliore les Hangars.`)}
   pay(p.res,SHIPS[t].cost,n);const last=p.shipQ[p.shipQ.length-1];const start=last?Math.max(now,last.start+last.n*last.per*1000):now;
   p.shipQ.push({t,n,per:Math.max(1,Math.round(shipTime(t,p.lv.yard)*(PLANETS[pid].core?.5:1)*(sectorMul(p)>1?.85:1)*jewelShipMul(p))),start});await ref.set(p)});sfx.build();toast(`${n} × ${SHIPS[t].n} en production.`)})}
@@ -2444,7 +2444,7 @@ function empBuildPlan(){const out=(S.empB||'').startsWith('o:'),k=(S.empB||'mine
     if(bq.length>=BQ_MAX)why='file pleine';else if(!afford(res,c))why=out?'capitale à court':'pas assez de ressources';else if(!affordR(rn,rc))why='minerais rares insuffisants';
     if(!why){if(out)pay(capRes,c);payR(rn,rc)}return{pid:p.pid,L,c,rc,why}})}
 function empShipPlan(){const t=S.empT||'fighter',n=Math.max(1,S.empN||10);return myPlanets().filter(p=>!isBody(p.pid)).map(p=>{const v=view(p.pid);let why=null;
-  if((v.lv.yard||0)<SHIPS[t].yard)why=`chantier niv. ${SHIPS[t].yard} requis`;else if((v.shipQ||[]).length>=3)why='chantier plein';else if(!afford(v.res,SHIPS[t].cost,n))why='pas assez de ressources';else if(bayUse(v,ME)+n*(PLACES[t]||1)>bayCap(v))why='hangars pleins';return{pid:p.pid,why}})}
+  if((v.lv.yard||0)<SHIPS[t].yard)why=`chantier niv. ${SHIPS[t].yard} requis`;else if((v.shipQ||[]).length>=SQ_MAX)why='chantier plein';else if(!afford(v.res,SHIPS[t].cost,n))why='pas assez de ressources';else if(bayUse(v,ME)+n*(PLACES[t]||1)>bayCap(v))why='hangars pleins';return{pid:p.pid,why}})}
 async function quietly(fn){let e=null;const t0=toast;toast=(m,c)=>{if(c==='bad')e=m};try{await fn()}finally{toast=t0}return e}
 async function empBuildAll(){const k=(S.empB||'mine').replace(/^o:/,''),L=empBuildPlan().filter(x=>!x.why);if(!L.length)return toast('Aucune planète ne peut lancer cette amélioration maintenant.','bad');let ok=0,ko=[];
   for(const x of L){const e=await quietly(()=>upgrade(x.pid,k));if(e)ko.push(`${plName(x.pid)} (${e})`);else ok++}sfx.build();toast(`${lvBase(k).n} : ${ok} amélioration${ok>1?'s':''} lancée${ok>1?'s':''}${ko.length?` · échec : ${ko.join(', ')}`:''}.`,ko.length?'bad':'');render()}
@@ -4166,7 +4166,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='200';
+const APP_VERSION='201';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -19,3 +19,9 @@ p.res.m=cap-10;S.planets[P1]=p;T.sync();T.adv(3600e3);p=settle(S.planets[P1],Dat
 const fb=p.ships.fighter;await buildShips(P1,'fighter',10);p=settle(S.planets[P1],Date.now());T.ok((p.shipQ||[]).length===1,'production de 10 chasseurs en file');
 T.adv(3*3600e3);p=settle(S.planets[P1],Date.now());T.ok(p.ships.fighter===fb+10,'10 chasseurs livrés ('+(p.ships.fighter-fb)+')');
 T.L('   toasts:',T.toasts.join(' | '),' bay',bayUse(view(P1),me),'/',bayCap(S.planets[P1]));
+// file du chantier : 5 lots
+{let q=settle(S.planets[P1],Date.now());q.shipQ=[];q.res={m:9e5,c:9e5,f:9e5};q.lv.bay=14;S.planets[P1]=q;T.sync();T.toasts.length=0;
+for(let i=0;i<5;i++)await buildShips(P1,'fighter',2);q=settle(S.planets[P1],Date.now());T.ok(q.shipQ.length===5,'5 lots dans la file du chantier ('+q.shipQ.length+')');
+await buildShips(P1,'fighter',2);q=settle(S.planets[P1],Date.now());T.ok(q.shipQ.length===5&&T.toasts.some(x=>/5 lots max/.test(x)),'6e lot refusé : '+T.toasts.slice(-1)[0]);
+const ends=q.shipQ.map(x=>x.start+x.n*x.per*1000);T.ok(ends.every((e,i)=>!i||q.shipQ[i].start>=ends[i-1]-1),'les lots s’enchaînent');
+T.adv(3600e3);q=settle(S.planets[P1],Date.now());T.ok(!q.shipQ.length,'les 5 lots livrés');q.shipQ=[];S.planets[P1]=q;T.sync()}

@@ -726,7 +726,7 @@ const lairDelay=s=>(LAIR_DELAY+(hash('lair'+s.i)%6)*HR)*(inFog(s.i)?.5:1);
 function lairInfoAt(s,now=Date.now()){if(!s||!s.lair)return null;const le=S.events[s.lair];let founded;
   if(le&&le.founded&&!le.done)founded=le.founded;
   else{let born=packBorn(S.events[s.packs[0]]);if(le&&le.done)born=Math.max(born,le.doneAt||0);founded=born+lairDelay(s);if(now<founded)return null}
-  const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>!(S.planets[p]&&S.planets[p].owner));return pid?{lid:s.lair,pid,founded}:null}
+  const order=[...s.planets].sort((a,b)=>hash(a+'lair')-hash(b+'lair')),pid=order.find(p=>{const d=S.planets[p];return!(d&&(d.owner||d.pill||d.pbase))});return pid?{lid:s.lair,pid,founded}:null} // jamais sur une planète tenue par les Pillards : pas de cumul Pillards + Écumeurs
 // Léviathans des Écumeurs : énormes vaisseaux-mères stationnés dans le vide, entre deux systèmes voisins. Plus forts qu'une horde.
 const LEV_SWAP=on=>{for(const s of SYSTEMS)if(s.x0!=null){const t=s.x;s.x=on?s.x0:s.xm;s.xm=t;const u=s.y;s.y=on?s.y0:s.ym;s.ym=u}};
 LEV_SWAP(1);const LEV_K0=new Set(Object.keys(RAIDS));
@@ -4173,7 +4173,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='203';
+const APP_VERSION='204';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

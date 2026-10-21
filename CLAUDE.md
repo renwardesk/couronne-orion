@@ -77,6 +77,7 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - **Serveur qui fait avancer le jeu hors ligne** : à discuter plus tard avec l'utilisateur.
 - **Ralliements** : un soutien qui arriverait après le départ est refusé. L'interface affiche « ⚠ Trop loin » et nomme les vaisseaux trop lents.
 - **Satellites et planètes : un seul propriétaire.** Le premier vaisseau colon arrivé s'installe. Une mission « installer » qui trouve la cible déjà prise par un joueur l'attaque, et l'annexe si elle gagne. Règle confirmée par l'utilisateur (option A) : pas de demi-tour automatique.
+- **Jauges de quantité** (`qrHtml`, `qrVal`, attribut `data-qr`) : Chantier (1 → max constructible), fenêtre d'envoi (0 → stock), Empire en **% du maximum de chaque planète** (`S.empP`, `empN`) avec bouton Max. File du chantier : 5 lots (`SQ_MAX`).
 - **Sélecteur de planète** : préfixe « ⚔ » sur les planètes attaquées. La pastille « attaque » a été retirée (débordait sur mobile).
 
 ## Pièges connus
@@ -88,6 +89,6 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - Les cotes de victoire en défense incluent les renforts et les flottes en soutien. Les prendre en compte avant de conclure à un bug.
 - Tests locaux : `python3 -m http.server 8777` + Playwright (Chromium dans `/opt/pw-browsers/chromium`) avec une base simulée en mémoire.
 - **Batterie de tests** dans `tests/` (base simulée et horloge avançable).
-  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline wreck remind drop odds defodds`.
+  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline wreck remind drop odds defodds slider`. `edge.js` / `drag.js` : cas limites des jauges et glissement au doigt.
   - `node duo.js` teste deux clients connectés en même temps sur une même base, avec de vrais verrous.
   - **La relancer après toute modification de la logique** (flottes, combats, ressources).

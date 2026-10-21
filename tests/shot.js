@@ -16,5 +16,5 @@ const {chromium}=require('playwright');const fs=require('fs');const OUT=process.
  console.log('modal croiseurs à 50 %',await pg.evaluate(()=>[S.modal.ships.cruiser,view(S.modal.from).ships.cruiser,document.querySelector('[data-qin="m"][data-t="cruiser"]').value]));
  await pg.screenshot({path:OUT+'/send.png'});
  await pg.evaluate(()=>{S.modal=null;renderModal()});
- const emp='empire';if(emp){await pg.evaluate(t=>{S.tab=t;render()},emp);await pg.waitForTimeout(300);const e=await pg.$('[data-qr="e"]');if(e){await (await e.evaluateHandle(x=>x.closest('section'))).screenshot({path:OUT+'/empire.png'})}else console.log('pas de slider empire')}else console.log('pas d’onglet empire',tabs);
+ const emp='empire';if(emp){await pg.evaluate(t=>{S.tab=t;render()},emp);await pg.waitForTimeout(300);await pg.evaluate(()=>{S.empP=35;render()});const e=await pg.$('[data-qr="e"]');if(e){await (await e.evaluateHandle(x=>x.closest('section'))).screenshot({path:OUT+'/empire.png'})}else console.log('pas de slider empire')}else console.log('pas d’onglet empire',tabs);
  await b.close()})();

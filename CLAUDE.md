@@ -71,6 +71,7 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
   - Chasseur de pirates : bonus contre tous les Écumeurs (boss compris, sauf la Ruche), **en attaque seulement**.
   - Gardien : +% d'attaque et de PV à tous les défenseurs.
 - **Espace profond** : compté comme une demi-galaxie. L'aller coûte 1 iridium et 0,4 xénite par place de hangar, le retour est gratuit. Le coût est affiché dans la fenêtre d'envoi.
+- **Sentinelles des épaves** : elles reviennent **48 h** après leur défaite (`respawnOf`), contre 24 h pour les autres gardiens. Sur la carte, une épave libre propose « Récupérer » et « Coloniser ».
 - **Épaves** : en mission Récupérer, le saut coûte moitié prix. Les minerais rares rapportés augmentent avec la soute (×1 jusqu'à 1 500 de soute, jusqu'à ×4).
 - **Butin** : il peut dépasser le plafond des entrepôts (choix validé). Le joueur choisit la planète de livraison (« 📦 Butin livré à », champ `drop` de la flotte). Le butin d'une flotte rattachée à un avant-poste va à la capitale.
 - **Rappel de ralliement** : notif au chef et aux soutiens 5 min avant le départ (`rallyRemind`, une seule fois). Pas de rappel pour les ralliements de 6 min ou moins.
@@ -89,6 +90,6 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - Les cotes de victoire en défense incluent les renforts et les flottes en soutien. Les prendre en compte avant de conclure à un bug.
 - Tests locaux : `python3 -m http.server 8777` + Playwright (Chromium dans `/opt/pw-browsers/chromium`) avec une base simulée en mémoire.
 - **Batterie de tests** dans `tests/` (base simulée et horloge avançable).
-  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline wreck remind drop odds defodds slider`. `edge.js` / `drag.js` : cas limites des jauges et glissement au doigt.
+  - Lancer `python3 -m http.server 8777` depuis la racine, puis `cd tests && THREE_JS=<chemin de three.min.js r128> NODE_PATH=$(npm root -g) node run.js ui attack build spy colo reinf pvp rally salvage offline wreck remind drop odds defodds slider wkcol`. `edge.js` / `drag.js` : cas limites des jauges et glissement au doigt.
   - `node duo.js` teste deux clients connectés en même temps sur une même base, avec de vrais verrous.
   - **La relancer après toute modification de la logique** (flottes, combats, ressources).

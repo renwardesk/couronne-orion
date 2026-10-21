@@ -10,3 +10,10 @@ T.L('bouton',document.querySelector('[data-act="mgo"]')&&document.querySelector(
 const t=await T.send({from:P1,to:'wk0-1',mission:'colonize',ships:{colony:1,fighter:20}});T.L('envoi',t.join('|'));
 const f=T.fleetsOf(me).find(x=>x.to==='wk0-1');T.ok(!!f,'navire colon parti vers l’épave');
 if(f){T.adv(f.arrive-Date.now()+500);await T.tick(3);T.L('rapports',S.reports.slice(0,3).map(r=>r.title).join(' | '));T.ok(S.planets['wk0-1']&&S.planets['wk0-1'].owner===me,'avant-poste installé sur l’épave')}
+// réapparition des sentinelles : 48 h
+T.ok(respawnOf(RAIDS[sen])===48*HR,'sentinelles des épaves : retour en 48 h');
+S.events[sen]={kind:'event',id:sen,done:true,doneAt:Date.now()-30*HR,remaining:{}};T.sync();T.ok(raidState(sen).done,'30 h après leur défaite, toujours absentes');
+S.events[sen].doneAt=Date.now()-49*HR;T.sync();T.ok(!raidState(sen).done,'49 h après, de retour');
+const gd=Object.values(RAIDS).find(r=>r.guard&&!(SYSTEMS[r.sys]&&SYSTEMS[r.sys].deep==='wreck'));if(gd)T.ok(respawnOf(gd)===24*HR,'les autres gardiens restent à 24 h');
+// bouton Coloniser sur la carte
+S.events[sen].doneAt=Date.now();S.planets['wk0-2']={pid:'wk0-2',kind:'planet',owner:null,garrison:{},lb:Date.now()};T.sync();const h=mpPopHtml('wk0-2');T.L('   popup',h.match(/data-m="[a-z]+"/g).join(' '));T.ok(/data-m="colonize"/.test(h)&&/data-m="salvage"/.test(h),'carte : Récupérer et Coloniser proposés sur une épave libre');

@@ -662,7 +662,7 @@ const outpostsOf=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p
 const capitalOf=uid=>Object.values(S.planets).find(p=>p.owner===uid&&p.capital);
 // ---------- Seigneurs d'Orion (empires PNJ qui jouent comme des joueurs) ----------
 // trois vassaux de l'Empereur, chacun installé sur une planète du Cœur d'Orion ; ils bâtissent, arment, colonisent une autre galaxie (8 planètes max), espionnent, puis attaquent au bout d'une semaine
-const BOTS=[{uid:'orion-1',name:'Kael Voryn',title:'Seigneur du Bastion',seat:'o0-0',color:'#a46cff',gal:0,sec:0},{uid:'orion-2',name:'Ysmera la Pâle',title:'Dame de la Forge',seat:'o0-2',color:'#e6c34a',gal:0,sec:1},{uid:'orion-3',name:'Draxen Ashkar',title:'Maître de l’Arsenal',seat:'o0-3',color:'#e2553f',gal:0,sec:2}];
+const BOTS=[{uid:'orion-1',name:'Kael Voryn',title:'Seigneur du Bastion',seat:'o0-0',color:'#34c759',gal:0,sec:0},{uid:'orion-2',name:'Ysmera la Pâle',title:'Dame de la Forge',seat:'o0-2',color:'#e6c34a',gal:0,sec:1},{uid:'orion-3',name:'Draxen Ashkar',title:'Maître de l’Arsenal',seat:'o0-3',color:'#e2553f',gal:0,sec:2}];
 const BOT_PWK=1.2,BOT_MAXP=8,BOT_TURN=30*60e3,BOT_PEACE=7*24*HR,BOT_LV={mine:16,crys:15,fuel:13,store:13,yard:10,bay:12,def:10,shld:5,mines:4},BOT_W={mine:1.25,crys:1.15,fuel:.9,store:.95,yard:.8,bay:.9,def:.8,shld:.35,mines:.3};
 const sysSector=si=>{const s=SYSTEMS[si];return Math.floor(((Math.atan2(s.y-500,s.x-500)+Math.PI)/(2*Math.PI))*3)%3}; // tiers d'Orion autour du Cœur
 const botOf=uid=>BOTS.find(b=>b.uid===uid),botPlanets=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&PLANETS[p.pid]);
@@ -4271,7 +4271,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='207';
+const APP_VERSION='208';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

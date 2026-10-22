@@ -12,6 +12,7 @@ const msg=S.reports.filter(r=>/Seigneurs d’Orion se sont réveillés/.test(r.t
 T.ok(Math.abs(livePW()-pw0)<1,'la force des ennemis ne compte pas les seigneurs');
 T.ok(!humanIds().some(isBot)&&!/orion-/.test(onlinePill()),'seigneurs absents de la liste des joueurs en ligne');
 await T.tick(2);T.ok(S.reports.filter(r=>/se sont réveillés/.test(r.title||'')).length===1,'pas de message en double');
+S.tab='news';render();{const a=document.querySelector('.orion-alert');T.ok(a&&/Ils attaqueront dans/.test(a.textContent)&&a.querySelector('[data-cd]'),'Actus : alerte noir et violet avec compte à rebours de la trêve')}
 // premier tour
 T.adv(6*60e3);await T.tick(2);await sleep(50);
 const q=BOTS.map(b=>S.planets[b.seat]);T.ok(q.every(p=>(p.bq||[]).length>0&&(p.shipQ||[]).length>0),'tour de jeu : constructions et vaisseaux lancés');
@@ -21,6 +22,7 @@ let spied=0,att0=null,maxP=0;const h0=Date.now();
 for(let h=0;h<220;h+=2){T.adv(2*HR);await T.tick(2);if(h%6===0){for(const f of Object.values(S.fleets))if(isBot(f.owner)&&f.phase==='out'&&f.mission!=='spy'&&f.mission!=='colonize'&&f.mission!=='attack')T.L('   mission inattendue',f.mission);}
   for(const f of Object.values(S.fleets))if(isBot(f.owner)&&f.mission==='attack'&&f.phase==='out'&&!att0)att0={t:Date.now(),f:{...f}};
   for(const b of BOTS)maxP=Math.max(maxP,planetsOf(b.uid))}
+{const w1=S.reports.filter(r=>/attaqueront dans 24 h/.test(r.title||'')),w2=S.reports.filter(r=>/La trêve est rompue/.test(r.title||''));T.ok(w1.length===1&&w1[0].push&&w2.length===1&&w2[0].push,'notifs téléphone : veille de la fin de trêve, puis début des attaques (une fois chacune)')}
 spied=S.reports.filter(r=>/Les sondes de .* au-dessus/.test(r.title||'')).length;
 T.ok(BOTS.every(b=>playerPower(b.uid)<=humanAvg().pw*1.35+300),'leur flotte reste au niveau d’un joueur moyen (+20 %) : '+BOTS.map(b=>Math.round(playerPower(b.uid))).join(', ')+' / moyenne '+Math.round(humanAvg().pw));
 for(const b of BOTS){T.L('   '+b.name,'→',planetsOf(b.uid),'planètes · puissance',Math.round(playerPower(b.uid)),'· siège',JSON.stringify(S.planets[b.seat]||null).slice(0,160))}
@@ -37,10 +39,10 @@ const t1=await T.send({from:P1,to:col.pid,mission:'colonize',ships:{fighter:3000
 await T.runToEnd(60);T.L('   rapports',S.reports.filter(r=>(r.to||[]).includes(me)).slice(0,4).map(r=>r.title+' :: '+(r.lines||[]).join(' / ').slice(0,200)).join(' || '));T.ok(S.planets[col.pid]&&S.planets[col.pid].owner===me,'colonie d’un seigneur annexée par un joueur');
 // bonus du Cœur
 const r0=rates(S.planets[P1]).m;S.planets['o0-0']={...S.planets['o0-0'],owner:me};T.sync();CST.t=0;const r1=rates(S.planets[P1]).m;
-T.ok(Math.abs(r1/r0-1.01*1.02)<.002,'1 planète du Cœur : +1 % pour tous et +2 % pour son détenteur (×'+(r1/r0).toFixed(4)+')');
+T.ok(Math.abs(r1/r0-1.02*1.03)<.002,'1 planète du Cœur : +2 % pour tous et +3 % pour son détenteur (×'+(r1/r0).toFixed(4)+')');
 const other=Object.values(S.planets).find(p=>p.owner==='u2'&&!isBody(p.pid));if(other){const o0=rates(other).m;T.L('   ');}
 for(const pid of CORE_P)S.planets[pid]={...(S.planets[pid]||colonyPlanet(pid,me)),owner:me};T.sync();CST.t=0;const r5=rates(S.planets[P1]).m;
-T.ok(coreStats().lord===me,'les 5 planètes : Seigneur d’Orion');T.ok(Math.abs(r5/r0-1.05*1.10*1.10)<.003,'production ×'+(r5/r0).toFixed(3)+' (+5 % tous, +10 % détenteur, +10 % Seigneur)');
-T.ok(Math.abs(modsOf(me).fighter.att/modsOf('u2').fighter.att-1.05)<.01,'+5 % d’attaque pour le Seigneur d’Orion');
+T.ok(coreStats().lord===me,'les 5 planètes : Seigneur d’Orion');T.ok(Math.abs(r5/r0-1.10*1.15*1.15)<.003,'production ×'+(r5/r0).toFixed(3)+' (+10 % tous, +15 % détenteur, +15 % Seigneur)');
+T.ok(Math.abs(modsOf(me).fighter.att/modsOf('u2').fighter.att-1.08)<.01,'+8 % d’attaque pour le Seigneur d’Orion');
 S.tab='players';render();T.L('   onglet',document.querySelector('main')?document.querySelector('main').innerText.slice(0,200).replace(/\n/g,' / '):'?');T.ok(/Cœur d’Orion/.test(document.body.textContent)&&/Seigneur d’Orion/.test(document.body.textContent),'encart du Cœur dans l’onglet Joueurs');
 for(const pid of CORE_P)delete S.planets[pid];T.sync();CST.t=0;

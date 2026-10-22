@@ -1,0 +1,3 @@
+// vue système du Cœur d'Orion et des zones profondes : l'écran se dessine sans erreur (sinon impossible de toucher planètes et boss)
+S.tab='galaxy';for(const[n,si]of[['Cœur',CORE.i],['épaves',DEEP[0].wreck.i],['trou noir',DEEP[0].hole.i]]){try{MP.level='system';MP.sys=si;MP.gal=SYSTEMS[si].gal;S.pickP=null;render();for(const pid of [...SYSTEMS[si].planets,...SYSTEMS[si].bodies,...SYSTEMS[si].packs]){S.pickP=pid;render()}T.ok(true,'vue système '+n+' : planètes et boss sélectionnables')}catch(e){T.ok(false,'vue système '+n+' : '+e.message)}}
+S.pickP=null;MP.level='galaxy';S.tab='planet';render();

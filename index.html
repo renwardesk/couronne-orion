@@ -662,8 +662,9 @@ const outpostsOf=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&isBody(p
 const capitalOf=uid=>Object.values(S.planets).find(p=>p.owner===uid&&p.capital);
 // ---------- Seigneurs d'Orion (empires PNJ qui jouent comme des joueurs) ----------
 // trois vassaux de l'Empereur, chacun installé sur une planète du Cœur d'Orion ; ils bâtissent, arment, colonisent une autre galaxie (8 planètes max), espionnent, puis attaquent au bout d'une semaine
-const BOTS=[{uid:'orion-1',name:'Kael Voryn',title:'Seigneur du Bastion',seat:'o0-0',color:'#a46cff',gal:1},{uid:'orion-2',name:'Ysmera la Pâle',title:'Dame de la Forge',seat:'o0-2',color:'#e6c34a',gal:2},{uid:'orion-3',name:'Draxen Ashkar',title:'Maître de l’Arsenal',seat:'o0-3',color:'#e2553f',gal:3}];
+const BOTS=[{uid:'orion-1',name:'Kael Voryn',title:'Seigneur du Bastion',seat:'o0-0',color:'#a46cff',gal:0,sec:0},{uid:'orion-2',name:'Ysmera la Pâle',title:'Dame de la Forge',seat:'o0-2',color:'#e6c34a',gal:0,sec:1},{uid:'orion-3',name:'Draxen Ashkar',title:'Maître de l’Arsenal',seat:'o0-3',color:'#e2553f',gal:0,sec:2}];
 const BOT_PWK=1.2,BOT_MAXP=8,BOT_TURN=30*60e3,BOT_PEACE=7*24*HR,BOT_LV={mine:16,crys:15,fuel:13,store:13,yard:10,bay:12,def:10,shld:5,mines:4},BOT_W={mine:1.25,crys:1.15,fuel:.9,store:.95,yard:.8,bay:.9,def:.8,shld:.35,mines:.3};
+const sysSector=si=>{const s=SYSTEMS[si];return Math.floor(((Math.atan2(s.y-500,s.x-500)+Math.PI)/(2*Math.PI))*3)%3}; // tiers d'Orion autour du Cœur
 const botOf=uid=>BOTS.find(b=>b.uid===uid),botPlanets=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&PLANETS[p.pid]);
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function humanAvg(){const H=humanIds().filter(u=>Object.values(S.planets).some(p=>p.owner===u)),pw=H.map(u=>playerPower(u)).filter(w=>w>0),lv={};
@@ -673,10 +674,10 @@ function humanAvg(){const H=humanIds().filter(u=>Object.values(S.planets).some(p
 const botArmy=W=>({fighter:Math.round(W*.45),cruiser:Math.round(W*.35/VALUE.cruiser),battleship:Math.round(W*.2/VALUE.battleship)});
 function botPlanetDoc(pid,uid,lv,W,seat){const p={kind:'planet',pid,owner:uid,capital:false,at:Date.now(),build:null,bq:[],shipQ:[],lv:{acad:0,arsenal:0,cspy:0,...lv},ships:{...zeroShips(),...botArmy(W),probe:seat?15:4,colony:seat?1:0}};
   p.lv.yard=Math.max(seat?6:3,p.lv.yard||0);while(bayCap({...p})<placesOf(p.ships)*1.25&&p.lv.bay<20)p.lv.bay++;const c=capOf(p);p.res={m:Math.round(c*.35),c:Math.round(c*.3),f:Math.round(c*.2)};return p}
-const botFree=(pid,g)=>{const m=PLANETS[pid];if(!m||m.body||m.raid||m.comet||m.sig||m.core||m.deep||JEWELS[pid]||RELIC_AT[pid]||galOf(pid)!==g)return false;const d=S.planets[pid];if(d&&(d.owner||d.pill||d.pbase))return false;
+const botFree=(pid,g,sec)=>{const m=PLANETS[pid];if(!m||m.body||m.raid||m.comet||m.sig||m.core||m.deep||JEWELS[pid]||RELIC_AT[pid]||galOf(pid)!==g)return false;if(sec!=null&&sysSector(m.sys)!==sec)return false;const d=S.planets[pid];if(d&&(d.owner||d.pill||d.pbase))return false;
   if((lairInfoAt(SYSTEMS[m.sys])||{}).pid===pid)return false;if(SYSTEMS[m.sys].planets.some(q=>S.planets[q]&&S.planets[q].owner&&!isBot(S.planets[q].owner)&&!isNpc(S.planets[q].owner)))return false;return!Object.values(S.fleets).some(f=>f.to===pid&&f.phase==='out')};
-function botTargets(b,maxW){const mine=botPlanets(b.uid).filter(p=>galOf(p.pid)===b.gal),L=Object.keys(PLANETS).filter(pid=>botFree(pid,b.gal)&&worth(view(pid).garrison||{})<=maxW);
-  const d=pid=>mine.length?Math.min(...mine.map(q=>dist(q.pid,pid))):hash(b.uid+pid)%1000;return L.sort((x,y)=>d(x)-d(y))}
+function botTargets(b,maxW){const mine=botPlanets(b.uid).filter(p=>galOf(p.pid)===b.gal),L=Object.keys(PLANETS).filter(pid=>botFree(pid,b.gal,b.sec)&&worth(view(pid).garrison||{})<=maxW);
+  const d=pid=>SYSTEMS[PLANETS[pid].sys].rad*1000+(mine.length?Math.min(...mine.map(q=>dist(q.pid,pid))):hash(b.uid+pid)%1000);return L.sort((x,y)=>d(x)-d(y))} // du Cœur vers l'extérieur
 async function botInit(){const A=humanAvg();if(!humanIds().length)return;
   for(const b of BOTS){if(S.players[b.uid])continue;let made=false;
     await locked('players/'+b.uid,async(x,ref)=>{if(x)return;const now=Date.now();await ref.set({kind:'player',uid:b.uid,name:b.name,color:b.color,bot:{title:b.title,seat:b.seat,gal:b.gal,next:now+5*60e3,expAt:now+rnd(4,10)*HR,spyAt:now+rnd(3,8)*HR,atkAt:now+BOT_PEACE+rnd(0,24)*HR},joined:now,cp:0,culture:0,slots:BOT_MAXP,rare:{ir:0,xe:0,am:0},cmds:[],tech:{},loadout:{},nextRaid:9e15});made=true});
@@ -687,7 +688,7 @@ async function botInit(){const A=humanAvg();if(!humanIds().length)return;
   let first=false;await locked('events/orion-lords',async(e,ref)=>{if(e&&e.created)return;await ref.set({kind:'event',id:'orion-lords',created:Date.now()});first=true});
   if(first)await report({pid:'o0-4',push:true,ptitle:'👑 Les Seigneurs d’Orion',to:humanIds(),tone:'loss',title:'👑 Les Seigneurs d’Orion se sont réveillés',lines:ORION_MSG})}
 const ORION_MSG=['Au centre de la galaxie, le Cœur d’Orion n’abrite plus seulement l’Empereur Vorgath. Trois seigneurs de guerre lui ont juré allégeance et se sont partagé ses mondes : Kael Voryn tient le Bastion, Ysmera la Pâle la Forge, Draxen Ashkar l’Arsenal. Le Dévoreur garde pour lui le Trône et la Citadelle.',
-  'Leurs flottes valent déjà celles de nos empires, et elles grandissent chaque jour. Leurs colons s’installent dans Céphéide, le Voile de Lyra et le Tourbillon d’Ixar.',
+  'Leurs flottes valent déjà celles de nos empires, et elles grandissent chaque jour. Leurs colons s’installent autour du Cœur, dans Orion même, et avancent vers nos frontières.',
   'Pour l’instant, ils nous ignorent. Mais leurs sondes rôdent déjà au-dessus de nos planètes… et dans une semaine, ils viendront prendre ce qu’ils convoitent.',
   'Frappez les premiers. Chaque planète du Cœur reprise donne +2 % de production à tous les joueurs, et +5 % sur toutes ses planètes à celui qui la tient. Celui qui réunit les cinq devient Seigneur d’Orion : +15 % de production en plus, +8 % d’attaque et de PV pour toute sa flotte.',
   'Le Cœur d’Orion est au centre de la galaxie Orion. Espionnez-le d’abord : il faut au moins 14 sondes pour percer ses défenses.'];
@@ -729,6 +730,11 @@ async function botTurn(b,st){const now=Date.now(),uid=b.uid,mine=botPlanets(uid)
 let BOT_T=0;
 async function botTick(){const now=Date.now();if(now-BOT_T<30000||!S.players[ME]||isBot(ME))return;BOT_T=now;
   if(!BOTS.every(b=>S.players[b.uid])){await botInit();return}
+  {const e=S.events['orion-lords'];if(e&&e.created&&!e.moved){let go=false;await locked('events/orion-lords',async(x,ref)=>{if(!x||x.moved)return;x.moved=1;await ref.set(x);go=true}).catch(()=>{});
+    if(go){let n=0;for(const b of BOTS)for(const p of botPlanets(b.uid).filter(q=>galOf(q.pid)!==b.gal&&!PLANETS[q.pid].core)){const t=botTargets(b,1e9)[0];if(!t)continue;let doc=null;
+      await locked('planets/'+p.pid,async(d,ref)=>{if(!d||d.owner!==b.uid)return;doc=settle(d,Date.now());await ref.delete()}).catch(()=>{});
+      if(doc){await locked('planets/'+t,async(d,ref)=>{if(d&&(d.owner||d.pill))return;await ref.set({...doc,pid:t,at:Date.now()})}).catch(()=>{});S.planets[t]={...doc,pid:t};delete S.planets[p.pid];n++}}
+      if(n)await report({pid:'o0-0',to:humanIds(),tone:'loss',title:'👑 Les Seigneurs d’Orion rappellent leurs colons',lines:['Ils abandonnent les galaxies lointaines : leurs colonies s’installent désormais aux portes du Cœur, dans Orion même.','Chaque seigneur tient un tiers de la galaxie et avance du centre vers nos frontières. Leurs mondes sont à portée de nos flottes.']})}}}
   {const e=S.events['orion-lords'];if(e&&e.created){const peace=e.created+BOT_PEACE,step=now>=peace?2:now>=peace-24*HR?1:0;if(step>(e.warned||0)){let go=0;await locked('events/orion-lords',async(x,ref)=>{if(!x||(x.warned||0)>=step)return;x.warned=step;await ref.set(x);go=step}).catch(()=>{});
     if(go===1)await report({push:true,ptitle:'⚠ Seigneurs d’Orion : demain',pid:'o0-0',to:humanIds(),tone:'loss',title:'⚠ Les Seigneurs d’Orion attaqueront dans 24 h',lines:['La trêve touche à sa fin. Demain, Kael Voryn, Ysmera la Pâle et Draxen Ashkar lanceront leurs flottes contre nos empires.','Renforcez vos défenses, gardez vos flottes à portée… ou frappez le Cœur d’Orion avant eux.']});
     if(go===2)await report({push:true,ptitle:'⚔ Les Seigneurs d’Orion attaquent',pid:'o0-0',to:humanIds(),tone:'loss',title:'⚔ La trêve est rompue : les Seigneurs d’Orion attaquent',lines:['Désormais, chaque seigneur frappera toutes les 10 à 20 h la planète qu’il pense pouvoir piller.','Chaque planète du Cœur reprise affaiblit leur emprise et donne +2 % de production à tous.']})}}}
@@ -1678,9 +1684,9 @@ const lordCheer=n=>n>=5?'wow !':n>=4?'impressionnant !':n>=3?'pas mal !':'bien j
 async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[ME])return;LORD_T=now;
   for(const s of SYSTEMS){if(s.deep||s.planets.length<2)continue;const id='lord-'+s.i,ev=S.events[id],cur=sysLordNow(s.i),prev=ev&&ev.uid||null;
     if(cur!==prev){let rep2=[];await locked('events/'+id,async(e,eref)=>{const pv=e&&e.uid||null;if(pv===cur)return;const d={kind:'event',id,...(e||{}),uid:cur,at:Date.now(),rewarded:(e&&e.rewarded)||[]};const n=s.planets.length;
-        if(cur){const first=!d.rewarded.includes(cur);if(first)d.rewarded=[...d.rewarded,cur];d.nextRaid=Date.now()+LORD_RAID*(.6+Math.random()*.6);
+        if(cur&&!isBot(cur)){const first=!d.rewarded.includes(cur);if(first)d.rewarded=[...d.rewarded,cur];d.nextRaid=Date.now()+LORD_RAID*(.6+Math.random()*.6);
           rep2.push({feat:true,push:true,ptitle:'👑 Seigneur de système',to:allPlayers(),tone:'info',title:`👑 ${pname(cur)} contrôle ${s.name} · ${n}/${n} planètes, ${lordCheer(n)}`,lines:[`${pname(cur)} devient seigneur du système ${s.name}.`,'Bonus tant qu’il le garde : +10 % de production (+5 % par satellite du système), +10 % de résistance en défense, trajets −15 % au départ du système, petites comètes deux fois plus fréquentes.','Mais la richesse attire les Pillards du Néant…',...(first?[`Récompense : un ${n>=5?'coffre d’or':'coffre d’argent'} et ${2*n} insignes de commandement.`]:[])],reward:first?{uid:cur,ch:n>=5?'g':'s',ins:2*n}:null})}
-        if(pv)rep2.push({to:allPlayers(),tone:'info',title:`${pname(pv)} perd le contrôle de ${s.name}`,lines:[cur?`${pname(cur)} en prend la tête.`:'Le système n’a plus de seigneur : ses bonus disparaissent.']});
+        if(pv&&!isBot(pv))rep2.push({to:allPlayers(),tone:'info',title:`${pname(pv)} perd le contrôle de ${s.name}`,lines:[cur?`${pname(cur)} en prend la tête.`:'Le système n’a plus de seigneur : ses bonus disparaissent.']});
         await eref.set(d)}).catch(()=>{rep2=[]});
       for(const r of rep2){if(r.reward){const R=r.reward;await giveChest(R.uid,R.ch,1);await withPlayer(R.uid,d=>{d.ins=(d.ins||0)+R.ins}).catch(()=>{})}const{reward,...rr}=r;await report(rr)}continue}
     // expédition punitive contre le seigneur
@@ -4265,7 +4271,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='206';
+const APP_VERSION='207';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

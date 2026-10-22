@@ -7,7 +7,7 @@ T.ok(BOTS.every(b=>S.planets[b.seat]&&S.planets[b.seat].owner===b.uid),'chacun t
 T.ok(!S.planets['o0-1']&&!S.planets['o0-4'],'Trône et Citadelle restent à l’Empereur');
 for(const b of BOTS){const pl=botPlanets(b.uid);T.L('   '+b.name,pl.length,'planètes :',pl.map(p=>PLANETS[p.pid].name+'('+GALS[galOf(p.pid)].name+')').join(', '),'· puissance',Math.round(playerPower(b.uid)))}
 const avg=humanAvg().pw;T.ok(BOTS.every(b=>Math.abs(playerPower(b.uid)-avg)<avg*.15),'puissance de départ ≈ joueur moyen ('+Math.round(avg)+')');
-T.ok(BOTS.every(b=>botPlanets(b.uid).filter(p=>!PLANETS[p.pid].core).every(p=>galOf(p.pid)===b.gal)),'colonies dans leur galaxie');
+T.ok(BOTS.every(b=>botPlanets(b.uid).filter(p=>!PLANETS[p.pid].core).every(p=>galOf(p.pid)===0&&sysSector(PLANETS[p.pid].sys)===b.sec)),'colonies dans Orion, chacun dans son tiers');
 const msg=S.reports.filter(r=>/Seigneurs d’Orion se sont réveillés/.test(r.title||''));T.ok(msg.length===1&&msg[0].push&&msg[0].to.includes('u1')&&!msg[0].to.some(isBot),'message de motivation envoyé une fois, en notif, aux joueurs seulement');
 T.ok(Math.abs(livePW()-pw0)<1,'la force des ennemis ne compte pas les seigneurs');
 T.ok(!humanIds().some(isBot)&&!/orion-/.test(onlinePill()),'seigneurs absents de la liste des joueurs en ligne');
@@ -27,6 +27,8 @@ spied=S.reports.filter(r=>/Les sondes de .* au-dessus/.test(r.title||'')).length
 T.ok(BOTS.every(b=>playerPower(b.uid)<=humanAvg().pw*1.35+300),'leur flotte reste au niveau d’un joueur moyen (+20 %) : '+BOTS.map(b=>Math.round(playerPower(b.uid))).join(', ')+' / moyenne '+Math.round(humanAvg().pw));
 for(const b of BOTS){T.L('   '+b.name,'→',planetsOf(b.uid),'planètes · puissance',Math.round(playerPower(b.uid)),'· siège',JSON.stringify(S.planets[b.seat]||null).slice(0,160))}
 T.ok(BOTS.every(b=>S.planets[b.seat]&&S.planets[b.seat].owner===b.uid),'ils gardent leur planète du Cœur (pas de raid PNJ contre eux)');
+T.ok(BOTS.every(b=>botPlanets(b.uid).filter(p=>!PLANETS[p.pid].core).every(p=>galOf(p.pid)===0&&sysSector(PLANETS[p.pid].sys)===b.sec&&!SYSTEMS[PLANETS[p.pid].sys].planets.some(q=>S.planets[q]&&S.planets[q].owner&&!isBot(S.planets[q].owner)&&!isNpc(S.planets[q].owner)))),'après 9 jours : toujours dans leur tiers d’Orion, jamais dans un système de joueur');
+T.ok(!S.reports.some(r=>/^👑 (Kael|Ysmera|Draxen)/.test(r.title||'')),'pas d’annonce de seigneur de système pour eux');
 T.ok(BOTS.some(b=>planetsOf(b.uid)>3),'ils colonisent de nouvelles planètes');T.ok(maxP<=BOT_MAXP,'jamais plus de 8 planètes ('+maxP+')');
 T.ok(spied>0,'les joueurs voient passer leurs sondes ('+spied+' rapports)');
 const created=S.events['orion-lords'].created;T.ok(!att0||att0.t>=created+BOT_PEACE,'aucune attaque pendant la trêve d’une semaine'+(att0?' (1re à J+'+((att0.t-created)/86400e3).toFixed(1)+')':''));

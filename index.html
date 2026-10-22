@@ -324,6 +324,8 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 .fl-fire{position:absolute;border-radius:50%;font:700 12px/1 inherit;letter-spacing:.08em;right:max(26px,env(safe-area-inset-right,0px));bottom:calc(150px + env(safe-area-inset-bottom,0px));width:72px;height:72px;border:1px solid #ff6b6b99;background:#3a0c12c8;color:#ff9b9b;-webkit-tap-highlight-color:transparent}.fl-fire.on{background:#ff5a5a;color:#2a0508;box-shadow:0 0 20px #ff5a5a}
 .fl-gas.on{background:#5ec8ff;color:#04101e;box-shadow:0 0 20px #5ec8ff}.fl-boost.on{background:#ffcf6b;color:#2a1a08;box-shadow:0 0 20px #ffcf6b}
 .fl-gas.dis,.fl-boost.dis{opacity:.35;filter:grayscale(1)}
+.fl-hp{position:absolute;top:calc(74px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(190px,48vw);display:grid;gap:3px;justify-items:center;pointer-events:none}.fl-hp>div{width:100%;height:9px;border-radius:5px;background:#0b1430c0;border:1px solid #ffffff40;overflow:hidden}.fl-hp i{display:block;height:100%;width:100%;border-radius:5px;transition:width .2s,background .2s}.fl-hp span{font:700 10px var(--f-data);letter-spacing:.1em;color:#d8e6ff;text-shadow:0 1px 3px #000}.fl-hp.low span{color:#ff6b6b}.fl-hp.safe{opacity:.65}
+.fl-hitfx{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px #ff2a2a;opacity:0;transition:opacity .25s}.fl-dead{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:8px;pointer-events:none;background:radial-gradient(circle,#ff6a0033,#000a 70%);text-align:center}.fl-dead b{font-size:26px;color:#ffb347;text-shadow:0 0 18px #ff5a00}.fl-dead span{font-size:13px;color:#e8dcc8}.fl-php{display:inline-block;width:28px;height:4px;border-radius:2px;background:#ffffff30;margin-left:5px;vertical-align:middle;overflow:hidden}.fl-php i{display:block;height:100%}
 .fl-heat{position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:calc(250px + env(safe-area-inset-bottom,0px));width:12px;height:120px;border-radius:6px;background:#0b1430c0;border:1px solid #ffffff33}
 .fl-heat i{position:absolute;left:0;right:0;bottom:0;height:0;border-radius:6px;transition:height .15s}
 .fl-heat span{position:absolute;bottom:126px;right:-6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3d9;white-space:nowrap}
@@ -3011,7 +3013,7 @@ function flyStart(){if(!MP.ok||FLY.on)return;const cp=capitalOf(ME);if(!cp)retur
   // le vaisseau décolle de la capitale, dos à l'étoile
   const i=MP.pList.findIndex(q=>q.pid===cp.pid),now=Date.now(),pw=i>=0?orbPos(MP.pOrb[i],now/1000):SYSTEMS[PLANETS[cp.pid].sys].w,P=new THREE.Vector3(...pw),sw=new THREE.Vector3(...SYSTEMS[PLANETS[cp.pid].sys].w),up=flyGalUp(g);
   const out=P.clone().sub(sw).normalize();FLY.pos=P.clone().addScaledVector(out,.09).addScaledVector(up,.012);FLY.q=new THREE.Quaternion();{const m=new THREE.Object3D();m.position.copy(FLY.pos);m.up.copy(up);m.lookAt(FLY.pos.clone().add(out).addScaledVector(up,.2));FLY.q.copy(m.quaternion)}
-  Object.assign(FLY,{up,v:0,gas:false,boost:false,fire:false,bolts:[],booms:[],heat:0,over:false,jx:0,jy:0,ry:0,rp:0,bk:0,key:flyKey(ME),t0:performance.now(),sent:0,near:null,lf:0,hf:0,tags:null,tagT:0});FLY.last=FLY.t0;FLY.lods.clear();FLY.mats=[];flyFlareInit();
+  Object.assign(FLY,{up,v:0,gas:false,boost:false,fire:false,bolts:[],booms:[],heat:0,over:false,jx:0,jy:0,ry:0,rp:0,bk:0,key:flyKey(ME),t0:performance.now(),sent:0,near:null,lf:0,hf:0,tags:null,tagT:0,hp:FLY_HP,dead:0,lastHit:0,safe:performance.now()+FLY_SAFE,xpl:[]});FLY.spawn={pos:FLY.pos.clone(),q:FLY.q.clone(),out,pid:cp.pid};FLY.last=FLY.t0;FLY.lods.clear();FLY.mats=[];flyFlareInit();
   FLY.dt0=[];MP.scene.traverse(o=>{if(o.isPoints&&o.material&&o.material.depthTest===false){FLY.dt0.push(o.material);o.material.depthTest=true}});
   FLY.ship=flyModel(ME,FLY.key);FLY.ship.position.copy(FLY.pos);FLY.ship.quaternion.copy(FLY.q);MP.scene.add(FLY.ship);
   FLY.dl=new THREE.DirectionalLight(0xfff4e8,1.25);FLY.dl.target=FLY.ship;MP.scene.add(FLY.dl);FLY.hemi=new THREE.HemisphereLight(0x9fb8ff,0x1a1426,.55);MP.scene.add(FLY.hemi);
@@ -3025,7 +3027,7 @@ function flyStop(){if(!FLY.on)return;FLY.on=false;cancelAnimationFrame(FLY.raf);
   for(const o of FLY.hid||[])o.visible=true;for(const m of FLY.dt0||[])m.depthTest=false;const cam=MP.cam;cam.near=FLY.cam0.near;cam.fov=FLY.cam0.fov;cam.up.set(0,1,0);cam.updateProjectionMatrix();
   const ui=document.getElementById('flyui');if(ui)ui.remove();mpel.classList.remove('flying');MP.full=mpel.classList.contains('v3full');document.body.style.overflow=MP.full?'hidden':'';
   setTimeout(mpSize,30);MP.dataSig=null;MP.tgt=[FLY.pos.x,FLY.pos.y,FLY.pos.z];MP.tgtT=[...MP.tgt];MP.dist=MP.distT=40;mpData();mpStart();render()}
-function flyUi(){const d=document.createElement('div');d.id='flyui';d.innerHTML=`<div class="fl-top"><button class="tgl" id="flback">↩ Rentrer</button><span class="fl-loc" id="flloc"></span><button class="tgl" id="flwave" aria-label="Saluer">👋</button></div><span class="fl-spd" id="flspd"></span><div id="fltags"></div>
+function flyUi(){const d=document.createElement('div');d.id='flyui';d.innerHTML=`<div class="fl-top"><button class="tgl" id="flback">↩ Rentrer</button><span class="fl-loc" id="flloc"></span><button class="tgl" id="flwave" aria-label="Saluer">👋</button></div><span class="fl-spd" id="flspd"></span><div class="fl-hp" id="flhp"><div><i id="flhpi"></i></div><span id="flhpt">PV 100</span></div><div class="fl-hitfx" id="flhit"></div><div class="fl-dead" id="fldead" hidden><b>💥 Vaisseau détruit</b><span id="fldeadt">Retour à ta base…</span></div><div id="fltags"></div>
   <div class="fl-joy" id="fljoy" aria-label="Direction"><b id="fljoyb"></b></div>
   <div class="fl-heat" id="flheat" aria-label="Température du moteur"><i id="flheati"></i><span>chaleur</span></div><button class="fl-gas" id="flgas">GAZ</button><button class="fl-fire" id="flfire">TIR</button><button class="fl-boost" id="flboost">BOOST</button><span class="fl-over" id="flover" hidden>SURCHAUFFE</span>`;mpel.querySelector('.v3box').appendChild(d);
   const cap=(el,fn,end)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(x){}el._p=e.pointerId;fn(e)});el.addEventListener('pointermove',e=>{if(el._p===e.pointerId)fn(e)});const u=e=>{if(el._p!==e.pointerId)return;el._p=null;end&&end(e)};el.addEventListener('pointerup',u);el.addEventListener('pointercancel',u)};
@@ -3036,7 +3038,7 @@ function flyUi(){const d=document.createElement('div');d.id='flyui';d.innerHTML=
 const flyCurve=x=>Math.sign(x)*Math.pow(Math.max(0,Math.abs(x)-.06)/.94,1.5);
 function flyLoop(t){if(!FLY.on)return;FLY.raf=requestAnimationFrame(flyLoop);const dt=Math.min(.05,(t-FLY.last)/1000||0);FLY.last=t;const now=Date.now(),K=FLY.keys||new Set();
   // commandes : joystick à gauche (direction), gaz et boost à droite
-  let jx=FLY.jx,jy=FLY.jy;if(K.has('arrowleft')||K.has('q')||K.has('a'))jx=-1;if(K.has('arrowright')||K.has('d'))jx=1;if(K.has('arrowup')||K.has('z')||K.has('w'))jy=1;if(K.has('arrowdown')||K.has('s'))jy=-1;
+  let jx=FLY.jx,jy=FLY.jy;if(K.has('arrowleft')||K.has('q')||K.has('a'))jx=-1;if(K.has('arrowright')||K.has('d'))jx=1;if(K.has('arrowup')||K.has('z')||K.has('w'))jy=1;if(K.has('arrowdown')||K.has('s'))jy=-1;if(FLY.dead){jx=0;jy=0}
   const gasK=K.has(' ')||K.has('e'),boostK=K.has('shift');
   const ty=-flyCurve(jx)*1.25,tp=-flyCurve(jy)*1,sm=Math.min(1,dt*3.5);FLY.ry+=(ty-FLY.ry)*sm;FLY.rp+=(tp-FLY.rp)*sm;
   const q=FLY.q,Y=new THREE.Vector3(0,1,0),X=new THREE.Vector3(1,0,0),Z=new THREE.Vector3(0,0,1);q.multiply(new THREE.Quaternion().setFromAxisAngle(Y,FLY.ry*dt)).multiply(new THREE.Quaternion().setFromAxisAngle(X,FLY.rp*dt));
@@ -3044,7 +3046,7 @@ function flyLoop(t){if(!FLY.on)return;FLY.raf=requestAnimationFrame(flyLoop);con
   {const f=Z.clone().applyQuaternion(q),u=Y.clone().applyQuaternion(q),N=FLY.up.clone().addScaledVector(f,-FLY.up.dot(f));if(N.lengthSq()>.01){N.normalize();const ang=Math.atan2(u.clone().cross(N).dot(f),u.dot(N));q.multiply(new THREE.Quaternion().setFromAxisAngle(Z,ang*Math.min(1,dt*1.1)))}}
   q.normalize();
   // moteur par impulsions : le gaz chauffe un peu, le boost beaucoup ; à 100 % le moteur coupe jusqu'à refroidir
-  const wantB=(FLY.boost||boostK)&&!FLY.over,wantG=(FLY.gas||gasK||FLY.boost||boostK)&&!FLY.over;
+  const wantB=(FLY.boost||boostK)&&!FLY.over&&!FLY.dead,wantG=(FLY.gas||gasK||FLY.boost||boostK)&&!FLY.over&&!FLY.dead;
   FLY.heat=Math.max(0,Math.min(1,FLY.heat+dt*(wantB?FLY_HEAT.boost:wantG?FLY_HEAT.gas:-FLY_HEAT.cool*(FLY.over?.8:1))));
   if(!FLY.over&&FLY.heat>=1){FLY.over=true;flySnd('over')}else if(FLY.over&&FLY.heat<=.3){FLY.over=false;flySnd('ok')}
   FLY.thr=wantB?1:wantG?.55:0;FLY.boosting=wantB;
@@ -3059,7 +3061,7 @@ function flyLoop(t){if(!FLY.on)return;FLY.raf=requestAnimationFrame(flyLoop);con
   FLY.dl.position.copy(FLY.pos).addScaledVector(u,.3).addScaledVector(f,-.1).add(new THREE.Vector3(.15,0,.1));
   // poussière spatiale autour de la caméra : donne la sensation de vitesse
   {const a=FLY.dust.geometry.attributes.position.array,h=.15,c=cam.position;for(let k=0;k<a.length;k+=3){for(let j=0;j<3;j++){const d=a[k+j]-c.getComponent(j);if(d>h)a[k+j]-=2*h;else if(d<-h)a[k+j]+=2*h}}FLY.dust.geometry.attributes.position.needsUpdate=true;FLY.dust.material.opacity=Math.min(.6,.15+FLY.v*1.4)}
-  mpOrbitStep(now);if(MP.orbL)MP.orbL.visible=false;MP.pPts.material.uniforms.op.value=1;flyLod();flyFxTick(dt);if(FLY.fire||K.has('f'))flyFire(now);flyBolts(dt);flyPeers(dt,now);flyNet(now);flyAudioTick();
+  mpOrbitStep(now);if(MP.orbL)MP.orbL.visible=false;MP.pPts.material.uniforms.op.value=1;flyLod();flyFxTick(dt);if(!FLY.dead&&(FLY.fire||K.has('f')))flyFire(now);flyBolts(dt);flyLifeTick(dt);flyPeers(dt,now);flyNet(now);flyAudioTick();
   MP.r.render(MP.scene,cam);if((FLY.hf=FLY.hf+1)%6===1)flyHud(now);flyTags(now)}
 // les systèmes proches prennent du relief (étoile et planètes en vraies sphères, sans orbites dessinées), préparés de loin
 // ---------- rendu réaliste en navigation : planètes calculées (relief, océans, nuages, atmosphère, villes la nuit) et étoiles vivantes ----------
@@ -3146,17 +3148,17 @@ function flyTags(now){const box=document.getElementById('fltags');if(!box)return
   for(const c of flyTagList(now)){const q=MP.pList[c.ix];const w=q&&q.pid===c.pid?q.w:SYSTEMS[PLANETS[c.pid].sys].w;V.set(w[0],w[1],w[2]);const d=V.distanceTo(FLY.pos);if(d<.12)continue;V.project(cam);if(V.z>1||V.x<-1.05||V.x>1.05||V.y<-1.05||V.y>1.05)continue;const x=(V.x+1)/2*W,y=(1-V.y)/2*H,col=esc(pcolor(c.u));
     h+=`<span class="fl-cap" style="left:${x|0}px;top:${y|0}px;opacity:${d>25?.55:1}"><b style="color:${col}">◆</b> ${esc(plName(c.pid))}<i style="color:${col}">${esc(pname(c.u))}${c.u===ME?' (toi)':''} · ${flyDist(d)}</i></span>`}
   for(const[u,p]of FLY.peers){V.copy(p.g.position).add(new THREE.Vector3(0,.004,0).applyQuaternion(cam.quaternion));const d=p.g.position.distanceTo(FLY.pos);V.project(cam);const behind=V.z>1;let x=(V.x+1)/2*W,y=(1-V.y)/2*H;const edge=behind||x<20||x>W-20||y<60||y>H-60;
-    const col=esc(pcolor(u)),wv=(p.wave&&Date.now()-p.wave<4000?' 👋':'')+(p.hitT&&performance.now()-p.hitT<900?' 💥':'');
+    const col=esc(pcolor(u)),wv=(p.wave&&Date.now()-p.wave<4000?' 👋':'')+(p.hitT&&performance.now()-p.hitT<900?' 💥':'')+(p.h!=null&&p.h<FLY_HP?`<span class="fl-php"><i style="width:${Math.max(0,p.h)}%;background:${flyHpCol(p.h)}"></i></span>`:'');
     if(edge){let dx=x-W/2,dy=y-H/2;if(behind){dx=-dx;dy=-dy}const a=Math.atan2(dy,dx),k=Math.min((W/2-34)/Math.abs(Math.cos(a)||1e-6),(H/2-90)/Math.abs(Math.sin(a)||1e-6));x=W/2+Math.cos(a)*k;y=H/2+Math.sin(a)*k;h+=`<span class="fl-peer edge" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="display:inline-block;transform:rotate(${a}rad);color:${col}">➤</b> ${esc(pname(u))} · ${flyDist(d)}${wv}</span>`}
     else h+=`<span class="fl-peer" style="left:${x|0}px;top:${y|0}px;border-color:${col}"><b style="color:${col}">●</b> ${esc(pname(u))} · ${flyDist(d)}${wv}</span>`}
   if(box.innerHTML!==h)box.innerHTML=h}
 const flyDist=d=>d<.5?`${Math.round(d*6000*60/1000)*1000} km`:`${(d*.4).toFixed(1).replace('.',',')} UA`;
 // ---------- lasers : tirs droits dans l'axe du vaisseau, qui s'estompent au bout de leur portée ou éclatent sur un obstacle ----------
 const FLY_BOLT={rate:.16,speed:1.4,range:.9};
-function flyBoltAdd(p,d,v,col,mine){if(!FLY.bolts)FLY.bolts=[];if(FLY.bolts.length>80){const o=FLY.bolts.shift();flyBoltKill(o,false)}
+function flyBoltAdd(p,d,v,col,mine,u){if(!FLY.bolts)FLY.bolts=[];if(FLY.bolts.length>80){const o=FLY.bolts.shift();flyBoltKill(o,false)}
   if(!FLY.boltGeo){FLY.boltGeo=new THREE.BoxGeometry(.0006,.0006,.03);FLY.boltGeo.userData.shared=true;FLY.boltGeo2=new THREE.BoxGeometry(.0015,.0015,.034);FLY.boltGeo2.userData.shared=true}
   const g=new THREE.Group(),c=new THREE.Color(col),core=new THREE.Mesh(FLY.boltGeo,new THREE.MeshBasicMaterial({color:c.clone().lerp(new THREE.Color(1,1,1),.6),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})),halo=new THREE.Mesh(FLY.boltGeo2,new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));g.add(core,halo);
-  g.position.copy(p);g.lookAt(p.clone().add(d));MP.scene.add(g);FLY.bolts.push({g,p:p.clone(),d:d.clone().normalize(),v,dist:0,mine,col:c})}
+  g.position.copy(p);g.lookAt(p.clone().add(d));MP.scene.add(g);FLY.bolts.push({g,p:p.clone(),d:d.clone().normalize(),v,dist:0,mine,col:c,u:u||null})}
 function flyBoltKill(b,boom){MP.scene.remove(b.g);b.g.traverse(x=>{if(x.material)x.material.dispose()});if(boom){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:b.col.clone().lerp(new THREE.Color(1,.9,.7),.5),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.position.copy(b.p);s.scale.setScalar(.004);MP.scene.add(s);(FLY.booms=FLY.booms||[]).push({s,t:0});if(b.mine)tone(140,.18,{type:'triangle',vol:.03,slide:.5})}}
 function flyFire(now){if(now-(FLY.lastShot||0)<FLY_BOLT.rate*1000)return;FLY.lastShot=now;FLY.side=-(FLY.side||1);
   const f=new THREE.Vector3(0,0,1).applyQuaternion(FLY.q),r=new THREE.Vector3(1,0,0).applyQuaternion(FLY.q),p=FLY.pos.clone().addScaledVector(r,FLY.side*FLY_LEN*.38).addScaledVector(f,FLY_LEN*.5),v=FLY.v+FLY_BOLT.speed,col=pcolor(ME)||'#ff5a5a';
@@ -3165,24 +3167,42 @@ function flyFire(now){if(now-(FLY.lastShot||0)<FLY_BOLT.rate*1000)return;FLY.las
 function flyBolts(dt){const B=FLY.bolts||[];for(let i=B.length-1;i>=0;i--){const b=B[i],step=b.v*dt;b.p.addScaledVector(b.d,step);b.dist+=step;b.g.position.copy(b.p);
     let hit=false;for(const L of FLY.lods.values()){if(L.star.position.distanceTo(b.p)<.1*1.3){hit=true;break}for(const pl of L.pl){const r=pl.m.userData.r||.04;if(pl.m.position.distanceTo(b.p)<r){hit=true;break}}if(hit)break}
     if(!hit&&b.mine)for(const p of FLY.peers.values())if(p.g.position.distanceTo(b.p)<FLY_LEN*.7){hit=true;p.hitT=performance.now();break}
-    if(!hit&&!b.mine&&FLY.pos.distanceTo(b.p)<FLY_LEN*.7){hit=true;FLY.hitT=performance.now();try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}}
+    if(!hit&&!b.mine&&!FLY.dead&&FLY.pos.distanceTo(b.p)<FLY_LEN*.7){hit=true;FLY.hitT=performance.now();try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}flyDamage(b.u)}
     const fade=1-Math.max(0,(b.dist-FLY_BOLT.range*.6)/(FLY_BOLT.range*.4));if(hit||fade<=0){flyBoltKill(b,hit);B.splice(i,1);continue}b.g.children[0].material.opacity=fade;b.g.children[1].material.opacity=.45*fade}
   const Bm=FLY.booms||[];for(let i=Bm.length-1;i>=0;i--){const o=Bm[i];o.t+=dt;o.s.scale.setScalar(.004+o.t*.05);o.s.material.opacity=Math.max(0,1-o.t/.35);if(o.t>.35){MP.scene.remove(o.s);o.s.material.dispose();Bm.splice(i,1)}}}
-function flyBoltsClear(){for(const b of FLY.bolts||[])flyBoltKill(b,false);FLY.bolts=[];for(const o of FLY.booms||[]){MP.scene.remove(o.s);o.s.material.dispose()}FLY.booms=[]}
+function flyBoltsClear(){for(const o of FLY.xpl||[]){MP.scene.remove(o.s);o.s.material.dispose()}FLY.xpl=[];for(const b of FLY.bolts||[])flyBoltKill(b,false);FLY.bolts=[];for(const o of FLY.booms||[]){MP.scene.remove(o.s);o.s.material.dispose()}FLY.booms=[]}
+// ---------- points de vie en navigation : à 0, explosion puis retour à la base ----------
+const FLY_HP=100,FLY_DMG=8,FLY_REGEN=4,FLY_REGEN_WAIT=6000,FLY_SAFE=3000,FLY_RESPAWN=2200;
+const flyHpCol=h=>h>60?'#4ade80':h>30?'#ffcc4d':'#ff4d4d';
+function flyDamage(by){const t=performance.now();if(FLY.dead||t<FLY.safe)return;FLY.hp=Math.max(0,FLY.hp-FLY_DMG);FLY.lastHit=t;const fx=document.getElementById('flhit');if(fx){fx.style.opacity=FLY.hp<=30?.9:.55;setTimeout(()=>{fx.style.opacity=0},180)}if(FLY.hp<=0)flyExplode(by)}
+function flyBlast(pos,big){for(const[c,k,d]of[['#ffffff',.6,.5],['#ffb347',1,.9],['#ff4d1a',1.5,1.3]]){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:MP.glow,color:c,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));sp.position.copy(pos);sp.scale.setScalar(.003);MP.scene.add(sp);(FLY.xpl=FLY.xpl||[]).push({s:sp,t:0,d,k:k*(big?1:.6)})}}
+function flyExplode(by){const t=performance.now();FLY.dead=t;FLY.v=0;FLY.fire=false;FLY.gas=false;FLY.boost=false;FLY.ship.visible=false;flyBlast(FLY.pos,true);
+  if(SFX.on){noise(1.2,{f:1800,f2:120,vol:.22});tone(90,.9,{type:'sawtooth',vol:.06,slide:.3})}try{navigator.vibrate&&navigator.vibrate([120,60,220])}catch(e){}
+  const cp=FLY.spawn&&FLY.spawn.pid,el=document.getElementById('fldead'),tx=document.getElementById('fldeadt');if(tx)tx.textContent=`${by&&S.players[by]?`Abattu par ${pname(by)} · `:''}retour à ${cp?plName(cp):'ta base'}…`;if(el)el.hidden=false;
+  try{FLY.net&&FLY.netOk&&FLY.net.send({type:'broadcast',event:'x',payload:{u:ME,by:by||null,p:[r4(FLY.pos.x),r4(FLY.pos.y),r4(FLY.pos.z)]}})}catch(e){}}
+function flyRespawn(){const sp=FLY.spawn;if(!sp)return;FLY.pos.copy(sp.pos);FLY.q.copy(sp.q);FLY.v=0;FLY.hp=FLY_HP;FLY.dead=0;FLY.heat=0;FLY.over=false;FLY.safe=performance.now()+FLY_SAFE;FLY.ship.visible=true;FLY.ship.position.copy(FLY.pos);FLY.ship.quaternion.copy(FLY.q);
+  const cam=MP.cam;cam.position.copy(FLY.pos).addScaledVector(sp.out,-.14).addScaledVector(FLY.up,.05);FLY.t0=performance.now();const el=document.getElementById('fldead');if(el)el.hidden=true;toast(`Nouveau vaisseau prêt à ${plName(sp.pid)}`);FLY.sent=0;FLY.sig=null}
+function flyLifeTick(dt){const t=performance.now();
+  if(FLY.dead){if(t-FLY.dead>FLY_RESPAWN)flyRespawn()}
+  else{if(FLY.hp<FLY_HP&&t-FLY.lastHit>FLY_REGEN_WAIT)FLY.hp=Math.min(FLY_HP,FLY.hp+FLY_REGEN*dt);FLY.ship.visible=t>=FLY.safe||Math.floor(t/130)%2===0}
+  const X=FLY.xpl||[];for(let i=X.length-1;i>=0;i--){const o=X[i];o.t+=dt;o.s.scale.setScalar(.003+o.t*.06*o.k);o.s.material.opacity=Math.max(0,1-o.t/o.d);if(o.t>o.d){MP.scene.remove(o.s);o.s.material.dispose();X.splice(i,1)}}
+  if((FLY.hpf=(FLY.hpf||0)+1)%4===0){const b=document.getElementById('flhp'),i=document.getElementById('flhpi'),s0=document.getElementById('flhpt');if(i){i.style.width=`${Math.max(0,FLY.hp)}%`;i.style.background=flyHpCol(FLY.hp)}if(s0)s0.textContent=FLY.dead?'DÉTRUIT':`PV ${Math.ceil(FLY.hp)}${t<FLY.safe?' · bouclier':''}`;if(b){b.classList.toggle('low',FLY.hp<=30);b.classList.toggle('safe',t<FLY.safe)}}}
+function flyPeerBoom(m){if(!FLY.on||!m||!m.u||m.u===ME||!S.players[m.u])return;const p=FLY.peers.get(m.u),pos=Array.isArray(m.p)?new THREE.Vector3(...m.p):p&&p.g.position;if(pos)flyBlast(pos,FLY.pos.distanceTo(pos)<.6);if(p){p.deadT=Date.now()+FLY_RESPAWN;p.h=0}
+  if(m.by===ME){toast(`💥 Tu as abattu ${pname(m.u)} !`);if(SFX.on)tone(880,.25,{type:'triangle',vol:.05,slide:1.5})}else if(m.by&&S.players[m.by])toast(`💥 ${pname(m.u)} a été abattu par ${pname(m.by)}`);else toast(`💥 ${pname(m.u)} a explosé`)}
 // ---------- les autres pilotes : positions en direct (canal sans écriture en base) ----------
 function flyNetStart(){FLY.net=null;try{if(!sb||!sb.channel)return;const ch=sb.channel('fly-'+FLY.gal,{config:{broadcast:{self:false}}});
-  ch.on('broadcast',{event:'p'},({payload:m})=>flyRecv(m)).on('broadcast',{event:'w'},({payload:m})=>{if(m&&m.u&&m.u!==ME&&S.players[m.u]){toast(`👋 ${pname(m.u)} te salue !`);const p=FLY.peers.get(m.u);if(p)p.wave=Date.now()}}).on('broadcast',{event:'f'},({payload:m})=>{if(!FLY.on||!m||!m.u||m.u===ME||!S.players[m.u]||!Array.isArray(m.p)||!Array.isArray(m.d))return;flyBoltAdd(new THREE.Vector3(...m.p),new THREE.Vector3(...m.d),+m.v||1.4,pcolor(m.u)||'#ff5a5a',false)}).on('broadcast',{event:'bye'},({payload:m})=>{const p=m&&FLY.peers.get(m.u);if(p){MP.scene.remove(p.g);v3Clear(p.g);FLY.peers.delete(m.u)}}).subscribe(st=>{FLY.netOk=st==='SUBSCRIBED'});FLY.net=ch}catch(e){FLY.net=null}}
+  ch.on('broadcast',{event:'p'},({payload:m})=>flyRecv(m)).on('broadcast',{event:'w'},({payload:m})=>{if(m&&m.u&&m.u!==ME&&S.players[m.u]){toast(`👋 ${pname(m.u)} te salue !`);const p=FLY.peers.get(m.u);if(p)p.wave=Date.now()}}).on('broadcast',{event:'f'},({payload:m})=>{if(!FLY.on||!m||!m.u||m.u===ME||!S.players[m.u]||!Array.isArray(m.p)||!Array.isArray(m.d))return;flyBoltAdd(new THREE.Vector3(...m.p),new THREE.Vector3(...m.d),+m.v||1.4,pcolor(m.u)||'#ff5a5a',false,m.u)}).on('broadcast',{event:'x'},({payload:m})=>flyPeerBoom(m)).on('broadcast',{event:'bye'},({payload:m})=>{const p=m&&FLY.peers.get(m.u);if(p){MP.scene.remove(p.g);v3Clear(p.g);FLY.peers.delete(m.u)}}).subscribe(st=>{FLY.netOk=st==='SUBSCRIBED'});FLY.net=ch}catch(e){FLY.net=null}}
 function flyNetStop(){const ch=FLY.net;FLY.net=null;FLY.netOk=false;if(!ch)return;try{ch.send({type:'broadcast',event:'bye',payload:{u:ME}})}catch(e){}setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},400)}
 const r4=x=>Math.round(x*1e5)/1e5;
 function flyNet(now){if(!FLY.net||!FLY.netOk)return;const others=[...FLY.peers.values()].some(p=>now-p.at<8000),gap=others?200:2000;if(now-FLY.sent<gap)return;
-  const P=[r4(FLY.pos.x),r4(FLY.pos.y),r4(FLY.pos.z)],Q=[r4(FLY.q.x),r4(FLY.q.y),r4(FLY.q.z),r4(FLY.q.w)],sig=P.join()+Q.join()+r4(FLY.v);if(sig===FLY.sig&&now-FLY.sent<1500)return;FLY.sig=sig;FLY.sent=now;
-  try{FLY.net.send({type:'broadcast',event:'p',payload:{u:ME,k:FLY.key,p:P,q:Q,v:r4(FLY.v),b:FLY.boosting?1:0}})}catch(e){}}
+  const P=[r4(FLY.pos.x),r4(FLY.pos.y),r4(FLY.pos.z)],Q=[r4(FLY.q.x),r4(FLY.q.y),r4(FLY.q.z),r4(FLY.q.w)],sig=P.join()+Q.join()+r4(FLY.v)+'|'+Math.round(FLY.hp);if(sig===FLY.sig&&now-FLY.sent<1500)return;FLY.sig=sig;FLY.sent=now;
+  try{FLY.net.send({type:'broadcast',event:'p',payload:{u:ME,k:FLY.key,p:P,q:Q,v:r4(FLY.v),b:FLY.boosting?1:0,h:Math.round(FLY.hp)}})}catch(e){}}
 function flyWaveSend(){toast('👋 Salut envoyé aux pilotes de la galaxie');try{FLY.net&&FLY.net.send({type:'broadcast',event:'w',payload:{u:ME}})}catch(e){}}
 function flyRecv(m){if(!FLY.on||!m||!m.u||m.u===ME||!S.players[m.u]||!Array.isArray(m.p)||!Array.isArray(m.q))return;let p=FLY.peers.get(m.u);
   if(!p||p.key!==(m.k||null)){if(p){MP.scene.remove(p.g);v3Clear(p.g)}const g=flyModel(m.u,m.k||null);g.position.set(...m.p);g.quaternion.set(...m.q);MP.scene.add(g);p={g,key:m.k||null,P:new THREE.Vector3(...m.p),Q:new THREE.Quaternion(...m.q)};FLY.peers.set(m.u,p)}
-  p.P.set(...m.p);p.Q.set(...m.q);p.v=+m.v||0;p.b=!!m.b;p.at=Date.now()}
+  p.P.set(...m.p);p.Q.set(...m.q);p.v=+m.v||0;p.b=!!m.b;p.h=m.h==null?FLY_HP:+m.h;p.at=Date.now()}
 function flyPeers(dt,now){for(const[u,p]of FLY.peers){if(now-p.at>7000){MP.scene.remove(p.g);v3Clear(p.g);FLY.peers.delete(u);continue}
-  const f=new THREE.Vector3(0,0,1).applyQuaternion(p.Q),tgt=p.P.clone().addScaledVector(f,p.v*Math.min(1.5,(now-p.at)/1000));p.g.position.lerp(tgt,1-Math.exp(-dt*7));p.g.quaternion.slerp(p.Q,1-Math.exp(-dt*7));flyEx(p.g,p.v,p.b);if(p.g.userData.ver!==SHIPLIB.ver)flySwapModel(p.g)}}
+  const f=new THREE.Vector3(0,0,1).applyQuaternion(p.Q),tgt=p.P.clone().addScaledVector(f,p.v*Math.min(1.5,(now-p.at)/1000));p.g.position.lerp(tgt,1-Math.exp(-dt*7));p.g.quaternion.slerp(p.Q,1-Math.exp(-dt*7));flyEx(p.g,p.v,p.b);p.g.visible=!(p.deadT&&now<p.deadT);if(p.g.userData.ver!==SHIPLIB.ver)flySwapModel(p.g)}}
 // ---------- sons du mode navigation : moteur (grondement + souffle), boost, surchauffe, et sa propre musique spatiale ----------
 const FLYA={};
 function flyAudio(on){const c=audio();if(!c)return;

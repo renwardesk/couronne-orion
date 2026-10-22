@@ -83,6 +83,7 @@ Vérifier la syntaxe avant de pousser : extraire le `<script>` inline principal 
 - **Ralliements** : un soutien qui arriverait après le départ est refusé. L'interface affiche « ⚠ Trop loin » et nomme les vaisseaux trop lents.
 - **Satellites et planètes : un seul propriétaire.** Le premier vaisseau colon arrivé s'installe. Une mission « installer » qui trouve la cible déjà prise par un joueur l'attaque, et l'annexe si elle gagne. Règle confirmée par l'utilisateur (option A) : pas de demi-tour automatique.
 - **Jauges de quantité** (`qrHtml`, `qrVal`, attribut `data-qr`) : Chantier (1 → max constructible), fenêtre d'envoi (0 → stock), Empire en **% du maximum de chaque planète** (`S.empP`, `empN`) avec bouton Max. File du chantier : 5 lots (`SQ_MAX`).
+- **Points de vie en navigation** (`FLY_HP` 100, `flyDamage`, `flyExplode`, `flyRespawn`, `flyLifeTick`, `flyPeerBoom`) : −8 PV par tir reçu d'un autre pilote, régénération 4 PV/s après 6 s sans être touché. À 0 : explosion, « Vaisseau détruit · Abattu par X », retour à la capitale au bout de 2,2 s avec 3 s de bouclier. Les autres pilotes voient l'explosion (événement `x` du canal) et les PV sur les étiquettes. Rien n'est écrit en base. Test : `flyhp.js` (WebGL logiciel).
 - **Sélecteur de planète** : préfixe « ⚔ » sur les planètes attaquées. La pastille « attaque » a été retirée (débordait sur mobile).
 
 ## Pièges connus

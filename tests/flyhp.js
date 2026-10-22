@@ -1,0 +1,17 @@
+const {chromium}=require('playwright');const fs=require('fs');const OUT=process.argv[2];
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
+ const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+ await pg.route('**/*',r=>{const u=r.request().url();if(u.includes('three.min.js'))return r.fulfill({body:fs.readFileSync(process.env.THREE_JS),contentType:'text/javascript'});if(u.startsWith('http://localhost'))return r.continue();return r.abort()});
+ await pg.goto('http://localhost:8777/index.html');await pg.waitForTimeout(1500);
+ await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
+ const r1=await pg.evaluate(async()=>{window.__fr=0;(function f(){window.__fr++;requestAnimationFrame(f)})();S.got={f:1,e:1,p:1,pl:1};T.sync();document.querySelectorAll('.scrim').forEach(e=>e.remove());S.tab='galaxy';render();await sleep(800);flyStart();await sleep(3500);
+   const o={on:FLY.on,hp:FLY.hp};FLY.safe=0;for(let i=0;i<7;i++)flyDamage('u2');o.after7=FLY.hp;const f0=window.__fr;await sleep(1000);o.fps=window.__fr-f0;await sleep(400);return o});
+ console.log(JSON.stringify(r1));await pg.screenshot({path:OUT+'/fly-hp.png'});
+ const r2=await pg.evaluate(async()=>{FLY.pos.x+=0.3;for(let i=0;i<10;i++)flyDamage('u2');const o={dead:!!FLY.dead,shipVisible:FLY.ship.visible,overlay:!document.getElementById('fldead').hidden,txt:document.getElementById('fldeadt').textContent};
+   FLY.gas=true;await sleep(600);o.moving=FLY.v;return o});
+ console.log(JSON.stringify(r2));await pg.screenshot({path:OUT+'/fly-boom.png'});
+ const r3=await pg.evaluate(async()=>{await sleep(2600);return{dead:!!FLY.dead,hp:FLY.hp,atSpawn:FLY.pos.distanceTo(FLY.spawn.pos)<.05,overlay:!document.getElementById('fldead').hidden,shield:performance.now()<FLY.safe,safeLeft:Math.round(FLY.safe-performance.now()),fps:0,toasts:T.toasts.slice(-2)}});
+ console.log(JSON.stringify(r3));
+ const r4=await pg.evaluate(async()=>{FLY.safe=performance.now()+5000;const h=FLY.hp;flyDamage('u2');const o={shieldBlocks:FLY.hp===h};FLY.safe=0;FLY.hp=50;FLY.lastHit=performance.now()-7000;await sleep(1500);o.regen=Math.round(FLY.hp);
+   flyPeerBoom({u:'u2',by:ME,p:[FLY.pos.x+.05,FLY.pos.y,FLY.pos.z]});o.killToast=T.toasts.slice(-1)[0];flyStop();o.off=!FLY.on;return o});
+ console.log(JSON.stringify(r4));console.log(errs.length?'ERREURS '+errs.join(' | '):'aucune erreur JS');await b.close()})();

@@ -689,7 +689,7 @@ async function botInit(){const A=humanAvg();if(!humanIds().length)return;
 const ORION_MSG=['Au centre de la galaxie, le Cœur d’Orion n’abrite plus seulement l’Empereur Vorgath. Trois seigneurs de guerre lui ont juré allégeance et se sont partagé ses mondes : Kael Voryn tient le Bastion, Ysmera la Pâle la Forge, Draxen Ashkar l’Arsenal. Le Dévoreur garde pour lui le Trône et la Citadelle.',
   'Leurs flottes valent déjà celles de nos empires, et elles grandissent chaque jour. Leurs colons s’installent dans Céphéide, le Voile de Lyra et le Tourbillon d’Ixar.',
   'Pour l’instant, ils nous ignorent. Mais leurs sondes rôdent déjà au-dessus de nos planètes… et dans une semaine, ils viendront prendre ce qu’ils convoitent.',
-  'Frappez les premiers. Chaque planète du Cœur reprise donne +2 % de production à tous les joueurs, et +3 % sur toutes ses planètes à celui qui la tient. Celui qui réunit les cinq devient Seigneur d’Orion : +15 % de production en plus, +8 % d’attaque et de PV pour toute sa flotte.',
+  'Frappez les premiers. Chaque planète du Cœur reprise donne +2 % de production à tous les joueurs, et +5 % sur toutes ses planètes à celui qui la tient. Celui qui réunit les cinq devient Seigneur d’Orion : +15 % de production en plus, +8 % d’attaque et de PV pour toute sa flotte.',
   'Le Cœur d’Orion est au centre de la galaxie Orion. Espionnez-le d’abord : il faut au moins 14 sondes pour percer ses défenses.'];
 // une construction et une production à la fois au rythme du joueur moyen
 function botBuild(p,uid,now,wantColony,wLeft=1e9){if(isBody(p.pid))return false;let ch=false;p.bq=p.bq||[];p.shipQ=p.shipQ||[];const A=humanAvg().lv;
@@ -736,7 +736,7 @@ async function botTick(){const now=Date.now();if(now-BOT_T<30000||!S.players[ME]
     await locked('players/'+b.uid,async(x,ref)=>{if(!x||!x.bot||(x.bot.next||0)>Date.now())return;st={...x.bot};x.bot={...x.bot,next:Date.now()+BOT_TURN*rnd(.8,1.2)};await ref.set(x)}).catch(()=>{});
     if(st)await botTurn(b,st).catch(e=>console.warn('bot',b.uid,e))}}
 // contrôle du Cœur d'Orion : bonus pour tous, pour chaque détenteur, et pour le Seigneur d'Orion (les 5 planètes)
-const CORE_P=['o0-0','o0-1','o0-2','o0-3','o0-4'],CORE_ALL=.02,CORE_OWN=.03,CORE_LORD=1.15,CORE_LORD_ATK=1.08;let CST={t:0};
+const CORE_P=['o0-0','o0-1','o0-2','o0-3','o0-4'],CORE_ALL=.02,CORE_OWN=.05,CORE_LORD=1.15,CORE_LORD_ATK=1.08;let CST={t:0};
 function coreStats(){const n=Date.now();if(n-CST.t<15000)return CST;const by={};let hum=0;for(const pid of CORE_P){const o=(S.planets[pid]||{}).owner;if(!o||isNpc(o))continue;by[o]=(by[o]||0)+1;if(!isBot(o))hum++}
   const lord=Object.keys(by).find(u=>by[u]===5&&!isBot(u))||null;CST={t:n,by,hum,lord};return CST}
 const coreProdMul=uid=>{if(!uid||isNpc(uid))return 1;const c=coreStats(),k=c.by[uid]||0;return isBot(uid)?1+.02*k:(1+CORE_ALL*c.hum)*(1+CORE_OWN*k)*(c.lord===uid?CORE_LORD:1)};
@@ -748,7 +748,7 @@ function lordsAlertHtml(){const e=S.events['orion-lords'];if(!e||!e.created)retu
 function coreHtml(){const c=coreStats(),me=c.by[ME]||0,who=pid=>{const o=(S.planets[pid]||{}).owner;return o&&!isNpc(o)?`<b style="color:${esc(pcolor(o))}">${esc(pname(o))}</b>`:'<b style="color:#ff7a59">l’Empereur Vorgath</b>'};
   return`<section style="display:grid;gap:10px"><h2>👑 Cœur d’Orion</h2><div class="card" style="display:grid;gap:6px;border-color:#ffcf6b66">
     ${CORE_P.map(pid=>`<div class="foot" style="gap:6px"><span class="eff">${esc(PLANETS[pid].name)}</span><span class="eff">${who(pid)}</span></div>`).join('')}
-    <span class="eff">Planètes du Cœur tenues par les joueurs : <b>${c.hum}/5</b> → <b style="color:var(--good)">+${c.hum*2} %</b> de production pour tous.${me?` Toi : ${me}/5 → <b style="color:var(--good)">+${me*3} %</b> sur toutes tes planètes.`:''}</span>
+    <span class="eff">Planètes du Cœur tenues par les joueurs : <b>${c.hum}/5</b> → <b style="color:var(--good)">+${c.hum*2} %</b> de production pour tous.${me?` Toi : ${me}/5 → <b style="color:var(--good)">+${me*5} %</b> sur toutes tes planètes.`:''}</span>
     <span class="eff">${c.lord?`👑 Seigneur d’Orion : ${who('o0-0')}`:'Celui qui réunit les 5 devient <b>Seigneur d’Orion</b> : +15 % de production, +8 % d’attaque et de PV.'}</span></div></section>`}
 function view(pid){if(PLANETS[pid]&&PLANETS[pid].comet)return{pid,owner:null,garrison:{},comet:true};if(PLANETS[pid]&&PLANETS[pid].sig)return{pid,owner:null,garrison:{},sig:true};if(PLANETS[pid]&&PLANETS[pid].raid){const st=raidState(pid);return{pid,owner:null,raid:true,garrison:st.garrison,done:st.done}}const d=S.planets[pid];if(d&&d.owner)return settle(d,Date.now());return{pid,owner:null,garrison:d&&d.garrison?d.garrison:seedGarrison(pid)}}
 function rareRates(uid){const r={ir:0,xe:0,am:0};const now=Date.now();for(const p of Object.values(S.planets))if(p.owner===uid&&isBody(p.pid)){const x=rareRate(settle(p,now));for(const k in r)r[k]+=x[k]}return r}

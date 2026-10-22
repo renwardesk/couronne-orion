@@ -39,10 +39,10 @@ const t1=await T.send({from:P1,to:col.pid,mission:'colonize',ships:{fighter:3000
 await T.runToEnd(60);T.L('   rapports',S.reports.filter(r=>(r.to||[]).includes(me)).slice(0,4).map(r=>r.title+' :: '+(r.lines||[]).join(' / ').slice(0,200)).join(' || '));T.ok(S.planets[col.pid]&&S.planets[col.pid].owner===me,'colonie d’un seigneur annexée par un joueur');
 // bonus du Cœur
 const r0=rates(S.planets[P1]).m;S.planets['o0-0']={...S.planets['o0-0'],owner:me};T.sync();CST.t=0;const r1=rates(S.planets[P1]).m;
-T.ok(Math.abs(r1/r0-1.02*1.03)<.002,'1 planète du Cœur : +2 % pour tous et +3 % pour son détenteur (×'+(r1/r0).toFixed(4)+')');
+T.ok(Math.abs(r1/r0-1.02*1.05)<.002,'1 planète du Cœur : +2 % pour tous et +5 % pour son détenteur (×'+(r1/r0).toFixed(4)+')');
 const other=Object.values(S.planets).find(p=>p.owner==='u2'&&!isBody(p.pid));if(other){const o0=rates(other).m;T.L('   ');}
 for(const pid of CORE_P)S.planets[pid]={...(S.planets[pid]||colonyPlanet(pid,me)),owner:me};T.sync();CST.t=0;const r5=rates(S.planets[P1]).m;
-T.ok(coreStats().lord===me,'les 5 planètes : Seigneur d’Orion');T.ok(Math.abs(r5/r0-1.10*1.15*1.15)<.003,'production ×'+(r5/r0).toFixed(3)+' (+10 % tous, +15 % détenteur, +15 % Seigneur)');
+T.ok(coreStats().lord===me,'les 5 planètes : Seigneur d’Orion');T.ok(Math.abs(r5/r0-1.10*1.25*1.15)<.003,'production ×'+(r5/r0).toFixed(3)+' (+10 % tous, +25 % détenteur, +15 % Seigneur)');
 T.ok(Math.abs(modsOf(me).fighter.att/modsOf('u2').fighter.att-1.08)<.01,'+8 % d’attaque pour le Seigneur d’Orion');
 S.tab='players';render();T.L('   onglet',document.querySelector('main')?document.querySelector('main').innerText.slice(0,200).replace(/\n/g,' / '):'?');T.ok(/Cœur d’Orion/.test(document.body.textContent)&&/Seigneur d’Orion/.test(document.body.textContent),'encart du Cœur dans l’onglet Joueurs');
 for(const pid of CORE_P)delete S.planets[pid];T.sync();CST.t=0;

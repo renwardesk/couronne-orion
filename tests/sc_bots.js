@@ -24,7 +24,7 @@ for(let h=0;h<220;h+=2){T.adv(2*HR);await T.tick(2);if(h%6===0){for(const f of O
   for(const b of BOTS)maxP=Math.max(maxP,planetsOf(b.uid))}
 {const w1=S.reports.filter(r=>/attaqueront dans 24 h/.test(r.title||'')),w2=S.reports.filter(r=>/La trêve est rompue/.test(r.title||''));T.ok(w1.length===1&&w1[0].push&&w2.length===1&&w2[0].push,'notifs téléphone : veille de la fin de trêve, puis début des attaques (une fois chacune)')}
 spied=S.reports.filter(r=>/Les sondes de .* au-dessus/.test(r.title||'')).length;
-T.ok(BOTS.every(b=>playerPower(b.uid)<=humanAvg().pw*1.35+300),'leur flotte reste au niveau d’un joueur moyen (+20 %) : '+BOTS.map(b=>Math.round(playerPower(b.uid))).join(', ')+' / moyenne '+Math.round(humanAvg().pw));
+T.ok(BOTS.every(b=>playerPower(b.uid)<=humanAvg().pw*1.75+300),'leur flotte reste plafonnée (1,6 × joueur moyen) : '+BOTS.map(b=>Math.round(playerPower(b.uid))).join(', ')+' / moyenne '+Math.round(humanAvg().pw));
 for(const b of BOTS){T.L('   '+b.name,'→',planetsOf(b.uid),'planètes · puissance',Math.round(playerPower(b.uid)),'· siège',JSON.stringify(S.planets[b.seat]||null).slice(0,160))}
 T.ok(BOTS.every(b=>S.planets[b.seat]&&S.planets[b.seat].owner===b.uid),'ils gardent leur planète du Cœur (pas de raid PNJ contre eux)');
 T.ok(BOTS.every(b=>botPlanets(b.uid).filter(p=>!PLANETS[p.pid].core).every(p=>galOf(p.pid)===0&&sysSector(PLANETS[p.pid].sys)===b.sec&&!SYSTEMS[PLANETS[p.pid].sys].planets.some(q=>S.planets[q]&&S.planets[q].owner&&!isBot(S.planets[q].owner)&&!isNpc(S.planets[q].owner)))),'après 9 jours : toujours dans leur tiers d’Orion, jamais dans un système de joueur');

@@ -620,7 +620,8 @@ function settle(p,t){const q=clone(p);if(!q.owner)return q;
   q.armQ=runQ(q.armQ,t,(k,n)=>{q.mods[k]=(q.mods[k]||0)+n});
   return q}
 const homePlanet=(pid,owner)=>({kind:'planet',pid,owner,capital:true,res:{m:900,c:550,f:220},at:Date.now(),lv:{mine:1,crys:1,fuel:1,store:0,yard:1,bay:1,def:1,acad:0,arsenal:0},build:null,ships:{...zeroShips(),fighter:6,probe:2},shipQ:[]});
-const colonyPlanet=(pid,owner)=>isBody(pid)?outpostDoc(pid,owner):({kind:'planet',pid,owner,capital:false,res:{m:300,c:200,f:80},at:Date.now(),lv:{mine:0,crys:0,fuel:0,store:0,yard:0,def:0,acad:0,arsenal:0},build:null,ships:zeroShips(),shipQ:[]});
+const colonyPlanet=(pid,owner,old=S.planets[pid])=>{const n=isBody(pid)?outpostDoc(pid,owner):({kind:'planet',pid,owner,capital:false,res:{m:300,c:200,f:80},at:Date.now(),lv:{mine:0,crys:0,fuel:0,store:0,yard:0,def:0,acad:0,arsenal:0},build:null,ships:zeroShips(),shipQ:[]});if(old&&!old.owner&&old.lv)n.lv={...n.lv,...old.lv};return n}; // les bâtiments d'une planète perdue sont conservés pour celui qui la reprend
+const keepLv=d=>d&&d.lv?{lv:{...d.lv}}:{};
 const outpostDoc=(pid,owner)=>({kind:'planet',pid,owner,outpost:true,capital:false,res:{m:0,c:0,f:0},at:Date.now(),lv:{drill:1,dock:0,def:0},build:null,ships:zeroShips(),shipQ:[]});
 
 // ---------- armes et technologies ----------
@@ -1389,7 +1390,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
     if(won&&p&&mine&&!p.capital){const i=A.findIndex(x=>(x.ships.colony||0)>0);if(i>=0){const o=A[i].owner,lim=body?outpostsOf(o)<MAXO:planetsOf(o)<MAXP;if(lim&&(body||await payCulture(o))){annex=i;if(body){await settleRare(e.owner);await settleRare(o)}
       const sh={...A[i].ships};sh.colony--;p.owner=o;p.build=null;p.bq=[];p.shipQ=[];p.armQ=[];p.ships={...zeroShips(),...sh};if(!body)addRes(p.res,loots[i]);p.capital=false}}}
     const npcTook=won&&p&&mine&&!p.capital&&annex<0&&A.every(x=>isNpc(x.owner))&&A.some(x=>(S.fleets[x.fid]||{}).conquer);
-    if(npcTook)await ref.set({kind:'planet',pid:e.pid,owner:null,garrison:sumShips(A.map(x=>x.ships)),pill:true});else if(p)await ref.set(p);
+    if(npcTook)await ref.set({kind:'planet',pid:e.pid,owner:null,garrison:sumShips(A.map(x=>x.ships)),pill:true,...keepLv(p)});else if(p)await ref.set(p);
     for(let i=0;i<A.length;i++){const x=A[i];await locked('fleets/'+x.fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle')return;if(i===annex||isNpc(x.owner)){await fref.delete();return}await holdAt({...fl,arrive:now},fref,x.ships,loots[i])}).catch(()=>{})}
     for(const x of e.dal)await locked('fleets/'+x.fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle')return;await holdAt({...fl,arrive:now},fref,x.ships,fl.cargo||{m:0,c:0,f:0})}).catch(()=>{});
     const WA=A.reduce((t,x)=>t+x.w,0)||1,WD=(e.hw||0)+e.dal.reduce((t,x)=>t+x.w,0)||1;
@@ -1400,7 +1401,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
     const lines=[...(cmdL.length?[`🎖 Commandants engagés : ${cmdL.join(', ')}.`]:[]),`Durée : ${dur} · ${e.rounds} échanges${e.dal.length?` · ${e.dal.length} renfort${e.dal.length>1?'s':''} en défense`:''}${A.length>1?` · ${A.length} flottes à l’attaque`:''}.`,
       `Attaque : ${unitLine(e.iA)} — pertes : ${lossLine(e.iA,fa)}.`,`Défense : ${unitLine(e.iD)} — pertes : ${lossLine(e.iD,fd)}.`,
       `Points de combat : ${Math.round(e.kA)} pour l’attaque, ${Math.round(e.kD)} pour la défense.`,
-      ...(won&&!body?[`Butin : ${lootTxt(sumLoot(loots))}.`]:[]),...(annex>=0?[`${tn} passe sous le contrôle de ${pname(A[annex].owner)}.`]:[]),...(won&&mine&&!p.capital&&annex<0&&A.some(x=>(x.ships.colony||0)>0&&!isNpc(x.owner))?[body?`Le vaisseau colon ne peut pas s’installer : limite de ${MAXO} avant-postes atteinte.`:'Le vaisseau colon ne peut pas s’installer : aucun emplacement de planète libre (à débloquer avec la culture).']:[]),...(npcTook?[`${tn} est tombée aux mains des Pillards du Néant : reprends-la avec un vaisseau colon.`]:[]),
+      ...(won&&!body?[`Butin : ${lootTxt(sumLoot(loots))}.`]:[]),...(annex>=0?[`${tn} passe sous le contrôle de ${pname(A[annex].owner)}.`]:[]),...(won&&mine&&!p.capital&&annex<0&&A.some(x=>(x.ships.colony||0)>0&&!isNpc(x.owner))?[body?`Le vaisseau colon ne peut pas s’installer : limite de ${MAXO} avant-postes atteinte.`:'Le vaisseau colon ne peut pas s’installer : aucun emplacement de planète libre (à débloquer avec la culture).']:[]),...(npcTook?[`${tn} est tombée aux mains des Pillards du Néant : reprends-la avec un vaisseau colon, ses bâtiments sont conservés.`]:[]),
       ...(!won&&!isEmpty(fa)?['Le temps est écoulé : les attaquants restent en position autour de la planète.']:[])];
     e.done=true;e.doneAt=now;e.won=won;await eref.set(e);
     if(won&&mine){const al=theftAlert(e.owner,annex>=0?[A[annex].owner]:atkU,tn,e.pid,{annexed:annex>=0,npcTook,lost:!body?sumLoot(loots):null});if(al)reps.push(al)}
@@ -1732,7 +1733,7 @@ async function pbTick(){const now=Date.now();if(now-PB_T<60000||!S.players[ME])r
     let grown=gar;await locked('planets/'+B.pid,async(d,ref)=>{if(!d||d.owner||d.pbase!==B.id)return;const w=worth(d.garrison||{}),cap=(B.w0||w)*4;grown=w<cap?scaleShips(d.garrison,PB_GROW):d.garrison;await ref.set({...d,garrison:grown})}).catch(()=>{});
     // elle prend une planète voisine
     if((go.taken||[]).length<PB_TAKE){const C=[base.sys,...sysNbrs(base.sys)].flatMap(si=>SYSTEMS[si].planets).filter(pbFree).sort((a,b)=>dist(B.pid,a)-dist(B.pid,b));const t=C[0];
-      if(t){const g2=scaleShips(grown,.4);await locked('planets/'+t,async(d,ref)=>{if(d&&(d.owner||d.pbase))return;await ref.set({kind:'planet',pid:t,owner:null,garrison:g2,pill:true,pbase:B.id})}).catch(()=>{});
+      if(t){const g2=scaleShips(grown,.4);await locked('planets/'+t,async(d,ref)=>{if(d&&(d.owner||d.pbase))return;await ref.set({kind:'planet',pid:t,owner:null,garrison:g2,pill:true,pbase:B.id,...keepLv(d)})}).catch(()=>{});
         await locked('events/'+B.id,async(e,eref)=>{if(!e)return;await eref.set({...e,taken:[...new Set([...(e.taken||[]),t])]})}).catch(()=>{});
         const nb=nearPlayers(t,200);await report({push:true,ptitle:'☠ Pillards du Néant',pid:t,to:allPlayers(),tone:'loss',title:`☠ Les ${NPC_NAME} s’emparent de ${plName(t)}`,lines:[`Depuis leur base de ${plName(B.pid)}, ils étendent leur emprise (${(go.taken||[]).length+1}/${PB_TAKE} planètes prises).`,`Garnison laissée sur place : ${unitLine(g2)}.`,...(nb.length?[`Empires menacés : ${nb.map(pname).join(', ')}.`]:[]),'Détruisez leur base pour arrêter l’expansion : elle grossit à chaque fois.']})}}
     // et lance un raid contre la colonie la plus proche
@@ -1747,7 +1748,7 @@ async function pbTick(){const now=Date.now();if(now-PB_T<60000||!S.players[ME])r
   const C=SYS_BY_GAL[g].filter(s=>!s.deep&&!s.core&&!sysHasPlayer(s.i)&&!pbList().some(b=>PLANETS[b.pid].sys===s.i)).map(s=>{const dm=Math.min(...mine.map(q=>Math.hypot(SYSTEMS[PLANETS[q.pid].sys].x-s.x,SYSTEMS[PLANETS[q.pid].sys].y-s.y)));return{s,dm}}).filter(x=>x.dm>=55&&x.dm<=170).sort((a,b)=>hash('pbs'+n+a.s.i)-hash('pbs'+n+b.s.i));
   const pick=C.map(x=>x.s.planets.find(pbFree)).find(Boolean);if(!pick)return;
   let top=0;for(const u of humanIds())top=Math.max(top,playerPower(u));const W=Math.max(400,top*.6),gar=pbArmy(W,rng(hash('pbg'+n))),id='pb-'+n;
-  await locked('planets/'+pick,async(d,ref)=>{if(d&&(d.owner||d.pbase))return;await ref.set({kind:'planet',pid:pick,owner:null,garrison:gar,pill:true,pbase:id})});
+  await locked('planets/'+pick,async(d,ref)=>{if(d&&(d.owner||d.pbase))return;await ref.set({kind:'planet',pid:pick,owner:null,garrison:gar,pill:true,pbase:id,...keepLv(d)})});
   await db.doc('events/'+id).set({kind:'event',id,pid:pick,born:now,next:now+PB_NEXT(),taken:[],w0:worth(gar)});
   await report({feat:false,push:true,ptitle:'☠ Pillards du Néant',pid:pick,to:allPlayers(),tone:'loss',title:`☠ Les ${NPC_NAME} installent une base sur ${plName(pick)}`,lines:[`Système ${SYSTEMS[PLANETS[pick].sys].name}. Garnison : ${unitLine(gar)}.`,`Toutes les 10 à 14 h, la base grossit, prend une planète voisine (jusqu’à ${PB_TAKE}) et peut lancer un raid contre la colonie la plus proche.`,'Détruisez-la vite, à plusieurs si besoin : butin, coffre d’or et insignes pour les vainqueurs.']})}
 async function pbKilled(id,uids,pid){let ok=false;await locked('events/'+id,async(e,eref)=>{if(!e||e.done)return;await eref.set({...e,done:true,doneAt:Date.now(),by:uids});ok=true}).catch(()=>{});if(!ok)return;
@@ -2026,7 +2027,7 @@ const treasureOf=units=>{const w=worth(units)*LOOT_K;return{m:Math.round(w*55),c
 const lootTxt=l=>`${fmt(l.m)} métal, ${fmt(l.c)} cristal, ${fmt(l.f)} hélium-3`;
 // alerte téléphone pour la victime d'un vol : planète annexée, prise par les pillards ou ressources pillées
 const theftAlert=(victim,byUids,tn,pid,{annexed,npcTook,lost})=>{if(!victim||isNpc(victim))return null;const by=[...new Set(byUids)].map(pname).join(', '),l=lost&&(lost.m+lost.c+lost.f)>=1?lost:null;if(!annexed&&!npcTook&&!l)return null;
-  return{to:[victim],tone:'loss',loser:victim,push:true,pid,ptitle:annexed||npcTook?'🚨 Planète perdue':'🚨 Pillage',title:annexed?`${by} t’a pris ${tn}`:npcTook?`Les Pillards du Néant t’ont pris ${tn}`:`${by} a pillé ${tn}`,lines:[annexed?`${tn} passe sous le contrôle de ${by}.`:npcTook?'Reprends-la en l’attaquant avec un vaisseau colon.':'',l?`Ressources volées : ${lootTxt(l)}.`:''].filter(Boolean)}};
+  return{to:[victim],tone:'loss',loser:victim,push:true,pid,ptitle:annexed||npcTook?'🚨 Planète perdue':'🚨 Pillage',title:annexed?`${by} t’a pris ${tn}`:npcTook?`Les Pillards du Néant t’ont pris ${tn}`:`${by} a pillé ${tn}`,lines:[annexed?`${tn} passe sous le contrôle de ${by}.`:npcTook?'Reprends-la en l’attaquant avec un vaisseau colon : ses bâtiments sont conservés.':'',l?`Ressources volées : ${lootTxt(l)}.`:''].filter(Boolean)}};
 const cultureRate=uid=>0; // la culture ne se gagne qu'au combat (1 point de combat = 1 culture)
 // 1 planète au départ, la 2e presque tout de suite, puis de plus en plus de culture
 // emplacements de planètes : 2 au départ, chaque palier suivant se débloque en dépensant de la culture
@@ -2148,7 +2149,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const lrH=!body&&lairInfoAt(SYSTEMS[meta.sys]);if(f.mission==='colonize'&&lrH&&lrH.pid===f.to){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Repaire des Écumeurs sur ${tn}`,lines:['Les Écumeurs ont installé leur repaire sur cette planète : ta flotte fait demi-tour sans combattre.','Sur la carte, touche la planète puis « ⚔ Attaquer le repaire ». Une fois le repaire détruit, tu pourras la coloniser.']});return}
     if(f.mission==='colonize'){
       if(!p&&isEmpty(gar)&&limitOk){if(!(await cultureOk())){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Pas d’emplacement libre pour ${tn}`,lines:[`Tes ${slotsOf(f.owner)} emplacements de planètes sont occupés. Débloque-en un autre avec ta culture (flèche à côté de la barre de culture, en haut).`]});return}
-        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner);const s={...f.ships};s.colony--;await ref.set(n);await holdAt(f,fref,s,f.cargo);reps.push({news:'conquest',push:true,ptitle:'🪐 Colonisation réussie',pid:f.to,to:[f.owner],tone:'win',title:body?`🪐 Satellite colonisé : ${tn}`:`🪐 Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
+        if(body)await settleRare(f.owner);const n=colonyPlanet(f.to,f.owner,d);const s={...f.ships};s.colony--;await ref.set(n);await holdAt(f,fref,s,f.cargo);reps.push({news:'conquest',push:true,ptitle:'🪐 Colonisation réussie',pid:f.to,to:[f.owner],tone:'win',title:body?`🪐 Satellite colonisé : ${tn}`:`🪐 Nouvelle colonie : ${tn}`,lines:[body?`Foreuse niveau 1 en service : extraction de ${RARE[PTYPES[meta.type].rare].toLowerCase()}.`:'Le vaisseau colon s’est posé. La colonie démarre au niveau 0.']});return}
       if(!limitOk||(p&&p.owner===f.owner)||(p&&p.capital)){await goBack(f,fref,f.ships,f.cargo);reps.push({to:[f.owner],tone:'info',title:`Installation impossible sur ${tn}`,lines:[p&&p.capital?'On ne peut pas annexer une capitale.':p?'La cible est déjà occupée.':limTxt]});return}
       // gardée par des pirates ou tenue par un ennemi : il faut gagner la bataille, le colon s'installe ensuite
     }
@@ -2165,8 +2166,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     const lines=fightLines(B);if(count(mineLost))lines.unshift(`Champ de mines : ${unitLine(mineLost)} détruits à l’approche.`);
     if(p){const victim=p.owner;{const sv=splitSurv([p.ships,...guards.map(g=>g.ships)],B.d);p.ships={...zeroShips(),...sv[0]};for(let i=0;i<guards.length;i++){const g=guards[i];if(isEmpty(sv[i+1])){await g.ref.delete();if(g.f.cmd)await killCmd(g.owner,g.f.cmd)}else await g.ref.set({...g.f,ships:sv[i+1]})}}
       if(guards.length){const own=guards.filter(g=>p&&g.owner===p.owner),al=guards.filter(g=>!p||g.owner!==p.owner);if(own.length)lines.push(`Flottes en orbite engagées en défense : ${unitLine(sumShips(own.map(g=>g.ships)))}.`);if(al.length)lines.push(`Renforts alliés en défense : ${[...new Set(al.map(g=>pname(g.owner)))].join(', ')}.`)}
-      if(won&&isNpc(f.owner)&&f.conquer&&!p.capital){const sv0=G.surv[0];await ref.set({kind:'planet',pid:f.to,owner:null,garrison:sv0,pill:true});for(const x of forces)await x.ref.delete();
-        reps.push({news:'conquest',newsBy:[victim],to:[victim],tone:'loss',loser:victim,push:true,ptitle:'🚨 Planète perdue',title:`${tn} est tombée aux mains des ${NPC_NAME}`,lines:[...lines,'La colonie est perdue : les pillards y ont installé une garnison. Reprends-la en l’attaquant avec un vaisseau colon.'],battle:rec(B,victim,{planet:true})});return}
+      if(won&&isNpc(f.owner)&&f.conquer&&!p.capital){const sv0=G.surv[0];await ref.set({kind:'planet',pid:f.to,owner:null,garrison:sv0,pill:true,...keepLv(p)});for(const x of forces)await x.ref.delete();
+        reps.push({news:'conquest',newsBy:[victim],to:[victim],tone:'loss',loser:victim,push:true,ptitle:'🚨 Planète perdue',title:`${tn} est tombée aux mains des ${NPC_NAME}`,lines:[...lines,'La colonie est perdue : les pillards y ont installé une garnison. Reprends-la en l’attaquant avec un vaisseau colon : ses bâtiments sont conservés.'],battle:rec(B,victim,{planet:true})});return}
       let loots=forces.map(()=>({m:0,c:0,f:0}));
       if(won&&!body){loots=splitLoot({m:p.res.m/2,c:p.res.c/2,f:p.res.f/2},G.surv,shares(forces));const t=sumLoot(loots);for(const k in RES)p.res[k]-=t[k]}
       await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})),tn);await award(dList.map((x,i)=>({uid:x.owner,cmd:x.cmd,v:killedAtk*dSh[i]})),`défense de ${tn}`);
@@ -2180,11 +2181,11 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
     // cible neutre (pirates)
     const frac=killedDef/(worth(B.id)||1),loots=splitLoot(Object.fromEntries(Object.entries(treasureOf(B.id)).map(([k,v])=>[k,v*frac])),G.surv,shares(forces));
     await award(forces.map((x,i)=>({cmd:x.f&&x.f.cmd,uid:x.owner,v:killedDef*sh[i]})),tn);lines.push(`Butin : ${lootTxt(sumLoot(loots))} · ${Math.round(killedDef)} points de combat.`);
-    if(won&&G.surv[0].colony>0&&limitOk&&await cultureOk()){if(body)await settleRare(f.owner);const A=G.surv[0];A.colony--;const n=colonyPlanet(f.to,f.owner);if(!body)addRes(n.res,loots[0]);await ref.set(n);await holdAt(f,fref,A,{m:0,c:0,f:0});
+    if(won&&G.surv[0].colony>0&&limitOk&&await cultureOk()){if(body)await settleRare(f.owner);const A=G.surv[0];A.colony--;const n=colonyPlanet(f.to,f.owner,d);if(!body)addRes(n.res,loots[0]);await ref.set(n);await holdAt(f,fref,A,{m:0,c:0,f:0});
       for(let i=1;i<forces.length;i++)await holdAt(forces[i].f,forces[i].ref,G.surv[i],loots[i]);
       if(d&&d.pbase&&S.events[d.pbase]&&S.events[d.pbase].pid===f.to)pbKilled(d.pbase,atkUids,f.to).catch(()=>{});
       reps.push({news:'conquest',to:atkUids,tone:'win',title:`${tn} libéré${body?'':'e'} et ${body?'équipé d’un avant-poste':'colonisée'}`,lines,battle:rec(B,'pirates',{planet:!body})});return}
-    const pbId=d&&d.pbase,pbBase=pbId&&S.events[pbId]&&S.events[pbId].pid===f.to;await ref.set({kind:'planet',pid:f.to,owner:null,lb:Date.now(),garrison:won?{}:B.d,...(pbId&&!won?{pbase:pbId,pill:true}:{})});await finish(G.surv,loots);if(won&&pbBase)pbKilled(pbId,atkUids,f.to).catch(()=>{});
+    const pbId=d&&d.pbase,pbBase=pbId&&S.events[pbId]&&S.events[pbId].pid===f.to;await ref.set({kind:'planet',pid:f.to,owner:null,lb:Date.now(),...keepLv(d),garrison:won?{}:B.d,...(pbId&&!won?{pbase:pbId,pill:true}:{})});await finish(G.surv,loots);if(won&&pbBase)pbKilled(pbId,atkUids,f.to).catch(()=>{});
     reps.push({intel:{pid:f.to,at:Date.now()+1000,owner:null,ships:won?{}:Object.fromEntries(Object.entries(B.d).filter(([k,v])=>v>0)),turrets:0,after:true},to:atkUids,tone:won?'win':!isEmpty(B.a)?'info':'loss',loser:won||!isEmpty(B.a)?null:f.owner,title:won?`Pirates chassés de ${tn}`:!isEmpty(B.a)?`Combat indécis contre les pirates de ${tn} : il en reste ${unitLine(B.d)}`:`Défaite face aux pirates de ${tn}`,lines:won?[...lines,'L’orbite est libre : un vaisseau colon peut s’y poser.']:lines,battle:rec(B,'pirates',{planet:!body})});
   });
   for(const r of reps)await report(r)}
@@ -4291,7 +4292,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='210';
+const APP_VERSION='211';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

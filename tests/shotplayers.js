@@ -1,0 +1,11 @@
+const {chromium}=require('playwright');const fs=require('fs');const OUT=process.argv[2];
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});const pg=await b.newPage({viewport:{width:375,height:812},deviceScaleFactor:2});
+ pg.on('pageerror',e=>console.log('PAGEERR',e.message));
+ await pg.route('**/*',r=>{const u=r.request().url();if(u.includes('three.min.js'))return r.fulfill({body:fs.readFileSync(process.env.THREE_JS),contentType:'text/javascript'});if(u.startsWith('http://localhost'))return r.continue();return r.abort()});
+ await pg.goto('http://localhost:8777/index.html');await pg.waitForTimeout(1200);
+ await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
+ const w=await pg.evaluate(async()=>{S.got={f:1,e:1,p:1,pl:1};T.sync();await T.tick(2);await sleep(100);S.tab='players';render();document.querySelectorAll('.scrim').forEach(e=>e.remove());await sleep(200);
+   const over=[...document.querySelectorAll('main *')].filter(e=>e.getBoundingClientRect().right>window.innerWidth+1).slice(0,8).map(e=>e.tagName+'.'+e.className+' '+Math.round(e.getBoundingClientRect().right));return{sw:document.documentElement.scrollWidth,iw:window.innerWidth,over}});
+ console.log(JSON.stringify(w));
+ const el=await pg.$('.pcard');await el.scrollIntoViewIfNeeded();const cards=await pg.$$('.pcard');for(let i=0;i<Math.min(3,cards.length);i++)await cards[i].screenshot({path:OUT+'/pc'+i+'.png'});
+ await b.close()})();

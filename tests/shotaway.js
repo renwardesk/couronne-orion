@@ -1,0 +1,12 @@
+const {chromium}=require('playwright');const fs=require('fs');const OUT=process.argv[2];
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
+ pg.on('pageerror',e=>console.log('PAGEERR',e.message));
+ await pg.route('**/*',r=>{const u=r.request().url();if(u.includes('three.min.js'))return r.fulfill({body:fs.readFileSync(process.env.THREE_JS),contentType:'text/javascript'});if(u.startsWith('http://localhost'))return r.continue();return r.abort()});
+ await pg.goto('http://localhost:8777/index.html');await pg.waitForTimeout(1200);
+ await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
+ const code=fs.readFileSync(__dirname+'/sc_away.js','utf8').split("document.querySelector('[data-act=\"awayx\"]')")[0];
+ await pg.evaluate(`(async()=>{S.got={f:1,e:1,p:1,pl:1};${code};document.querySelectorAll('.scrim').forEach(e=>e.remove())})()`);await pg.waitForTimeout(300);
+ await (await pg.$('.away')).screenshot({path:OUT+'/away.png'});
+ await pg.evaluate(()=>{S.tab='log';S.logTab='other';render();if(![...document.querySelectorAll('.rep')].some(x=>/×4/.test(x.textContent))){S.logTab='combat';render()}const d=[...document.querySelectorAll('.rep')].find(x=>/×4/.test(x.textContent));d.querySelector('details').open=true;d.scrollIntoView()});await pg.waitForTimeout(200);
+ await (await pg.evaluateHandle(()=>[...document.querySelectorAll('.rep')].find(x=>/×4/.test(x.textContent)))).screenshot({path:OUT+'/grouped.png'});
+ await b.close()})();

@@ -1,0 +1,21 @@
+const {chromium}=require('playwright');const fs=require('fs');const OUT=process.argv[2];
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
+ pg.on('pageerror',e=>console.log('PAGEERR',e.message));
+ await pg.route('**/*',r=>{const u=r.request().url();if(u.includes('three.min.js'))return r.fulfill({body:fs.readFileSync(process.env.THREE_JS),contentType:'text/javascript'});if(u.startsWith('http://localhost'))return r.continue();return r.abort()});
+ await pg.goto('http://localhost:8777/index.html');await pg.waitForTimeout(1200);
+ await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
+ await pg.evaluate(async()=>{S.got={f:1,e:1,p:1,pl:1};T.sync();await T.tick(2);await sleep(50);document.querySelectorAll('.scrim').forEach(e=>e.remove());const t=document.getElementById('tut');if(t)t.innerHTML='';
+  const now=Date.now();for(const [l,v,nick,mem,g] of [['orion-1',45,'Tempête de Teyrix',{k:'pw',pl:'Bastion d’Orion'},0],['orion-2',-48,'Langue de vipère',{k:'pl',pl:'Ansolris I'},3],['orion-3',5,null,null,0]]){const x=S.players[l];x.bot={...x.bot,rel:{u1:{v,nick,mem:mem?[{...mem,at:now-3600e3}]:[]}},grudge:g?{u1:{n:g,at:now}}:{}}}
+  S.chat=[];const add=(id,m,dt)=>S.chat.push({id,kind:'chat',ch:'u',at:now-dt,...m});
+  add('a',{uid:'vorgath',name:'L’Empereur Vorgath',text:'📜 Chapitre I — Le premier sang. « '+SAGA[1].emp+' »'},300e3);
+  add('b',{uid:'orion-3',name:'Draxen Ashkar',text:'Quelqu’un a osé ?! Enfin un vrai combat !'},240e3);
+  add('c',{uid:'orion-2',name:'Ysmera la Pâle',text:'Oh, Kael Voryn… Tu saignes ? Comme c’est embarrassant.'},200e3);
+  add('d',{uid:'orion-1',name:'Kael Voryn',text:'Parle encore, Ysmera la Pâle, et occupe-toi de ton secteur.'},160e3);
+  add('e',{uid:'orion-3',name:'Draxen Ashkar',text:'Arrêtez de vous chamailler ! On est une équipe ! Une équipe qui casse tout !'},120e3);
+  add('f',{uid:'u1',text:'Ysmera ton armada ressemble à une collection de casseroles'},80e3);
+  add('g',{uid:'orion-2',name:'Ysmera la Pâle',text:'Tu as dit « collection » ? Les étoiles l’ont entendu.',re:'u1'},40e3);
+  add('h',{uid:'orion-2',name:'Ysmera la Pâle',text:'Je vais t’appeler « Langue de vipère », ren. Ça te va si bien.',re:'u1'},10e3);
+  S.events['orion-saga']={kind:'event',id:'orion-saga',ch:1,flags:{blood:now}};CHAT.ch='u';chatOpen(true)});await pg.waitForTimeout(400);await pg.screenshot({path:OUT+'/saga-chat.png'});
+ await pg.evaluate(()=>{chatOpen(false);S.tab='players';render();document.querySelectorAll('.scrim').forEach(e=>e.remove())});await pg.waitForTimeout(300);
+ const el=await pg.evaluateHandle(()=>document.querySelector('.rel-card').closest('section'));await el.asElement().screenshot({path:OUT+'/saga-rel.png'});
+ await pg.evaluate(()=>{S.tab='news';render();document.querySelectorAll('.scrim').forEach(e=>e.remove())});await pg.waitForTimeout(300);const a=await pg.$('.orion-alert');if(a)await a.screenshot({path:OUT+'/saga-alert.png'});await b.close()})();

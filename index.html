@@ -247,6 +247,9 @@ details.chip2{display:block}.chip2 summary{cursor:pointer;list-style:none}.chip2
 .cmdc.elite{border:1px solid var(--rc);box-shadow:0 0 18px -6px var(--rc),inset 0 0 22px -12px var(--rc)}.cmdc.elite .ihead b{background:linear-gradient(90deg,var(--rc),#fff6d8,var(--rc));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:elsh 3s linear infinite}
 @keyframes elsh{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.elb,.cmdc.elite .ihead b{animation:none}}
 .cfxstar{color:var(--rc)}.cfxstar i{font-style:normal}.cfxstar i:not(.on){opacity:.3}
+.relrow{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:start}.relrow>div{min-width:0;font-size:13.5px}.relrow small{display:block;color:var(--dim);font-size:12px}.relbar{grid-column:2;position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,#ff5a6e55,#9aa3b533,#6fe3a155)}.relbar i{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 6px currentColor}.relrow .dot{margin-top:5px}
+.cmsg.emp{max-width:96%;align-self:center;background:linear-gradient(135deg,#1a0606,#3a0d0d 60%,#2a1405);border:1px solid #ff7a59;border-left:3px solid #ffcf6b;box-shadow:0 0 22px -6px #ff7a59}.cmsg.emp .ctext{font-style:normal;font-family:var(--f-display);letter-spacing:.02em;color:#ffe1c7;font-size:15.5px}.cmsg.emp .cmeta b{color:#ffcf6b}
+.oa-saga{font-size:13px;color:#e0c8ff;padding:6px 10px;border-radius:8px;background:#ffffff0d;border:1px solid #a66bff55}.oa-saga b{color:#ffcf6b}
 .ctext{font-style:italic;color:#eadcff}.bmark{color:#c58cff}.cmsg.sys{align-self:center;max-width:94%;text-align:center;background:color-mix(in srgb,#5ec8ff 10%,var(--panel2));border-color:color-mix(in srgb,#5ec8ff 45%,var(--line));border-radius:12px}.cmsg.sys .cmeta{justify-content:center}.cmsg.sys .cmeta b{color:#8fd8ff}.cmsg.sys .cmeta time{margin-left:8px}
 .chatpeek.u{background:linear-gradient(135deg,#0d0618,#2b1250);border-color:#a66bff}.chatpeek.u b{color:#d9b8ff}
 .ctext{font-size:14.5px;white-space:pre-wrap;word-break:break-word;margin-top:2px}
@@ -769,11 +772,11 @@ async function botWatch(now){const L=S.events['orion-lords'];if(!L)return;const 
       if(!src)continue;const sh=scaleShips(src.F,BOT_HELP_K);if(!count(sh))continue;const r=await botLaunch(b.uid,src.p.pid,f.to,'reinforce',sh);if(r){sent.push(b.name);univSay(b.uid,'help',{h:pname(vic),p:pname(f.owner),pl:uplName(f.to)},f.fid).catch(()=>{})}}
     await locked('players/'+vic,async(x,ref)=>{if(!x||!x.bot)return;x.bot={...x.bot,rev:{uid:f.owner,at:f.arrive+rnd(1,3)*HR,n:0}};await ref.set(x)}).catch(()=>{});
     await report({push:true,ptitle:'⚔ Les Seigneurs réagissent',pid:f.to,to:[f.owner],tone:'loss',title:`${pname(vic)} a repéré ton attaque sur ${plName(f.to)}`,lines:[sent.length?`Des renforts se mettent en route pour défendre la planète : ${[...new Set(sent)].join(', ')}.`:'Aucun renfort ne peut arriver à temps.',`${pname(vic)} jure de se venger : attends-toi à une riposte dans les prochaines heures.`]})}}
-let BOT_T=0;
+let BOT_T=0,TALK_T=0;
 async function botTick(){const now=Date.now();if(now-BOT_T<30000||!S.players[ME]||isBot(ME))return;BOT_T=now;
   if(!BOTS.every(b=>S.players[b.uid])){await botInit();return}
   await botWatch(now).catch(e=>console.warn('botWatch',e));
-  await botTalkTick(now).catch(e=>console.warn('botTalk',e));
+  await sagaTick(now).catch(e=>console.warn('saga',e));
   if(!S.events['talk-intro']){let go=false;await locked('events/talk-intro',async(x,ref)=>{if(x&&x.sent)return;await ref.set({kind:'event',id:'talk-intro',sent:now});go=true}).catch(()=>{});if(go)await univSys('👁 Les Seigneurs d’Orion écoutent désormais ce canal. Parlez-leur… mais attention : ils n’oublient pas les provocations.','talk-intro')}
   {const e=S.events['orion-lords'];if(e&&e.created&&!e.boost1){let go=false;await locked('events/orion-lords',async(x,ref)=>{if(!x||x.boost1)return;x.boost1=1;await ref.set(x);go=true}).catch(()=>{});
     if(go)for(const b of BOTS)for(const p0 of botPlanets(b.uid).filter(q=>!isBody(q.pid)))await locked('planets/'+p0.pid,async(d,ref)=>{if(!d||d.owner!==b.uid)return;const p=settle(d,Date.now()),core=!!PLANETS[p.pid].core;p.lv.def=Math.max(p.lv.def||0,core?9:6);p.lv.shld=Math.max(p.lv.shld||0,core?4:2);p.lv.mines=Math.max(p.lv.mines||0,core?4:2);
@@ -845,7 +848,7 @@ function lordsAlertHtml(){const e=S.events['orion-lords'];if(!e||!e.created)retu
   return`<div class="orion-alert"><div class="oa-h"><span class="oa-ico">⚠</span><div><b>Alerte · les Seigneurs d’Orion</b><span>${now<peace?'Trêve en cours : ils observent et espionnent.':'La trêve est rompue : ils attaquent les empires.'}</span></div></div>
     ${now<peace?`<div class="oa-cd"><span>Ils attaqueront dans</span><b class="cd" data-cd="${peace}"></b><small>${new Date(peace).toLocaleString('fr-FR',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}</small></div>`:`<div class="oa-cd war"><b>⚔ En guerre</b><small>Chaque seigneur frappe toutes les 10 à 20 h quand il se sent le plus fort.</small></div>`}
     <div class="oa-lords">${L.map(b=>`<div><span class="dot" style="background:${esc(b.color)}"></span><b style="color:${esc(b.color)}">${esc(b.name)}</b><small>${esc(b.title)} · ${planetsOf(b.uid)} planète${planetsOf(b.uid)>1?'s':''}</small></div>`).join('')}</div>
-    <div class="oa-foot"><span>Cœur d’Orion repris : <b>${c.hum}/5</b> · bonus pour tous <b>+${c.hum*2} %</b></span><button class="btn sm" data-act="pmap" data-s="${CORE.i}">📍 Voir le Cœur</button></div></div>`}
+    ${sagaHtml()}<div class="oa-foot"><span>Cœur d’Orion repris : <b>${c.hum}/5</b> · bonus pour tous <b>+${c.hum*2} %</b></span><button class="btn sm" data-act="pmap" data-s="${CORE.i}">📍 Voir le Cœur</button></div></div>`}
 function coreHtml(){const c=coreStats(),me=c.by[ME]||0,who=pid=>{const o=(S.planets[pid]||{}).owner;return o&&!isNpc(o)?`<b style="color:${esc(pcolor(o))}">${esc(pname(o))}</b>`:'<b style="color:#ff7a59">l’Empereur Vorgath</b>'};
   return`<section style="display:grid;gap:10px"><h2>👑 Cœur d’Orion</h2><div class="card" style="display:grid;gap:6px;border-color:#ffcf6b66">
     ${CORE_P.map(pid=>`<div class="foot" style="gap:6px"><span class="eff">${esc(PLANETS[pid].name)}</span><span class="eff">${who(pid)}</span></div>`).join('')}
@@ -1232,15 +1235,18 @@ rev:['Tu as tapé sur l’Arsenal, {p} ? L’Arsenal tape plus fort ! Cible : {p
 sab:['BOUM ! Désolé pour le chantier du {pr}. Enfin, pas vraiment.','Mes saboteurs ont fait un peu de ménage sur le {pr}.'],
 grudgeatk:['Tu m’as provoqué, {p} ? Voilà ma réponse : l’Arsenal fonce sur {pl} !','Toi et ta grande bouche, {p} ! Cible : {pl} !'],
 proj:['Le {pr} est fini ? Parfait, ça fera une plus belle cible.']}};
-const uplName=pid=>(PLANETS[pid]&&PLANETS[pid].name)||'?',isUnivSpk=uid=>isBot(uid)||uid===UNIV_SYS.uid;
+const uplName=pid=>(PLANETS[pid]&&PLANETS[pid].name)||'?',isUnivSpk=uid=>isBot(uid)||uid===UNIV_SYS.uid||uid==='vorgath';
 async function univPost(uid,name,text,key,force){try{const now=Date.now();if(!force&&(S.chat||[]).filter(m=>m.uid===uid&&m.ch==='u'&&now-m.at<HR).length>=UNIV_CAP)return;
   const id='u-'+String(key||newId()).replace(/[^\w-]/g,'').slice(0,60);if((S.chat||[]).some(m=>m.id===id))return;await db.collection('chat').doc(id).set({kind:'chat',ch:'u',uid,name,text,at:now})}catch(e){}}
 async function univSay(uid,kind,ctx={},key=null,force=false){if(!isBot(uid)||!S.players[uid])return;const L=(BOT_LINES[uid]||{})[kind];if(!L||!L.length)return;const seed=String(key||newId());
   const text=L[hash(seed+kind)%L.length].replace(/\{(\w+)\}/g,(_,k)=>ctx[k]??'');await univPost(uid,pname(uid),text,key?kind+'-'+key:null,force)}
 const univSys=(text,key)=>univPost(UNIV_SYS.uid,UNIV_SYS.name,text,key,true);
 async function univBattle(r){const pv=pvpInfo(r);if(!pv)return;const def=pv.def[0],pl=uplName(r.battle.pid),k=(r.battle.pid||'')+'-'+Math.floor(Date.now()/30000);
-  if(isBot(def)){const hum=pv.att.filter(u=>!isBot(u));if(!hum.length)return;const p=hum.map(pname).join(' et '),kind=/annexé/.test(r.title||'')?'lost':pv.win==='def'?'dwin':pv.win==='att'?'dloss':'draw';await univSay(def,kind,{p,pl},k,kind==='lost');return}
-  const b=pv.att.find(isBot);if(b)await univSay(b,pv.win==='att'?'awin':pv.win==='def'?'aloss':'draw',{p:pname(def),pl},k,true)}
+  const sys=PLANETS[r.battle.pid]?SYSTEMS[PLANETS[r.battle.pid].sys].name:'Orion';
+  if(isBot(def)){const hum=pv.att.filter(u=>!isBot(u));if(!hum.length)return;const p=hum.map(pname).join(' et '),kind=/annexé/.test(r.title||'')?'lost':pv.win==='def'?'dwin':pv.win==='att'?'dloss':'draw';await univSay(def,kind,{p,pl},k,kind==='lost');
+    for(const u of hum){const nk=await relUpdate(def,u,kind==='lost'?12:kind==='dloss'?10:kind==='dwin'?-8:0,{k:kind==='lost'?'pa':kind==='dloss'?'pw':kind==='dwin'?'pl':'x',pl,sys});if(nk)await talkQ([{id:'u-n-'+def+'-'+u+'-'+talkNorm(nk).replace(/ /g,''),uid:def,text:talkPick(def,'nick',k).replace(/\{nick\}/g,nk).replace(/\{p\}/g,pname(u)),at:Date.now()+70e3,re:u}])}
+    if(kind==='dloss'||kind==='lost'){await sagaFlag(kind==='lost'?'breach':'blood');if(kind==='lost')await sagaFlag('blood');if(hash(k)%5<3)await talkQ(disputeItems(def,'b'+k,Date.now()+100e3))}return}
+  const b=pv.att.find(isBot);if(b){await univSay(b,pv.win==='att'?'awin':pv.win==='def'?'aloss':'draw',{p:pname(def),pl},k,true);await relUpdate(b,def,pv.win==='def'?8:pv.win==='att'?-5:0,{k:pv.win==='att'?'lw':pv.win==='def'?'ll':'x',pl,sys});if(pv.win==='def')await sagaFlag('blood')}}
 
 // les Seigneurs lisent l'onglet Univers : réponse 1 à 3 min plus tard selon des mots-clés ; les provocations les rendent rancuniers (cible prioritaire)
 const BOT_NAMES={'orion-1':['kael','voryn','bastion'],'orion-2':['ysmera','pale','forge'],'orion-3':['draxen','ashkar','arsenal']};
@@ -1320,43 +1326,149 @@ Object.assign(TALK_LINES['orion-3'],{why:['POURQUOI ? Parce que c’est AMUSANT,
   idle_war:['Personne n’attaque ce soir ? Vous dormez ?!','J’ai repeint mes cuirassés. En rouge. Pour pas qu’on voie les taches.'],
   idle_proj:['Votre {pr} est à {pc} % ? Il fera une belle explosion à 100 % !'],
   idle_lore:['L’Arsenal a cinq cents ans de canons accumulés. Et j’en ai essayé chacun !','Un jour, j’ai rasé trois planètes avant le petit-déjeuner. Bon, c’étaient des petites.']});
-const talkHas=(n,w,L)=>L.some(k=>k.includes(' ')?(' '+n+' ').includes(' '+k+' '):w.has(k));
-function talkParse(text){const n=talkNorm(text).replace(/\s+/g,' ').trim(),w=new Set(n.split(' ').filter(Boolean)),has=L=>talkHas(n,w,L);
-  const hum=Object.values(S.players).some(p=>p&&p.uid&&!isBot(p.uid)&&p.name&&p.name.length>2&&w.has(talkNorm(p.name).trim())),team=hum||/rally|ralliement|rallie|soutien|renfort/.test(n),to=BOTS.filter(b=>has(BOT_NAMES[b.uid])).map(b=>b.uid),gen=has(TALK_GEN),you=has(TALK_PL.you),q=n.includes('?')||TALK_Q.some(k=>(' '+n+' ').startsWith(' '+k+' ')||(k.includes(' ')&&n.includes(k)));
-  let kind;if(q&&has(TALK_TOPIC.who))kind='who';else if(q&&(has(TALK_TOPIC.why)||/probleme/.test(n)))kind='why';else if(has(TALK_TOPIC.ally))kind='ally';else if(has(TALK_TOPIC.weak))kind='weak';
-  else if(has(TALK_KW.insult))kind='insult';else if(/pas peur|aucune peur|meme pas peur/.test(n)||has(TALK_KW.fear))kind='fear';else if(has(TALK_KW.threat))kind='threat';else if(has(TALK_TOPIC.brag))kind='brag';
-  else if(q&&has(TALK_TOPIC.emperor))kind='emperor';else if(q&&has(TALK_TOPIC.core))kind='core';else if(has(TALK_KW.laugh))kind='laugh';else if(has(TALK_KW.peace))kind='peace';else if(has(TALK_KW.greet))kind='greet';else kind=q?'ask':'mention';
-  return{to,gen,you,q,kind,team}}
-const talkDelay=m=>(60+hash(m.id)%120)*1000;
 const grudgeOf=uid=>{const g=((S.players[uid]||{}).bot||{}).grudge||{},now=Date.now();return Object.fromEntries(Object.entries(g).filter(([,v])=>v&&now-v.at<48*HR))};
 const univMsgs=()=>(S.chat||[]).filter(x=>x.ch==='u');
 function talkPick(who,kind,seed){const L=TALK_LINES[who][kind]||TALK_LINES[who].mention,used=new Set(univMsgs().filter(x=>x.uid===who).slice(-40).map(x=>x.text)),h=hash(seed+kind);
   for(let i=0;i<L.length;i++){const t=L[(h+i)%L.length];if(![...used].some(u=>u.startsWith(t.split('{')[0].slice(0,24))))return t}return L[h%L.length]}
-function talkMemory(who,uid,now){const e=Object.values(S.events).filter(x=>x&&x.news&&x.pv&&now-(x.at||0)<24*HR&&[...(x.pv.att||[]),...(x.pv.def||[])].includes(who)&&[...(x.pv.att||[]),...(x.pv.def||[])].includes(uid)&&x.pv.win).sort((a,b)=>b.at-a.at)[0];
-  if(!e)return null;const lordSide=(e.pv.att||[]).includes(who)?'att':'def';return{won:e.pv.win===lordSide,pl:uplName(e.pid)}}
 function talkCtx(){const T=Object.values(S.players).filter(p=>p&&p.uid&&!isBot(p.uid)&&!isNpc(p.uid)).map(p=>[p.uid,playerPower(p.uid)]).sort((a,b)=>b[1]-a[1]),L=S.events['orion-lords'],peace=((L&&L.created)||0)+BOT_PEACE,now=Date.now();
   const pj=Object.keys(PROJ).map(k=>[k,projEv(k)]).filter(([,e])=>e&&!e.done&&projPct&&e.got).sort((a,b)=>projPct(b[0])-projPct(a[0]))[0];
   return{top:T[0]?pname(T[0][0]):null,d:peace>now?fmtDur((peace-now)/1000):null,pr:pj?PROJ[pj[0]].n:null,pc:pj?Math.floor(projPct(pj[0])*100):0}}
 const talkSay=(who,text,id,re)=>db.collection('chat').doc(id).set({kind:'chat',ch:'u',uid:who,name:pname(who),text,at:Date.now(),...(re?{re}:{})});
-async function botTalkTick(now){const U=univMsgs(),has=id=>(S.chat||[]).some(x=>x.id===id);
-  const M=U.filter(m=>m.uid&&!isUnivSpk(m.uid)&&S.players[m.uid]&&now-m.at<15*60e3&&now>=m.at+talkDelay(m)&&!has('u-r-'+m.id));
-  for(const m of M.slice(0,3)){const P=talkParse(m.text),h0=hash(m.id),busyW=u=>U.filter(x=>x.uid===u&&x.re===m.uid&&now-x.at<10*60e3).length>=4;
-    const conv=U.filter(x=>isBot(x.uid)&&x.re===m.uid&&m.at-x.at<8*60e3&&m.at>=x.at).sort((a,b)=>b.at-a.at)[0],lastLord=U.filter(x=>isBot(x.uid)&&m.at-x.at<10*60e3&&m.at>=x.at).sort((a,b)=>b.at-a.at)[0];
-    const C=P.to.length?P.to:P.team?[]:conv&&m.at-conv.at<5*60e3?[conv.uid]:P.you&&lastLord?[lastLord.uid]:P.gen||P.kind==='insult'||P.kind==='threat'||P.kind==='ally'?BOTS.map((b,i)=>BOTS[(h0+i)%BOTS.length].uid):[];
-    const who=C.find(u=>S.players[u]&&!busyW(u));if(!who)continue;
-    let kind=P.kind,n=0;if(kind==='insult'||kind==='threat'){await locked('players/'+who,async(x,ref)=>{if(!x||!x.bot)return;const g={...(x.bot.grudge||{})},c=g[m.uid]&&now-g[m.uid].at<48*HR?g[m.uid]:{n:0};n=(c.n||0)+1;g[m.uid]={n,at:now};x.bot={...x.bot,grudge:g};await ref.set(x)}).catch(()=>{});if(n===3)kind='grudge'}
-    const ctx={p:pname(m.uid)},mem=talkMemory(who,m.uid,now);let text=talkPick(who,kind,m.id);
-    if(mem&&(kind==='insult'||kind==='threat'||kind==='brag'||kind==='mention')&&h0%2===0){text=talkPick(who,mem.won?'memw':'meml',m.id);ctx.pl=mem.pl}
-    else if(kind!=='grudge'&&(grudgeOf(who)[m.uid]||{}).n>=3&&h0%3===0)text+=' '+TALK_LINES[who].still[0];
-    text=text.replace(/\{(\w+)\}/g,(_,k)=>ctx[k]??'');
-    const id='u-r-'+m.id;if(has(id))continue;if(U.filter(x=>x.uid===who&&now-x.at<HR).length>=UNIV_CAP+6)continue;try{await talkSay(who,text,id,m.uid)}catch(e){}}
-  // un autre seigneur glisse parfois un mot (30 %)
-  for(const r of U.filter(x=>x.id.startsWith('u-r-')&&isBot(x.uid)&&now-x.at>50e3&&now-x.at<10*60e3&&hash(x.id)%10<3&&!has('u-c-'+x.id.slice(4)))){const o=BOTS.map(b=>b.uid).filter(u=>u!==r.uid&&S.players[u]),who=o[hash(r.id)%o.length];if(!who)continue;
-    const t=talkPick(who,'banter',r.id).replace(/\{l\}/g,pname(r.uid)).replace(/\{p\}/g,pname(r.re));try{await talkSay(who,t,'u-c-'+r.id.slice(4),r.re)}catch(e){}}
-  // de temps en temps, un seigneur parle de lui-même (toutes les 8 à 14 h)
+// ---- moteur de discussion v3 : regroupe les messages d'un joueur, répond une fois, à son rythme ; relations, surnoms, mémoire longue, disputes, chapitres ----
+TALK_KW.insult.push('vaurien','chien','chienne','vache','larbin','toutou','esclave','minus','cafard','nabot','grosse','gros');
+TALK_TOPIC.brag.push('grandeur','dominer','domine','soumis','soumettre','destin','ton maitre','votre maitre','ecoute ton','a genoux','mes pieds');
+TALK_TOPIC.ally=TALK_TOPIC.ally.filter(k=>k!=='traite');
+Object.assign(TALK_KW,{sorry:['dsl','desole','desolee','pardon','excuse','excuses','navre','navree'],bye:['bonne nuit','a plus','a demain','bye','ciao','adieu','au revoir','je vais dormir','je me couche','bonne soiree'],
+  compliment:['impressionnant','impressionnante','magnifique','classe','style','stylee','bien joue','joli','jolie','belle flotte','je t admire','admire','balaise','chapeau'],
+  demand:['donne','donnez','rends','rendez','laisse','laissez','arrete','arretez','stop','epargne','epargnez','lache moi','fous moi'],surrender:['je me rends','je me soumets','j abandonne','on se rend','nous nous rendons','capitule','je capitule'],
+  flirt:['je t aime','bisou','bisous','mignon','mignonne','charmante','charmant','ma belle','mon beau','chou','epouse','marier'],want:['que veux tu','que voulez vous','tu veux quoi','vous voulez quoi','ton but','votre but','qu est ce que tu veux','qu est ce que vous voulez'],
+  count:['combien'],help:['aide','aide moi','conseil','astuce','comment on','comment je','comment faire'],joke:['rigole','rigolait','rigoler','blague','jrigole','jrigolais','on rigole','c est pour rire']});
+const TALK_PRIO=['surrender','sorry','ally','who','want','why','count','help','weak','insult','threat','fear','brag','flirt','compliment','demand','emperor','core','laugh','peace','bye','greet','yn','ask','echo','mention'];
+const TALK_STOP=new Set('alors aussi avant avec avoir cette comme contre dans depuis elles encore entre etait etre faire jamais juste leurs mais meme notre nous parce pendant peut plus pour quand quelle quelque sans selon seulement sont tous toute toutes tres votre vous vraiment ysmera kael voryn draxen ashkar seigneur seigneurs orion empereur vorgath'.split(' '));
+const NICKS={'orion-1':{flee:'Fuyard',mouth:'Bavard',king:'Roitelet',tough:'Tempête de {sys}',honor:'Rival'},'orion-2':{flee:'Petite Flamme',mouth:'Langue de vipère',king:'Prince d’un jour',tough:'Épine',honor:'Mon Ombre'},'orion-3':{flee:'Ferraille',mouth:'Grande Gueule',king:'Roi des Cailloux',tough:'Cogneur',honor:'Frère d’armes'}};
+const NICK_RANK={flee:1,mouth:2,king:3,tough:4,honor:5};
+Object.assign(TALK_LINES['orion-1'],{
+  sorry:['Des excuses ? Le Bastion ne les collectionne pas, {p}. Mais je les note.','Excuses acceptées… provisoirement, {p}.'],bye:['Dors, {p}. Le Bastion, lui, veille.','Bonne nuit, {p}. Mes sondes resteront éveillées pour toi.'],
+  compliment:['La flatterie ne te sauvera pas, {p}. Mais elle est notée.','Tu as l’œil, {p}. Dommage qu’il soit dans le mauvais camp.'],demand:['On ne donne pas d’ordres au Bastion, {p}.','Tu exiges ? Intéressant. Je refuse.'],
+  surrender:['Une reddition ? Il est trop tôt, {p}. Tu n’as même pas encore perdu.','Le Bastion prend acte. L’Empereur décidera de ton sort.'],flirt:['Je suis marié à la stratégie, {p}.','Concentre-toi sur ta flotte, {p}. Elle en a besoin.'],
+  want:['Ce que je veux ? Que chaque planète d’Orion paie tribut au Trône.','L’ordre, {p}. Et dans l’ordre, tu es tout en bas.'],count:['Assez pour toi, {p}. Et pour tes alliés.','Le nombre exact est classé. Disons : {np} planètes, et plus de canons que tu ne sauras compter.'],
+  help:['Un conseil, {p} ? Espionne avant d’attaquer. Tu me remercieras… ou pas.','Je vais te faire une faveur : construis des défenses. Tu vas en avoir besoin.'],
+  yn:['Peut-être, {p}. Tout dépend de ce que tu feras ensuite.','Oui. Non. La réponse arrivera en flotte.','Je ne réponds pas aux questions fermées, {p}.'],
+  echo:['« {w} »… Intéressant choix de mot, {p}.','Tu dis « {w} ». Je retiens.','« {w} ». Voilà un mot que je ressortirai le jour de ta chute.'],laugh:['Ris, {p}. Le rire est le bruit que font les gens avant de perdre.','Je ne vois rien de drôle, {p}.'],
+  st_resp:['Tu es un adversaire digne, {p}. C’est rare.','Je dois l’admettre : tu m’intéresses, {p}.'],st_desp:['Mais je perds mon temps avec toi.','Tu ne vaux pas une sonde, {p}.'],
+  nick:['Désormais, je t’appellerai « {nick} », {p}.','Tu mérites un nom, {p}. Ce sera « {nick} ».'],memold:['Je n’ai pas oublié {pl}, {p}. Ça fait {d} jours.','{pl}, il y a {d} jours. Le Bastion se souvient de tout.'],
+  blame:['{a} a encore laissé un trou dans nos défenses. L’Empereur ne sera pas content.','Si {a} avait suivi mes plans, ce ne serait pas arrivé.'],retort:['Garde tes leçons, {b}. Le jour où tu sauras compter, on en reparlera.','Occupe-toi de ton secteur, {b}.'],
+  calm:['Assez. Nous servons le même Trône. Les querelles, après la victoire.','Silence, tous les deux. Les intrus nous regardent.']});
+Object.assign(TALK_LINES['orion-2'],{
+  sorry:['Des excuses… Comme c’est doux. Garde-les pour ton oraison, {p}.','Je te pardonne, {p}. La Forge, elle, ne pardonne rien.'],bye:['Fais de beaux rêves, {p}. Je viendrai peut-être les visiter.','Bonne nuit… Ferme bien tes boucliers, {p}.'],
+  compliment:['Tu me trouves impressionnante, {p} ? Tu n’as encore rien vu.','Merci, {p}. Je garderai ton compliment avec tes épaves.'],demand:['Tu me donnes des ordres, {p} ? Comme c’est mignon.','Demande gentiment. Puis supplie.'],
+  surrender:['Te rendre ? Déjà ? Mais on commençait à peine à s’amuser, {p}.','À genoux, alors. Plus bas. Encore.'],flirt:['Attention, {p}… Ceux qui m’aiment finissent toujours en poussière d’étoiles.','Tu es charmant, {p}. Je te garderai pour la fin.'],
+  want:['Ce que je veux ? Le silence. Celui qui suit la dernière explosion.','Je veux voir Orion briller… en flammes.'],count:['Compter mes vaisseaux ? Tu n’auras pas le temps, {p}.','{np} planètes… et autant d’ombres que d’étoiles.'],
+  help:['Un secret, {p} : les mines protègent mieux que les prières.','Je vais t’aider… à tomber plus vite. Plaisanterie. Construis des boucliers.'],
+  yn:['Peut-être… Peut-être pas. C’est plus amusant ainsi.','Oui, {p}. Ou non. Ça dépend de mon humeur ce soir.'],
+  echo:['« {w} »… Répète-le plus doucement, {p}.','« {w} ». Quel joli mot. Je le graverai quelque part.','Tu as dit « {w} » ? Les étoiles l’ont entendu.'],laugh:['Ton rire est si fragile, {p}.','Ris. J’aime les rires qui s’éteignent.'],
+  st_resp:['Tu me plais, {p}. Vraiment.','Tu es plus coriace que les autres. C’est délicieux.'],st_desp:['Mais tu m’ennuies déjà.','Tu es si… ordinaire, {p}.'],
+  nick:['Je vais t’appeler « {nick} », {p}. Ça te va si bien.','Désormais, tu es « {nick} ». C’est moi qui décide.'],memold:['{pl}… Il y a {d} jours. Je m’en souviens comme si c’était hier, {p}.','Tu crois que j’ai oublié {pl} ? {d} jours, {p}. Ce n’est rien pour moi.'],
+  blame:['Oh, {a}… Tu saignes ? Comme c’est embarrassant.','{a} s’est fait surprendre. Encore. Quelle tristesse.'],retort:['Parle encore, {b}, et j’enverrai mes renforts en retard… Je plaisante. Presque.','Chut, {b}. Tu parles trop pour quelqu’un qui a déjà perdu des planètes.'],
+  calm:['Mes chéris, gardez votre venin pour les empires. Ils en valent la peine.','Nous nous disputerons sur leurs cendres. Pas avant.']});
+Object.assign(TALK_LINES['orion-3'],{
+  sorry:['Désolé ? Pas moi ! HA !','Des excuses ? Viens plutôt te battre, {p} !'],bye:['Va dormir, {p} ! Moi je vais astiquer mes canons !','Bonne nuit ! Fais pas de cauchemars… enfin si, fais-en !'],
+  compliment:['Ha ! Enfin quelqu’un qui reconnaît mon talent !','Merci, {p} ! Je vais quand même te réduire en miettes, mais merci !'],demand:['Tu veux que j’arrête ? Viens m’arrêter, {p} !','Donner ? Moi je prends, {p} ! C’est différent !'],
+  surrender:['Te rendre ?! Non ! Bats-toi, {p} ! C’est pas drôle sinon !','Tu te rends ? Bon… je casse quand même un truc, pour la forme.'],flirt:['Euh… Je préfère les cuirassés, {p}.','Si tu veux me séduire, apporte-moi de la ferraille !'],
+  want:['Ce que je veux ? Tout casser ! Et après, encore plus casser !','Du métal ! Des combats ! Et ta capitale en morceaux, {p} !'],count:['Combien ? BEAUCOUP ! Assez pour raser trois fois ton empire !','{np} planètes et des cuirassés à ne plus savoir où les ranger !'],
+  help:['Un conseil ? Construis des cuirassés ! Plein ! Comme moi !','Tu veux un conseil, {p} ? Viens pas à l’Arsenal sans un énorme ralliement !'],
+  yn:['OUI ! Euh, c’était quoi la question ?','Non ! Enfin… peut-être. On verra au combat !'],
+  echo:['« {w} » ? J’ai rien compris, mais ça sonne comme un défi !','« {w} » ! Je vais l’écrire sur mon prochain missile, {p} !','Tu dis « {w} » ? Moi je dis BOUM !'],laugh:['HA ! HA ! Je ris plus fort que toi, {p} !','Tu ris ? Moi aussi ! On rira moins au combat !'],
+  st_resp:['T’es un dur, {p}. Je respecte !','Toi, {p}, t’es pas comme les autres. Tu cognes !'],st_desp:['Mais t’es pas sérieux, {p}.','Pfff. T’es tout petit, {p}.'],
+  nick:['À partir de maintenant, t’es « {nick} », {p} ! HA !','Je t’ai trouvé un nom, {p} : « {nick} » !'],memold:['Je me souviens de {pl}, {p} ! {d} jours déjà !','{pl} ! Il y a {d} jours ! J’en rigole encore !'],
+  blame:['HA ! {a} s’est fait botter ! Moi, ça m’arriverait jamais !','Bravo, {a}. Vraiment bravo. Tu veux que je vienne garder ta planète ?'],retort:['Tais-toi, {b} ! Au moins moi je me bats au lieu de bavarder !','Toi, {b}, t’as rien à dire ! T’étais où pendant le combat ?'],
+  calm:['Bon ! On se tape dessus plus tard, d’accord ? D’abord, on écrase les intrus !','Arrêtez de vous chamailler ! On est une équipe ! Une équipe qui casse tout !']});
+// relations des Seigneurs avec chaque joueur (respect ↔ mépris), surnoms, mémoire longue
+const _more={'orion-1':{insult:['Tes mots sont aussi mal ajustés que tes tirs, {p}.','Je classe ton insulte avec les autres. La pile est haute.','Le mépris se mérite, {p}. Tu n’y es même pas encore.'],threat:['Chaque menace m’apprend quelque chose sur toi, {p}. Continue.','Tu annonces tes coups ? C’est très aimable de ta part.','Le Bastion a résisté à pire que toi. Bien pire.'],mention:['Oui, {p} ?','Le Bastion t’a entendu.','Parle, {p}. J’ai un peu de temps à perdre.']},
+'orion-2':{insult:['Tu as une si jolie colère, {p}. Je vais la garder.','Mmh… Encore. J’aime quand tu t’énerves.','Chaque insulte est une petite étoile que tu m’offres, {p}.'],threat:['Mmh, des promesses… Tiendras-tu celle-là, {p} ?','La Forge t’attend. Elle attend tout le monde.','Si tu viens, viens la nuit. C’est plus beau.'],mention:['Oui, {p}… ?','Tu m’appelais, {p} ?','Je t’écoute, {p}. Je t’écoute toujours.']},
+'orion-3':{insult:['HAHA ! T’as que ça en stock, {p} ?','Encore ! Encore ! Ça me chauffe les canons !','Tu m’insultes ? Moi je t’atomise. Chacun son truc.'],threat:['Promis ? Juré ? Je t’attends, {p} !','Enfin un peu de bagarre dans ce canal !','Tu fanfaronnes, {p} ! J’adore les fanfarons, ils explosent mieux !'],mention:['Ouais, {p} ?','Quoi, {p} ? T’as besoin d’une raclée ?','Draxen est là ! Qu’est-ce qu’il y a ?']}};
+for(const u in _more)for(const k in _more[u])TALK_LINES[u][k]=[...TALK_LINES[u][k],..._more[u][k]];
+const relOf=(lord,uid)=>(((S.players[lord]||{}).bot||{}).rel||{})[uid]||{v:0,mem:[]};
+function relStance(lord,uid){const r=relOf(lord,uid),g=(grudgeOf(lord)[uid]||{}).n||0;return g>=3?'haine':r.v>=40?'respect':r.v>=15?'interet':r.v<=-40?'mepris':r.v<=-15?'agace':'neutre'}
+const STANCE_TXT={haine:'te hait et te traque',respect:'te respecte',interet:'s’intéresse à toi',mepris:'te méprise',agace:'s’agace de toi',neutre:'t’observe'};
+const STANCE_COL={haine:'#ff5a6e',respect:'#6fe3a1',interet:'#5ec8ff',mepris:'#ff8a5c',agace:'#ffcf6b',neutre:'#9aa3b5'};
+const REL_DV={insult:-6,threat:-2,brag:-3,sorry:3,surrender:-4,compliment:3,peace:2,greet:1,ally:2,flirt:1,bye:1};
+async function relUpdate(lord,uid,dv,ev){if(!S.players[lord]||!S.players[uid]||isBot(uid))return null;let nk=null;
+  await locked('players/'+lord,async(x,ref)=>{if(!x||!x.bot)return;const R={...(x.bot.rel||{})},r={v:0,mem:[],c:{},...(R[uid]||{})};r.v=Math.max(-100,Math.min(100,(r.v||0)+dv));r.c={...(r.c||{})};
+    if(ev&&ev.k){r.mem=[...(r.mem||[]),{k:ev.k,pl:ev.pl||null,sys:ev.sys||null,at:Date.now()}].filter(m=>Date.now()-m.at<30*864e5).slice(-10)}if(ev&&ev.c)r.c[ev.c]=(r.c[ev.c]||0)+1;
+    const M=r.mem||[],why=r.v>=50?'honor':M.some(m=>m.k==='pw'||m.k==='pa')?'tough':(r.c.brag||0)>=2?'king':(r.c.insult||0)>=4?'mouth':M.filter(m=>m.k==='pl').length>=2?'flee':null;
+    if(why&&(!r.nr||NICK_RANK[why]>NICK_RANK[r.nr])){const sys=(M.filter(m=>m.sys).slice(-1)[0]||{}).sys||'Orion';r.nr=why;r.nick=NICKS[lord][why].replace('{sys}',sys);nk=r.nick}
+    R[uid]=r;x.bot={...x.bot,rel:R};await ref.set(x)}).catch(()=>{});return nk}
+const relAddr=(lord,uid,seed)=>{const r=relOf(lord,uid);return r.nick&&hash(seed)%2===0?r.nick:pname(uid)};
+// file d'attente : messages programmés (disputes, réactions aux chapitres, surnoms)
+async function talkQ(items){if(!items.length)return;await locked('events/orion-talkq',async(x,ref)=>{x=x||{kind:'event',id:'orion-talkq',q:[]};const ids=new Set((x.q||[]).map(i=>i.id));x.q=[...(x.q||[]),...items.filter(i=>!ids.has(i.id))].slice(-40);await ref.set(x)}).catch(()=>{})}
+function disputeItems(a,seed,t0){const o=BOTS.map(b=>b.uid).filter(u=>u!==a&&S.players[u]);if(!o.length)return[];const h=hash(seed),b=o[h%o.length],c=o.find(u=>u!==b),na=pname(a),nb=pname(b),L=[];
+  L.push({id:'u-d-'+seed+'-1',uid:b,text:talkPick(b,'blame',seed).replace(/\{a\}/g,na),at:t0});L.push({id:'u-d-'+seed+'-2',uid:a,text:talkPick(a,'retort',seed).replace(/\{b\}/g,nb),at:t0+45e3});
+  if(c&&h%2===0)L.push({id:'u-d-'+seed+'-3',uid:c,text:talkPick(c,'calm',seed),at:t0+95e3});return L}
+// chapitres de l'histoire d'Orion
+const SAGA=[{t:'Prologue'},{t:'Le premier sang',emp:'Un intrus a fait saigner un de mes vassaux. Je l’ai senti jusque sur mon Trône. Profitez de cet instant, empires d’Orion : c’est le dernier où vous m’amusez.',
+    lords:{'orion-1':'Un accident. Le Bastion corrige toujours ses accidents.','orion-2':'Le premier sang… Comme c’est romantique.','orion-3':'Quelqu’un a osé ?! Enfin un vrai combat !'}},
+  {t:'La brèche',emp:'Une planète de mes seigneurs a changé de drapeau. Vassaux, vous m’avez déçu. Empires, vous m’avez réveillé.',lords:{'orion-1':'Nous reprendrons ce qui a été perdu. Méthodiquement.','orion-2':'L’Empereur est fâché… C’est mauvais pour tout le monde.','orion-3':'Qui a perdu une planète ?! Pas moi ! C’est pas moi !'}},
+  {t:'Le Cœur se fissure',emp:'Le Cœur d’Orion a été touché. Mille ans qu’aucun étranger n’y avait posé le pied. Je descends de mon Trône pour regarder vos visages.',lords:{'orion-1':'Le Cœur est atteint. Toutes les escadres en alerte.','orion-2':'Ils sont dans notre maison, Kael. Dans notre maison.','orion-3':'Ils sont DANS le Cœur ?! Je vais tous les écraser !'}},
+  {t:'La chute des vassaux',emp:'Trois forteresses du Cœur sont tombées. Mes seigneurs tremblent. Moi, je ne tremble pas. Le Portail s’ouvre, mais ce qui est derrière n’a jamais aimé les visiteurs.',lords:{'orion-1':'Je… réévalue la situation.','orion-2':'Le froid arrive. Je le sens.','orion-3':'C’est pas fini ! L’Arsenal se bat jusqu’au dernier boulon !'}},
+  {t:'Le Trône vacille',emp:'Un seul empire tient tout le Cœur. Alors viens, Seigneur d’Orion. Viens me voir sur le Trône. Je t’attends depuis mille ans.',lords:{'orion-1':'L’Empereur va intervenir en personne. Que les étoiles aient pitié.','orion-2':'Enfin… Il se lève.','orion-3':'Euh… L’Empereur se lève ? Je vais… vérifier mes canons. Loin d’ici.'}}];
+const sagaOf=()=>S.events['orion-saga']||{ch:0,flags:{}};
+async function sagaFlag(f){if(sagaOf().flags&&sagaOf().flags[f])return;await locked('events/orion-saga',async(x,ref)=>{x=x||{kind:'event',id:'orion-saga',ch:0,flags:{}};if(x.flags&&x.flags[f])return;x.flags={...(x.flags||{}),[f]:Date.now()};await ref.set(x)}).catch(()=>{})}
+async function sagaTick(now){const s=sagaOf(),c=coreStats(),fl=s.flags||{},want=c.lord?5:c.hum>=3?4:c.hum>=1?3:fl.breach?2:fl.blood?1:0;if(want<=(s.ch||0)||now-(s.at||0)<10*60e3)return;
+  let go=null;await locked('events/orion-saga',async(x,ref)=>{x=x||{kind:'event',id:'orion-saga',ch:0,flags:{}};if((x.ch||0)>=want||now-(x.at||0)<10*60e3)return;x.ch=(x.ch||0)+1;x.at=now;go=x.ch;await ref.set(x)}).catch(()=>{});if(!go)return;
+  const C=SAGA[go],R=['I','II','III','IV','V'][go-1];await univPost('vorgath','L’Empereur Vorgath',`📜 Chapitre ${R} — ${C.t}. « ${C.emp} »`,'saga-'+go,true);
+  await report({news:'conquest',push:true,ptitle:`📜 Chapitre ${R} : ${C.t}`,to:humanIds(),tone:'info',title:`📜 Chapitre ${R} de l’histoire d’Orion : ${C.t}`,lines:[`L’Empereur Vorgath prend la parole : « ${C.emp} »`,'Les Seigneurs d’Orion réagissent dans l’onglet Univers du chat.']});
+  const it=BOTS.filter(b=>S.players[b.uid]).map((b,i)=>({id:`u-s-${go}-${b.uid}`,uid:b.uid,text:C.lords[b.uid],at:now+(40+i*35)*1000}));await talkQ([...it,...disputeItems(BOTS[go%3].uid,'saga'+go,now+150e3)])}
+function sagaHtml(){const s=sagaOf();if(!s.ch)return'';return`<div class="oa-saga">📜 Chapitre ${['I','II','III','IV','V'][s.ch-1]} — <b>${esc(SAGA[s.ch].t)}</b></div>`}
+function lordsRelHtml(){const L=BOTS.filter(b=>S.players[b.uid]);if(!L.length||!S.players[ME])return'';
+  return`<section style="display:grid;gap:8px"><h2>⚜ Ce que les Seigneurs pensent de toi</h2><div class="card rel-card" style="display:grid;gap:8px">${L.map(b=>{const r=relOf(b.uid,ME),st=relStance(b.uid,ME),g=(grudgeOf(b.uid)[ME]||{}).n||0,last=(r.mem||[]).slice(-1)[0];
+    return`<div class="relrow"><span class="dot" style="background:${esc(b.color)}"></span><div><b style="color:${esc(b.color)}">${esc(b.name)}</b> <span style="color:${STANCE_COL[st]}">${STANCE_TXT[st]}</span>${r.nick?` · t’appelle <b>« ${esc(r.nick)} »</b>`:''}<small>${g?`rancune ${g} · `:''}${last?`souvenir : ${{pw:'ta victoire',pl:'ta défaite',pa:'la planète que tu lui as prise',lw:'son raid réussi',ll:'son raid repoussé'}[last.k]||'un combat'}${last.pl?' à '+esc(last.pl):''}`:'aucun souvenir de toi pour l’instant'}</small></div><span class="relbar"><i style="left:${50+(r.v||0)/2}%;background:${STANCE_COL[st]}"></i></span></div>`}).join('')}
+    <span class="eff" style="font-size:12px">Ce qu’ils pensent change avec tes combats et ce que tu leur écris dans l’onglet Univers du chat.</span></div></section>`}
+function talkParse(text){const n=talkNorm(text).replace(/\s+/g,' ').trim(),W=n.split(' ').filter(Boolean),w=new Set(W),has=L=>L.some(k=>k.includes(' ')?(' '+n+' ').includes(' '+k+' '):k.length>=5?W.some(x=>x.startsWith(k)):w.has(k));
+  const hum=Object.values(S.players).some(p=>p&&p.uid&&!isBot(p.uid)&&p.name&&p.name.length>2&&w.has(talkNorm(p.name).trim())),to=BOTS.filter(b=>has(BOT_NAMES[b.uid])).map(b=>b.uid),gen=has(TALK_GEN),you=has(TALK_PL.you);
+  const team=hum||/rally|ralliement|rallie|soutien|renfort/.test(n)||has(TALK_KW.joke),q=n.includes('?')||TALK_Q.some(k=>(' '+n+' ').startsWith(' '+k+' ')||(k.includes(' ')&&n.includes(k)));
+  const K={surrender:has(TALK_KW.surrender),sorry:has(TALK_KW.sorry),ally:has(TALK_TOPIC.ally),who:q&&has(TALK_TOPIC.who),want:has(TALK_KW.want),why:q&&(has(TALK_TOPIC.why)||/probleme/.test(n)),count:q&&has(TALK_KW.count),help:has(TALK_KW.help)&&q,weak:has(TALK_TOPIC.weak),
+    insult:has(TALK_KW.insult),threat:has(TALK_KW.threat),fear:/pas peur|aucune peur|meme pas peur/.test(n)||has(TALK_KW.fear),brag:has(TALK_TOPIC.brag),flirt:has(TALK_KW.flirt),compliment:has(TALK_KW.compliment),demand:has(TALK_KW.demand),
+    emperor:has(TALK_TOPIC.emperor),core:q&&has(TALK_TOPIC.core),laugh:has(TALK_KW.laugh)||/^(a?h+a+){2,}/.test(n.replace(/ /g,'')),peace:has(TALK_KW.peace),bye:has(TALK_KW.bye),greet:has(TALK_KW.greet),yn:q&&/^(tu|t|est ce|vous|as tu|es tu)\b/.test(n),ask:q,echo:W.length>=5};
+  const kind=TALK_PRIO.find(k=>K[k])||'mention',ww=String(text).split(/[^\p{L}’'-]+/u).filter(x=>x.length>=5&&!TALK_STOP.has(talkNorm(x).trim())).sort((a,b)=>b.length-a.length)[0]||null;
+  return{to,gen,you,q,kind,team,w:ww}}
+const talkDelay=m=>(20+hash(m.id)%25)*1000;
+function talkMemory(who,uid,now){const M=(relOf(who,uid).mem||[]).filter(m=>m.k!=='x');const rec=M.filter(m=>now-m.at<24*HR).slice(-1)[0],old=M.filter(m=>now-m.at>=2*864e5).slice(-1)[0];
+  return rec?{won:rec.k==='pl'||rec.k==='lw',pl:rec.pl,old:false}:old?{old:true,pl:old.pl,d:Math.floor((now-old.at)/864e5)}:null}
+async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at),has=id=>(S.chat||[]).some(x=>x.id===id),isL=x=>isBot(x.uid)||x.uid==='vorgath';
+  // 1. messages programmés
+  const Q=((S.events['orion-talkq']||{}).q||[]).filter(i=>i.at<=now);if(Q.length){for(const i of Q)if(!has(i.id)&&S.players[i.uid])try{await talkSay(i.uid,i.text,i.id,i.re||null)}catch(e){}
+    await locked('events/orion-talkq',async(x,ref)=>{if(!x)return;const ids=new Set(Q.map(i=>i.id));x.q=(x.q||[]).filter(i=>!ids.has(i.id));await ref.set(x)}).catch(()=>{});return}
+  if(U.some(x=>isL(x)&&now-x.at<15e3))return; // un seigneur à la fois, comme dans une vraie discussion
+  // 2. réponses : on regroupe les messages qu'un joueur envoie d'affilée, et on répond une seule fois quand il a fini d'écrire
+  const H=[...new Set(U.filter(m=>!isUnivSpk(m.uid)&&S.players[m.uid]&&now-m.at<4*60e3).map(m=>m.uid))];
+  for(const uid of H){const lastR=U.filter(x=>isL(x)&&x.re===uid&&x.id.startsWith('u-r-')).slice(-1)[0],o0=lastR?(U.find(y=>y.id===lastR.id.slice(4))||{at:lastR.at-50e3}).at:0,B=U.filter(m=>m.uid===uid&&now-m.at<4*60e3&&m.at>o0);
+    if(!B.length)continue;const last=B[B.length-1];if(now-last.at<talkDelay(last)||has('u-r-'+last.id))continue;
+    const P=B.map(m=>talkParse(m.text)),named=P.filter(p=>p.to.length),prev=U.filter(x=>x.at<B[0].at&&x.uid!==uid).slice(-1)[0];
+    if(!named.length&&P.some(p=>p.team))continue;
+    const conv=prev&&isBot(prev.uid)&&prev.re===uid&&B[0].at-prev.at<3*60e3?prev.uid:null,youL=prev&&isBot(prev.uid)&&B[0].at-prev.at<3*60e3&&P.some(p=>p.you)?prev.uid:null,h0=hash(last.id);
+    const C=named.length?named[named.length-1].to:conv?[conv]:youL?[youL]:P.some(p=>p.gen||p.kind==='insult'||p.kind==='threat'||p.kind==='ally')?BOTS.map((b,i)=>BOTS[(h0+i)%BOTS.length].uid):[];
+    const who=C.find(u=>S.players[u]&&U.filter(x=>x.uid===u&&x.re===uid&&now-x.at<10*60e3).length<4);if(!who)continue;
+    const PP=named.length?P.filter(p=>p.to.includes(who)||!p.to.length):P,kind0=TALK_PRIO.find(k=>PP.some(p=>p.kind===k))||'mention',pw=(PP.find(p=>p.kind===kind0)||{}).w;
+    let kind=kind0==='echo'&&!pw?'mention':kind0,n=0;
+    if(kind==='insult'||kind==='threat'){await locked('players/'+who,async(x,ref)=>{if(!x||!x.bot)return;const g={...(x.bot.grudge||{})},c=g[uid]&&now-g[uid].at<48*HR?g[uid]:{n:0};n=(c.n||0)+1;g[uid]={n,at:now};x.bot={...x.bot,grudge:g};await ref.set(x)}).catch(()=>{});if(n===3)kind='grudge'}
+    const nk=await relUpdate(who,uid,REL_DV[kind0]||0,{c:kind0});
+    const ctx={p:relAddr(who,uid,last.id),w:pw,np:planetsOf(who)},mem=talkMemory(who,uid,now);let text=talkPick(who,kind,last.id);
+    if(mem&&['insult','threat','brag','mention','echo','laugh'].includes(kind)&&h0%3===0){if(mem.old){text=talkPick(who,'memold',last.id);ctx.d=mem.d}else text=talkPick(who,mem.won?'memw':'meml',last.id);ctx.pl=mem.pl}
+    else if(kind!=='grudge'&&(grudgeOf(who)[uid]||{}).n>=3&&h0%3===1)text+=' '+TALK_LINES[who].still[0];
+    else{const st=relStance(who,uid);if((st==='respect'||st==='mepris')&&h0%3===2)text+=' '+talkPick(who,st==='respect'?'st_resp':'st_desp',last.id)}
+    text=text.replace(/\{(\w+)\}/g,(_,k)=>ctx[k]??'');if(U.filter(x=>x.uid===who&&now-x.at<HR).length>=UNIV_CAP+8)continue;
+    try{await talkSay(who,text,'u-r-'+last.id,uid)}catch(e){}
+    if(nk)await talkQ([{id:'u-n-'+who+'-'+uid+'-'+talkNorm(nk).replace(/ /g,''),uid:who,text:talkPick(who,'nick',last.id).replace(/\{nick\}/g,nk).replace(/\{p\}/g,pname(uid)),at:now+30e3,re:uid}]);
+    return}
+  // 3. parfois, un autre seigneur s'en mêle, si personne n'a répondu entre-temps
+  const lastM=U[U.length-1];if(lastM&&lastM.id.startsWith('u-r-')&&isBot(lastM.uid)&&now-lastM.at>40e3&&now-lastM.at<5*60e3&&hash(lastM.id)%4===0&&!has('u-c-'+lastM.id.slice(4))){const o=BOTS.map(b=>b.uid).filter(u=>u!==lastM.uid&&S.players[u]),who=o[hash(lastM.id)%o.length];
+    if(who){const t=talkPick(who,'banter',lastM.id).replace(/\{l\}/g,pname(lastM.uid)).replace(/\{p\}/g,relAddr(who,lastM.re,lastM.id));try{await talkSay(who,t,'u-c-'+lastM.id.slice(4),lastM.re)}catch(e){}return}}
+  // 4. messages spontanés quand le canal est calme
+  if(lastM&&now-lastM.at<20*60e3)return;
   for(const b of BOTS){if(!S.players[b.uid])continue;const per=11*HR,bk=Math.floor(now/per),id='u-i-'+b.uid+'-'+bk;
     if(now<bk*per+hash(b.uid+bk)%(per/2)||has(id)||U.some(x=>x.uid===b.uid&&now-x.at<2*HR))continue;const c=talkCtx(),opts=['idle_lore','idle_war'];if(c.top)opts.push('idle_top','idle_top');if(c.d)opts.push('idle_truce','idle_truce');if(c.pr&&c.pc>=5)opts.push('idle_proj');
-    const k=opts[hash(id)%opts.length],t=talkPick(b.uid,k,id).replace(/\{(\w+)\}/g,(_,x)=>c[x]??'');try{await talkSay(b.uid,t,id)}catch(e){}}}
+    const k=opts[hash(id)%opts.length],t=talkPick(b.uid,k,id).replace(/\{(\w+)\}/g,(_,x)=>c[x]??'');try{await talkSay(b.uid,t,id)}catch(e){}return}}
 
 // ---------- chat ----------
 const CHAT={open:false,lastSend:0,seenInit:false,heard:new Set(),ch:(()=>{try{return localStorage.getItem('orion-chat-ch')==='u'?'u':'j'}catch(e){return'j'}})()};
@@ -1371,7 +1483,7 @@ function chatUpdate(){const msgs=S.chat||[];
   const list=document.getElementById('chatlist'),ch=CHAT.ch,cm=msgs.filter(m=>chOf(m)===ch);
   if(CHAT.open){const tb=document.getElementById('chtabs');if(tb)tb.innerHTML=[['j','👥 Joueurs'],['u','🌌 Univers']].map(([c,l])=>{const n=c===ch?0:chatUnread(c);return`<button type="button" class="chtab${c==='u'?' u':''}" data-act="chch" data-c="${c}" aria-pressed="${c===ch}">${l}${n?`<span class="n">${n>9?'9+':n}</span>`:''}</button>`}).join('');document.getElementById('chatin').placeholder=ch==='u'?'Réponds aux Seigneurs…':'Écris un message…';
     const atBottom=list.scrollHeight-list.scrollTop-list.clientHeight<60;
-    list.innerHTML=cm.length?cm.map(m=>{const bot=isBot(m.uid),sy=m.uid===UNIV_SYS.uid,nm=S.players[m.uid]?pname(m.uid):m.name||'?',bt=bot&&BOTS.find(b=>b.uid===m.uid);return`<div class="cmsg ${m.uid===ME?'me':''}${bot?' bot':''}${sy?' sys':''}" style="--bc:${esc(pcolor(m.uid))}"><div class="cmeta">${sy?'<span>🌌</span>':bot?'<span class="bmark">⚜</span>':`<span class="dot" style="background:${esc(pcolor(m.uid))}"></span>`}<b>${esc(nm)}</b>${bt?`<small>${esc(bt.title)}</small>`:''}<time>${new Date(m.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</time></div><div class="ctext">${esc(m.text)}</div></div>`}).join(''):`<p class="empty" style="padding:12px">${ch==='u'?'Rien pour l’instant. Ici parlent les Seigneurs d’Orion après vos combats, et l’univers annonce ses grands événements. Les Seigneurs lisent ce canal : cite leur nom pour qu’ils te répondent.':'Aucun message pour l’instant. Lance la conversation !'}</p>`;
+    list.innerHTML=cm.length?cm.map(m=>{const emp=m.uid==='vorgath',bot=isBot(m.uid)||emp,sy=m.uid===UNIV_SYS.uid,nm=S.players[m.uid]?pname(m.uid):m.name||'?',bt=bot&&BOTS.find(b=>b.uid===m.uid);return`<div class="cmsg ${m.uid===ME?'me':''}${bot?' bot':''}${emp?' emp':''}${sy?' sys':''}" style="--bc:${emp?'#ff7a59':esc(pcolor(m.uid))}"><div class="cmeta">${sy?'<span>🌌</span>':emp?'<span class="bmark">👑</span>':bot?'<span class="bmark">⚜</span>':`<span class="dot" style="background:${esc(pcolor(m.uid))}"></span>`}<b>${esc(nm)}</b>${bt?`<small>${esc(bt.title)}</small>`:emp?'<small>Empereur d’Orion</small>':''}<time>${new Date(m.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</time></div><div class="ctext">${esc(m.text)}</div></div>`}).join(''):`<p class="empty" style="padding:12px">${ch==='u'?'Rien pour l’instant. Ici parlent les Seigneurs d’Orion après vos combats, et l’univers annonce ses grands événements. Les Seigneurs lisent ce canal : cite leur nom pour qu’ils te répondent.':'Aucun message pour l’instant. Lance la conversation !'}</p>`;
     if(atBottom||!CHAT.scrolled){list.scrollTop=list.scrollHeight;CHAT.scrolled=true}setChatSeen(Math.max(chatSeen(ch),...cm.map(m=>m.at||0)),ch)}
   chatBtnSync(!!S.players[ME]&&myPlanets().length>0)}
 function chatPeek(m){const el=document.getElementById('chatpeek');if(!el||!S.players[ME])return;el.innerHTML='';const b=document.createElement('b');b.textContent=(chOf(m)==='u'?'🌌 ':'')+(S.players[m.uid]?pname(m.uid):m.name||'?')+' : ';el.classList.toggle('u',chOf(m)==='u');el.dataset.c=chOf(m);const t=document.createElement('span');t.textContent=m.text.length>70?m.text.slice(0,70)+'…':m.text;el.append(b,t);el.hidden=false;clearTimeout(CHAT.peekT);CHAT.peekT=setTimeout(()=>{el.hidden=true},7000)}
@@ -2506,7 +2618,7 @@ async function homecoming(f,fref){let dest=fleetBase(f);const o=S.planets[dest];
 async function rallyRemind(fid){let L=null;await locked('fleets/'+fid,async(fd,fref)=>{if(!fd||fd.phase!=='rally'||fd.rem5)return;fd.rem5=true;await fref.set(fd);L=fd});if(!L)return;
   const sup=Object.values(S.fleets).filter(x=>x.rally===fid&&(x.phase==='out'||x.phase==='rwait'));const who=[...new Set([L.owner,...sup.map(x=>x.owner)])].filter(u=>!isNpc(u));
   await report({rally:true,push:true,ptitle:'⚑ Ralliement dans 5 min',to:who,tone:'info',title:`⚑ Le ralliement vers ${plName(L.to)} part à ${clock(L.rallyUntil)}`,lines:[`Départ dans moins de 5 minutes depuis ${plName(L.from)}. Dernier moment pour ajouter des vaisseaux en soutien.`,`Déjà engagé : ${unitLine(sumShips([L.ships,...sup.map(x=>x.ships)]))}.`]})}
-async function resolveDue(){if(!db||S.spectator)return;const G=S.got||{};if(!(G.f&&G.e&&G.p&&G.pl))return;await battleTicks();await pillardTick().catch(()=>{});await botTick().catch(()=>{});await projIntro().catch(()=>{});await eliteIntro().catch(()=>{});await lordTick().catch(()=>{});await enemyPwTick().catch(()=>{});await sectorTick().catch(()=>{});await bayMigrate().catch(()=>{});await relicTick().catch(()=>{});await pbTick().catch(()=>{});await deepTick().catch(()=>{});const now=Date.now();
+async function resolveDue(){if(!db||S.spectator)return;const G=S.got||{};if(!(G.f&&G.e&&G.p&&G.pl))return;await battleTicks();await pillardTick().catch(()=>{});await botTick().catch(()=>{});if(S.players[ME]&&!isBot(ME)&&Date.now()-TALK_T>6000){TALK_T=Date.now();await botTalkTick(Date.now()).catch(e=>console.warn('botTalk',e))}await projIntro().catch(()=>{});await eliteIntro().catch(()=>{});await lordTick().catch(()=>{});await enemyPwTick().catch(()=>{});await sectorTick().catch(()=>{});await bayMigrate().catch(()=>{});await relicTick().catch(()=>{});await pbTick().catch(()=>{});await deepTick().catch(()=>{});const now=Date.now();
   // ordre chronologique : une flotte arrivée avant l'heure de départ d'un ralliement est traitée avant lui (rattrapage après une absence)
   const tOf=f=>f.phase==='rally'?f.rallyUntil:f.phase==='out'?f.arrive:f.phase==='back'?f.back:Infinity;
   for(const f of Object.values(S.fleets).sort((a,b)=>(tOf(a)||0)-(tOf(b)||0))){if(busy.has(f.fid))continue;if(f.group){const L=S.fleets[f.group];if(L&&(L.phase==='out'||L.phase==='rally'))continue}if(f.phase==='rally'){if(!f.rem5&&f.rallyUntil>now&&f.rallyUntil-now<=5*60000&&f.rallyUntil-(f.depart||0)>6*60000&&!busy.has('m'+f.fid)){busy.add('m'+f.fid);rallyRemind(f.fid).catch(()=>{}).finally(()=>busy.delete('m'+f.fid))}if(f.rallyUntil<=now&&!busy.has('r'+f.fid)){busy.add('r'+f.fid);try{await rallyLaunch(f.fid,true)}catch(e){}finally{busy.delete('r'+f.fid)}}continue}if(f.phase==='rwait'){const L=S.fleets[f.rally];if((!L||L.phase!=='rally')&&now-(f.holdAt||0)>60000&&!busy.has(f.fid)){busy.add(f.fid);try{await locked('fleets/'+f.fid,async(fd,fref)=>{const L2=S.fleets[fd&&fd.rally];if(fd&&fd.phase==='rwait'&&(!L2||L2.phase!=='rally'))await sendBack(fd,fref,'Le ralliement est parti sans ta flotte : elle rentre à sa base.')})}catch(e){}finally{busy.delete(f.fid)}}continue}
@@ -2935,7 +3047,7 @@ function renderPlayers(){const now=Date.now();
     const tch=Object.values(techOf(pl)).reduce((a,b)=>a+b,0),cp=pl.cp||0;
     return{pl,n,cols,outs,inFl,bld,shp,tch,cp,lvl:Math.max(gmax,unlockedOf(pl.uid))+1,s:Math.round(bld+shp+tch*20+cp*.5)}}).sort((a,b)=>b.s-a.s);
   const stat=(l,v)=>`<div><dt>${l}</dt><dd>${v}</dd></div>`;
-  return`${coreHtml()}<section style="display:grid;gap:10px"><h1>Joueurs</h1><p class="meta" style="margin:0">${rows.length} empire${rows.length>1?'s':''} dans l’univers · classement par score (bâtiments, flottes, recherches et culture).</p>${rows.length?`<div class="list">${rows.map((r,i)=>{const cap=capitalOf(r.pl.uid),cs=cap&&PLANETS[cap.pid]?PLANETS[cap.pid].sys:null;
+  return`${coreHtml()}${lordsRelHtml()}<section style="display:grid;gap:10px"><h1>Joueurs</h1><p class="meta" style="margin:0">${rows.length} empire${rows.length>1?'s':''} dans l’univers · classement par score (bâtiments, flottes, recherches et culture).</p>${rows.length?`<div class="list">${rows.map((r,i)=>{const cap=capitalOf(r.pl.uid),cs=cap&&PLANETS[cap.pid]?PLANETS[cap.pid].sys:null;
     return`<div class="item pcard${r.pl.uid===ME?' me':''}"><div class="pch"><span class="pos">${i+1}</span><span class="dot" style="background:${esc(r.pl.color)}"></span><span class="pnm"><b>${esc(r.pl.name)}${r.pl.uid===ME?' <span class="eff">(toi)</span>':''}</b><small>${(()=>{const L=SYSTEMS.filter(x=>sysLord(x.i)===r.pl.uid);return L.length?` <span title="Seigneur de ${esc(L.map(x=>x.name).join(', '))}" style="color:#ffcf6b">👑 ${esc(L.map(x=>x.name).join(', '))}</span>`:''})()}${titlesHtml(r.pl.uid)}${r.pl.bot?` <span class="eff" style="color:#ffcf6b">⚜ ${esc(r.pl.bot.title)} · Seigneur d’Orion</span>`:`<span class="eff" style="font-size:12px;color:${isOnline(r.pl.uid)?'#4ade80':'var(--dim)'}">${isOnline(r.pl.uid)?'● en ligne':r.pl.seen?'vu '+ago(r.pl.seen):''}</span>`}${coreStats().lord===r.pl.uid?' <b style="color:#ffcf6b">👑 Seigneur d’Orion</b>':''}</small></span><span class="sc">${fmt(r.s)} pts</span></div>
     <dl class="pstats">${stat('Colonies',r.cols)}${stat('Avant-postes',r.outs)}${stat('Niveau atteint',`${r.lvl} · ${esc(GALS[Math.min(r.lvl-1,GALS.length-1)].name)}`)}${stat('Puissance de flotte',fmt(Math.round(r.shp)))}${stat('Flottes en vol',r.inFl)}${stat('Recherches',`${r.tch} niv.`)}${stat('Culture',`${fmt(r.cp)} PC`)}${stat('Bâtiments',fmt(r.bld))}</dl>
     ${r.pl.uid!==ME&&cs!=null&&sysVisible(cs)?`<div class="foot"><span class="eff">Capitale : ${esc(PLANETS[cap.pid].name)}</span><button class="btn ghost sm" data-act="pmap" data-s="${cs}">Voir sur la carte</button></div>`:''}</div>`}).join('')}</div>`:'<p class="empty">Aucun empire pour l’instant.</p>'}</section>${tradeHtml()}`}

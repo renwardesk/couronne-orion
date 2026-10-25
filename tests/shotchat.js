@@ -1,0 +1,18 @@
+const {chromium}=require('playwright');const fs=require('fs');const OUT=process.argv[2];
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
+ pg.on('pageerror',e=>console.log('PAGEERR',e.message));
+ await pg.route('**/*',r=>{const u=r.request().url();if(u.includes('three.min.js'))return r.fulfill({body:fs.readFileSync(process.env.THREE_JS),contentType:'text/javascript'});if(u.startsWith('http://localhost'))return r.continue();return r.abort()});
+ await pg.goto('http://localhost:8777/index.html');await pg.waitForTimeout(1200);
+ await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
+ await pg.evaluate(async()=>{S.got={f:1,e:1,p:1,pl:1};T.sync();await T.tick(2);await sleep(50);document.querySelectorAll('.scrim').forEach(e=>e.remove());const t=document.getElementById('tut');if(t)t.innerHTML='';
+  const bp=botPlanets('orion-1')[0].pid,now=Date.now(),add=(id,m,dt)=>{S.chat=[...(S.chat||[]),{id,kind:'chat',at:now-dt,...m}]};
+  add('a',{uid:'u2',text:'On attaque la Forge ce soir ?'},50*60e3);add('b',{uid:'u1',text:'Oui, rally à 21h'},48*60e3);
+  add('c',{ch:'u',uid:'univers',name:'Univers',text:'🚀 Un nouvel empire s’éveille : Nova, dans le système Teyrix. Bienvenue !'},70*60e3);
+  add('d',{ch:'u',uid:'orion-2',name:'Ysmera la Pâle',text:'Une flotte vers Forge d’Orion… Comme c’est touchant. Tu viens mourir chez moi.'},40*60e3);
+  add('e',{ch:'u',uid:'orion-3',name:'Draxen Ashkar',text:'Personne ne touche à Ysmera la Pâle ! L’Arsenal arrive !'},39*60e3);
+  add('f',{ch:'u',uid:'orion-2',name:'Ysmera la Pâle',text:'Tes vaisseaux brûlent si joliment autour de Forge d’Orion, ren.'},10*60e3);
+  add('g',{ch:'u',uid:'u1',text:'Tu ne perds rien pour attendre'},8*60e3);
+  add('h',{ch:'u',uid:'orion-1',name:'Kael Voryn',text:'Le Bastion se met en marche. Destination : Ansolris I.'},2*60e3);
+  CHAT.ch='u';chatOpen(true)});await pg.waitForTimeout(400);await pg.screenshot({path:OUT+'/chat-u.png'});
+ await pg.evaluate(()=>{CHAT.ch='j';chatUpdate()});await pg.waitForTimeout(200);await pg.screenshot({path:OUT+'/chat-j.png'});
+ await pg.evaluate(()=>{chatOpen(false);chatPeek({ch:'u',uid:'orion-3',name:'Draxen Ashkar',text:'HA ! ren veut se battre ! Viens à Arsenal d’Orion, je t’attends !'})});await pg.waitForTimeout(200);await pg.screenshot({path:OUT+'/chat-peek.png'});await b.close()})();

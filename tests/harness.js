@@ -5,7 +5,7 @@ const L=(...a)=>T.log.push(a.join(' '));T.L=L;
 T.ok=(c,msg)=>{if(c)L('  ✔ '+msg);else{T.fails++;L('  ✘ '+msg)}};
 toast=(m)=>{T.toasts.push(m)};window.confirm=()=>true;window.alert=()=>{};
 const ST=T.STORE,cp=x=>x==null?x:JSON.parse(JSON.stringify(x));
-const mirror=(path,d)=>{const [c,id]=path.split('/');const tgt={fleets:S.fleets,planets:S.planets,players:S.players,events:S.events}[c];if(tgt){if(d)tgt[id]=cp(d);else delete tgt[id]}if(c==='reports'&&d)S.reports.unshift({id,...cp(d)})};
+const mirror=(path,d)=>{const [c,id]=path.split('/');const tgt={fleets:S.fleets,planets:S.planets,players:S.players,events:S.events}[c];if(tgt){if(d)tgt[id]=cp(d);else delete tgt[id]}if(c==='reports'&&d)S.reports.unshift({id,...cp(d)});if(c==='chat'){S.chat=(S.chat||[]).filter(m=>m.id!==id);if(d)S.chat.push({id,...cp(d)});S.chat.sort((a,b)=>a.at-b.at);try{chatUpdate()}catch(e){}}};
 const LEASE=new Map();
 const ref=path=>({id:path.split('/').pop(),path,async get(){await sleep(1);const d=ST.get(path);return{exists:!!d,data:()=>cp(d)}},async set(d){suspGuard&&0;await sleep(1);ST.set(path,cp(d));mirror(path,d)},async delete(){await sleep(1);ST.delete(path);mirror(path,null)},async update(d){const c=ST.get(path)||{};await this.set({...c,...d})},
   async acquire({holder,ttlMs}){const l=LEASE.get(path),n=Date.now();if(l&&l.h!==holder&&l.exp>n)return{acquired:false};LEASE.set(path,{h:holder,exp:n+ttlMs});return{acquired:true}},collection:p=>colr(path+'/'+p),onSnapshot(){return()=>{}}});

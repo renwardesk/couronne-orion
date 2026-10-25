@@ -1,0 +1,24 @@
+// Chat Univers : les Seigneurs parlent après les combats, les événements s'y affichent, onglets Joueurs / Univers
+await T.tick(2);await sleep(50);
+const U=()=>(S.chat||[]).filter(m=>m.ch==='u'),bp=botPlanets('orion-1')[0].pid;
+T.ok(BOTS.every(b=>S.players[b.uid]),'seigneurs présents');
+await report({to:['u1'],tone:'loss',loser:'u1',title:'Kael repousse l’assaut',battle:{pid:bp,def:'orion-1',att:[{uid:'u1'}],planet:true}});await sleep(80);
+let m=U().find(x=>x.uid==='orion-1');T.ok(m&&m.text.includes(pname('u1'))===m.text.includes(pname('u1'))&&m.name==='Kael Voryn','défaite du joueur → message moqueur de Kael');T.L('   «',m&&m.text,'»');
+await report({to:['u1'],tone:'win',loser:'orion-1',title:`${plName(bp)} annexée par ${pname('u1')}`,battle:{pid:bp,def:'orion-1',att:[{uid:'u1'}],planet:true}});await sleep(80);
+T.ok(U().filter(x=>x.uid==='orion-1').length===2,'planète perdue → message du seigneur');T.L('   «',U().filter(x=>x.uid==='orion-1')[1].text,'»');
+await report({to:['u1'],tone:'loss',loser:'u1',title:'x',battle:{pid:window.__P1,def:'u1',att:[{uid:'orion-3'}],planet:true}});await sleep(80);
+m=U().find(x=>x.uid==='orion-3');T.ok(m&&m.text.length>5,'attaque réussie d’un seigneur → il jubile');T.L('   «',m&&m.text,'»');
+await report({to:['u1'],tone:'win',title:'Pirates',battle:{pid:window.__P1,def:'pirates',att:[{uid:'u1'}]}});await sleep(50);
+T.ok(U().length===3,'combats sans seigneur : rien dans l’Univers');
+for(let i=0;i<9;i++)await univSay('orion-2','spot',{p:'X',pl:'Y'},'k'+i);await sleep(50);
+T.ok(U().filter(x=>x.uid==='orion-2').length===UNIV_CAP,'pas plus de '+UNIV_CAP+' messages par seigneur et par heure');
+await univSay('orion-2','spot',{p:'X',pl:'Y'},'k1',true);await sleep(50);T.ok(U().filter(x=>x.uid==='orion-2').length===UNIV_CAP,'même clé = pas de doublon');
+const pid=Object.keys(PLANETS).find(p=>!S.planets[p]&&!isBody(p)&&galOf(p)===0&&!PLANETS[p].raid&&!PLANETS[p].sig&&!PLANETS[p].comet&&!PLANETS[p].core&&!PLANETS[p].deep);
+S.players.u4={kind:'player',uid:'u4',name:'Nova',color:'#00c2a8',joined:Date.now()};S.planets[pid]=homePlanet(pid,'u4');T.sync();await newcomerRp('u4','Nova',pid);await sleep(5300);
+T.ok(U().some(x=>x.uid==='univers'&&/Nova/.test(x.text)),'nouvel empire annoncé dans l’Univers');T.ok(U().some(x=>isBot(x.uid)&&/Nova/.test(x.text)),'menace du seigneur dans l’Univers');
+T.ok((S.chat||[]).every(x=>x.ch==='u'),'rien n’est écrit dans le chat Joueurs');
+chatOpen(true);CHAT.ch='j';chatUpdate();T.ok(!document.querySelector('#chatlist .cmsg.bot'),'onglet Joueurs : pas de messages des seigneurs');
+const tab=document.querySelector('.chtab.u .n');T.ok(tab&&/\d/.test(tab.textContent),'pastille de non-lus sur l’onglet Univers');
+document.querySelector('.chtab.u').click();await sleep(50);T.ok(CHAT.ch==='u'&&document.querySelectorAll('#chatlist .cmsg.bot').length>=3&&document.querySelector('#chatlist .cmsg.sys'),'onglet Univers : seigneurs et événements');
+document.getElementById('chatin').value='Tu ne me fais pas peur';await chatSend();await sleep(80);T.ok((S.chat||[]).some(x=>x.uid==='u1'&&x.ch==='u'),'un joueur peut répondre dans l’Univers');
+CHAT.ch='j';CHAT.lastSend=0;document.getElementById('chatin').value='salut';await chatSend();await sleep(80);T.ok((S.chat||[]).some(x=>x.uid==='u1'&&!x.ch&&x.text==='salut'),'chat Joueurs inchangé');chatOpen(false);

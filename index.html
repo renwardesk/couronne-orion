@@ -779,7 +779,7 @@ const PROJ={
   balises:{n:'Réseau de balises',ico:'🛰',title:'Bâtisseur des Balises',cost:{m:24e6,c:20e6,f:16e6,ir:40000},fx:'Trajets dans Orion 10 % plus rapides pour tous les joueurs.'},
   bouclier:{n:'Bouclier d’Orion',ico:'🛡',title:'Gardien du Bouclier',cost:{m:48e6,c:40e6,f:32e6,ir:60000,xe:40000},fx:'Les raids des Pillards du Néant sont 20 % moins forts.'},
   portail:{n:'Portail d’Orion',ico:'🌀',title:'Ouvreur du Portail',cost:{m:120e6,c:100e6,f:80e6,am:25000},fx:'Ouvre la galaxie Céphéide à tous, avec des trajets 40 % plus courts entre Orion et Céphéide, dès que les joueurs tiennent au moins 3 planètes du Cœur d’Orion.'}};
-const PJK=['m','c','f','ir','xe','am'],PJW={m:1,c:1,f:1,ir:50,xe:50,am:80};
+const fmtBig=n=>n>=1e6?(Math.floor(n/1e5)/10).toString().replace('.',',')+' M':n>=1e4?Math.floor(n/1e3)+' k':fmt(n),PJK=['m','c','f','ir','xe','am'],PJW={m:1,c:1,f:1,ir:50,xe:50,am:80};
 const projEv=k=>S.events['proj-'+k],projDone=k=>!!(projEv(k)&&projEv(k).done);
 const projPct=k=>{const e=projEv(k)||{},c=PROJ[k].cost,g=e.got||{};let a=0,n=0;for(const r in c){a+=Math.min(1,(g[r]||0)/c[r]);n++}return n?a/n:0};
 const portalOpen=()=>projDone('portail')&&coreStats().hum>=3,pillK=()=>projDone('bouclier')?.8:1;
@@ -805,7 +805,7 @@ function projHtml(){const myP=myPlanets().filter(p=>!isBody(p.pid)),src=S.pjSrc&
   const card=k=>{const P=PROJ[k],e=projEv(k)||{},g=e.got||{},pct=projPct(k),by=Object.entries(e.by||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);
     return`<div class="item proj${e.done?' done':''}"><div class="ihead"><b>${P.ico} ${esc(P.n)}</b><span class="lv">${e.done?'✅ achevé':Math.floor(pct*100)+' %'}</span></div><span class="prog"><b style="width:${Math.min(100,pct*100)}%;${e.done?'background:var(--good)':''}"></b></span>
       <div class="eff">${esc(P.fx)}${k==='portail'&&e.done&&!portalOpen()?' <b style="color:var(--warn)">En attente : il faut 3 planètes du Cœur.</b>':''}</div>
-      <div class="pj-r">${Object.keys(P.cost).map(r=>`<span><small>${RL[r]}</small> ${fmt(Math.min(g[r]||0,P.cost[r]))} / ${fmt(P.cost[r])}</span>`).join('')}</div>
+      <div class="pj-r">${Object.keys(P.cost).map(r=>`<span><small>${RL[r]}</small> ${fmtBig(Math.min(g[r]||0,P.cost[r]))} / ${fmtBig(P.cost[r])}</span>`).join('')}</div>
       ${by.length?`<div class="eff">🏗 ${by.map(([u,w],i)=>`${['🥇','🥈','🥉'][i]} ${esc(pname(u))}`).join(' · ')}${e.done&&e.top?` · titre « ${esc(P.title)} » : <b>${esc(pname(e.top))}</b>`:''}</div>`:''}
       ${e.done?'':`<div class="foot"><span class="eff">Tu donnes ${pc} % des stocks${S.pjRare?' et des minerais rares':''}</span><button class="btn sm" data-act="pjgive" data-k="${k}">Contribuer</button></div>`}</div>`};
   return`<section style="display:grid;gap:10px"><h2>🏗 Grands projets d’Orion</h2><p class="meta" style="margin:0">Des chantiers géants financés par tous les joueurs. Chaque projet achevé profite à tout le monde, et son plus gros contributeur reçoit un titre et un coffre d’or.</p>
@@ -4390,7 +4390,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='219';
+const APP_VERSION='220';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

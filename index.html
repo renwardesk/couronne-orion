@@ -2056,7 +2056,7 @@ const cultureRate=uid=>0; // la culture ne se gagne qu'au combat (1 point de com
 // 1 planète au départ, la 2e presque tout de suite, puis de plus en plus de culture
 // emplacements de planètes : 2 au départ, chaque palier suivant se débloque en dépensant de la culture
 const slotsOf=uid=>Math.min(MAXP,((S.players[uid]||{}).slots)||2);
-const slotCost=n=>Math.round(300*Math.pow(Math.max(1,n-1),1.6)*(n>=10?2:1)); // passer de n à n+1 emplacements
+const slotCost=n=>Math.round(300*Math.pow(Math.max(1,n-1),1.6)*(n>=15?3:n>=10?2:1)); // ×2 du 11e au 15e, ×3 à partir du 16e // passer de n à n+1 emplacements
 const cultureCost=uid=>slotCost(slotsOf(uid));
 async function unlockSlot(){let nn=0;await act(async()=>{await withPlayer(ME,d=>{const n=Math.min(MAXP,d.slots||2);if(n>=MAXP)throw err('Tu as déjà débloqué le maximum de planètes.');const c=slotCost(n),cu=d.culture??50;
   if(cu<c)throw err(`Il faut ${fmt(c)} points de combat (tu en as ${fmt(cu)}). Gagne-en en combattant.`);d.culture=cu-c;d.slots=n+1;nn=n+1});sfx.win();toast(`Nouvel emplacement débloqué : tu peux maintenant avoir ${nn} planètes.`)})}
@@ -4316,7 +4316,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='215';
+const APP_VERSION='216';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

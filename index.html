@@ -1272,18 +1272,91 @@ const TALK_LINES={
   mention:['Qui ose dire mon nom ? Ah, c’est toi, {p} !','Draxen t’entend, {p} ! Et Draxen n’oublie pas !','Tu parles de l’Arsenal, {p} ? Viens donc le voir de près !'],
   grudge:['Ça suffit, {p} ! Mes cuirassés ont ton adresse !','Toi, {p}, tu viens de gagner une visite de l’Arsenal !']}};
 const talkNorm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9?! ]+/g,' ');
-function talkParse(text){const n=talkNorm(text),w=new Set(n.split(/\s+/).filter(Boolean)),has=L=>L.some(k=>k.includes(' ')?n.includes(k):w.has(k));
-  const to=BOTS.filter(b=>has(BOT_NAMES[b.uid])).map(b=>b.uid),gen=has(TALK_GEN);
-  const kind=has(TALK_KW.insult)?'insult':/pas peur|aucune peur/.test(n)||has(TALK_KW.fear)?'fear':has(TALK_KW.threat)?'threat':has(TALK_KW.laugh)?'laugh':has(TALK_KW.peace)?'peace':has(TALK_KW.greet)?'greet':n.includes('?')?'ask':'mention';
-  return{to,gen,kind}}
+TALK_KW.insult.push('salope','salaud','batard','fdp','pute','enfoire','connard','connasse','abruti','cretin','imbecile','ordure','raclure','vermine','dechet','larve','pauvre','tg','ta gueule','ferme la','nullos','nulos','misere','miserable');
+TALK_KW.threat.push('epargnes','epargne','survoleront','ecraserai','detruirai','raserai','brulerai','egorger','massacrer','aneantir','exterminer','extinction','cadavres','sang','profaner','balayer','mourir','mourrez','tremblez','pleurer','supplier','genoux');
+const TALK_Q=['pourquoi','comment','qui','quand','combien','quoi','c est quoi','est ce que','veux tu','tu veux','voulez vous','vous voulez','as tu','avez vous'];
+const TALK_TOPIC={why:['pourquoi'],emperor:['empereur','vorgath'],ally:['alliance','allie','allies','rejoindre','avec moi','avec nous','ensemble','pacte','traite','trahir','trahison','cote'],who:['qui es tu','t es qui','qui etes vous','vous etes qui','qui es','presente toi'],core:['coeur','trone','citadelle'],weak:['faiblesse','point faible','faible point','vulnerable'],
+  brag:['longue vie','je suis le','je suis la','le plus fort','la plus forte','invincible','gloire a','je regne','mon empire','vive','roi d orion','maitre d orion']};
+const TALK_PL={you:['vous','vos','votre','seigneurs']};
+Object.assign(TALK_LINES['orion-1'],{why:['Parce qu’Orion appartient à l’Empereur Vorgath, {p}. Vous n’êtes que des intrus sur ses terres.','Pourquoi ? Parce que vous êtes faibles, et que les faibles se soumettent. C’est la loi du Cœur.','Rien de personnel, {p}. Tu es une variable à éliminer de l’équation.'],
+  emperor:['L’Empereur Vorgath ne s’abaisse pas à vous parler. Je parle pour lui.','Vorgath règne depuis le Trône. Avant de l’atteindre, il faudra passer sur le Bastion.'],
+  ally:['Une alliance ? Le Bastion ne s’allie qu’avec la victoire, {p}.','Prouve ta valeur d’abord, {p}. On ne négocie qu’avec ceux qu’on respecte.','Intéressant… Trahir les tiens ne te ferait pas peur, {p} ? Je garde ça en mémoire.'],
+  who:['Kael Voryn, Seigneur du Bastion, premier vassal de l’Empereur. Retiens ce nom.','Je suis celui qui a déjà prévu ta défaite, {p}.'],core:['Le Cœur ne tombera pas. Cinq forteresses, trois seigneurs, un Empereur.','Tu rêves du Cœur, {p} ? Beaucoup en ont rêvé. Leurs épaves dérivent encore autour.'],
+  weak:['Ma faiblesse ? Ha. Bel essai, {p}.','Je n’ai qu’une faiblesse : la patience. Et elle s’épuise.'],
+  brag:['Les grands discours, {p}… Les empires tombent toujours après les grands discours.','Gloire à toi, {p}. Profite. L’histoire ne retient que les vainqueurs.','Quel bel orgueil. Il fera un joli bruit en se brisant.'],
+  memw:['Tu parles fort pour quelqu’un qui a perdu à {pl}, {p}.','Ta dernière flotte s’est brisée à {pl}. Tu en veux une deuxième ?'],meml:['Ta victoire à {pl} t’est montée à la tête, {p}.','{pl} était un accident. Les accidents ne se répètent pas.'],
+  still:['Et n’oublie pas, {p} : tu es toujours sur ma liste.'],
+  banter:['{l} parle trop. Moi, j’agis. Bientôt, {p}.','Calme-toi, {l}. {p} ne mérite pas autant d’attention.','{l} a raison, pour une fois.'],
+  idle_top:['{top} se croit le maître d’Orion. Le Bastion a ses coordonnées.','Le plus puissant d’entre vous s’appelle {top}. C’est donc lui qui tombera le premier.'],
+  idle_truce:['Plus que {d} de trêve. Profitez-en pour compter vos vaisseaux.','La trêve s’achève dans {d}. Le Bastion est prêt. Et vous ?'],
+  idle_war:['Le Bastion ne dort jamais. Mes sondes non plus.','Encore une nuit calme dans Orion. Elles se font rares.'],
+  idle_proj:['Votre {pr} avance… à {pc} %. Je reste attentif.'],
+  idle_lore:['Il y a mille ans, l’Empereur a forgé le Cœur dans une étoile mourante. Vous êtes nés bien après.','Chaque planète d’Orion paie tribut au Trône. Les vôtres aussi, tôt ou tard.']});
+Object.assign(TALK_LINES['orion-2'],{why:['Pourquoi ? Parce que vos étoiles brillent trop fort, {p}. J’aime le noir.','Parce que c’est beau, une planète qui brûle. Tu comprendras.','L’Empereur le veut. Et moi… j’aime vous regarder vous débattre.'],
+  emperor:['Vorgath… Tu prononces son nom comme un enfant prononce le nom d’un monstre. C’est bien, {p}.','L’Empereur t’a vu, {p}. Il sourit rarement. Il a souri.'],
+  ally:['Une alliance, {p} ? Trahis d’abord tes amis. Ensuite, nous parlerons.','Approche-toi, {p}… Les alliés d’Ysmera vivent longtemps. Parfois.','Hmm… Tu me plais, {p}. Reviens me voir quand tu auras du sang sur les mains.'],
+  who:['Ysmera la Pâle, Dame de la Forge. On dit que mon visage est la dernière chose qu’on voit.','Je suis l’ombre au fond de ta galaxie, {p}.'],core:['Le Cœur bat, {p}. Tu l’entends ? Il bat pour nous.','Tu veux le Cœur ? Il faudra d’abord me prendre le mien.'],
+  weak:['Ma faiblesse… Peut-être les fleurs. Mais il n’y en a pas dans l’espace.','Tu veux mes secrets, {p} ? Viens les chercher, la nuit.'],
+  brag:['Chut… Les fanfarons font de si jolies étoiles filantes.','Longue vie à toi, {p}… Enfin, aussi longue que je le permettrai.','Tant de fierté. Elle fondra dans la Forge, comme le reste.'],
+  memw:['Tes épaves à {pl} brillent encore, {p}. Je les regarde chaque soir.','Tu as déjà oublié {pl}, {p} ? Moi non.'],meml:['Tu m’as blessée à {pl}, {p}. Je ne l’oublie pas.','{pl}… Tu y as eu de la chance. Tu en auras besoin.'],
+  still:['Ton nom est toujours sur ma liste, {p}. Il y restera.'],
+  banter:['Oh, {l}, laisse-moi {p}. Il a l’air si fragile…','{l} est si sérieux. Moi, je préfère jouer avec {p}.','{l} a parlé. Les étoiles frissonnent.'],
+  idle_top:['{top}… Ce nom revient souvent dans mes rêves. Ce n’est pas bon signe pour lui.','On murmure que {top} est le plus fort d’entre vous. J’ai hâte de vérifier.'],
+  idle_truce:['{d}… C’est tout ce qu’il vous reste de calme.','Écoutez le silence. Dans {d}, il sera remplacé par autre chose.'],
+  idle_war:['Bonne nuit, Orion. Fermez bien vos boucliers.','La Forge chante ce soir. Elle chante pour vous.'],
+  idle_proj:['Votre petit {pr} est à {pc} %. Qu’il est joli. Qu’il brûlera bien.'],
+  idle_lore:['Avant le Cœur, Orion n’était que poussière. Elle le redeviendra peut-être.','On dit que la Forge a été bâtie sur les os d’un ancien empire. Le vôtre sera le suivant.']});
+Object.assign(TALK_LINES['orion-3'],{why:['POURQUOI ? Parce que c’est AMUSANT, {p} !','Parce que vos planètes sont pleines de métal, et que j’ai faim de métal !','Pourquoi ? L’Empereur l’a ordonné. Et moi j’adore obéir à ce genre d’ordres !'],
+  emperor:['Ne parle pas de l’Empereur, {p} ! Même moi, il me fait peur !','Vorgath ? Il te broierait d’une main. Moi, j’ai besoin des deux, c’est plus amusant.'],
+  ally:['Une alliance ?! Ha ! Je m’allie avec mes canons, {p} !','Toi, mon allié ? Montre-moi d’abord ce que tu sais casser !','Une alliance… Hmm. Tu m’apporterais des planètes à piller ? On en reparle, {p}.'],
+  who:['DRAXEN ASHKAR ! Maître de l’Arsenal ! Retiens-le, ça te servira pour ta pierre tombale !','Celui qui va te botter les réacteurs, {p} !'],core:['Le Cœur ? Va frapper à la porte de l’Arsenal d’abord, {p} !','Le Cœur est imprenable ! Enfin… sauf si vous êtes très, très nombreux.'],
+  weak:['Ma faiblesse ? Les combats trop courts !','J’ai pas de faiblesse ! Enfin… les petites flottes rapides m’énervent un peu.'],
+  brag:['Longue vie à {p} ? Moi je dis : courte vie à {p} !','HA ! Il se prend pour un roi ! Je vais lui faire une couronne en ferraille !','Tu te vantes, {p} ? J’adore ! Ça rend la victoire plus drôle !'],
+  memw:['Tu te souviens de {pl}, {p} ? Moi je m’en souviens, et je ris encore !','Après ce qui t’est arrivé à {pl}, j’oserais pas parler aussi fort, {p} !'],meml:['Tu m’as eu à {pl}, {p} ! Mais l’Arsenal revient toujours !','{pl}, c’était un échauffement !'],
+  still:['Et toi, {p}, t’es toujours sur ma liste !'],
+  banter:['Arrête de parler, {l} ! Laisse-moi l’écraser !','Bien dit, {l} ! Et après on lui casse ses vaisseaux !','{l}, partage ! {p} est pour moi !'],
+  idle_top:['Il paraît que {top} est le plus fort ? Je veux me battre contre {top} !','{top} ! Viens à l’Arsenal, qu’on voie qui est le plus fort !'],
+  idle_truce:['Encore {d} de trêve ? C’est trop long ! Je m’ennuie !','{d} ! Plus que {d} et je peux tout casser !'],
+  idle_war:['Personne n’attaque ce soir ? Vous dormez ?!','J’ai repeint mes cuirassés. En rouge. Pour pas qu’on voie les taches.'],
+  idle_proj:['Votre {pr} est à {pc} % ? Il fera une belle explosion à 100 % !'],
+  idle_lore:['L’Arsenal a cinq cents ans de canons accumulés. Et j’en ai essayé chacun !','Un jour, j’ai rasé trois planètes avant le petit-déjeuner. Bon, c’étaient des petites.']});
+const talkHas=(n,w,L)=>L.some(k=>k.includes(' ')?(' '+n+' ').includes(' '+k+' '):w.has(k));
+function talkParse(text){const n=talkNorm(text).replace(/\s+/g,' ').trim(),w=new Set(n.split(' ').filter(Boolean)),has=L=>talkHas(n,w,L);
+  const hum=Object.values(S.players).some(p=>p&&p.uid&&!isBot(p.uid)&&p.name&&p.name.length>2&&w.has(talkNorm(p.name).trim())),team=hum||/rally|ralliement|rallie|soutien|renfort/.test(n),to=BOTS.filter(b=>has(BOT_NAMES[b.uid])).map(b=>b.uid),gen=has(TALK_GEN),you=has(TALK_PL.you),q=n.includes('?')||TALK_Q.some(k=>(' '+n+' ').startsWith(' '+k+' ')||(k.includes(' ')&&n.includes(k)));
+  let kind;if(q&&has(TALK_TOPIC.who))kind='who';else if(q&&(has(TALK_TOPIC.why)||/probleme/.test(n)))kind='why';else if(has(TALK_TOPIC.ally))kind='ally';else if(has(TALK_TOPIC.weak))kind='weak';
+  else if(has(TALK_KW.insult))kind='insult';else if(/pas peur|aucune peur|meme pas peur/.test(n)||has(TALK_KW.fear))kind='fear';else if(has(TALK_KW.threat))kind='threat';else if(has(TALK_TOPIC.brag))kind='brag';
+  else if(q&&has(TALK_TOPIC.emperor))kind='emperor';else if(q&&has(TALK_TOPIC.core))kind='core';else if(has(TALK_KW.laugh))kind='laugh';else if(has(TALK_KW.peace))kind='peace';else if(has(TALK_KW.greet))kind='greet';else kind=q?'ask':'mention';
+  return{to,gen,you,q,kind,team}}
 const talkDelay=m=>(60+hash(m.id)%120)*1000;
 const grudgeOf=uid=>{const g=((S.players[uid]||{}).bot||{}).grudge||{},now=Date.now();return Object.fromEntries(Object.entries(g).filter(([,v])=>v&&now-v.at<48*HR))};
-async function botTalkTick(now){const M=(S.chat||[]).filter(m=>m.ch==='u'&&m.uid&&!isUnivSpk(m.uid)&&S.players[m.uid]&&now-m.at<15*60e3&&now>=m.at+talkDelay(m)&&!(S.chat||[]).some(x=>x.id==='u-r-'+m.id));
-  for(const m of M.slice(0,3)){const P=talkParse(m.text),h0=hash(m.id),C=P.to.length?P.to:P.gen||P.kind==='insult'||P.kind==='threat'?BOTS.map((b,i)=>BOTS[(h0+i)%BOTS.length].uid):[],recent=u=>(S.chat||[]).some(x=>x.uid===u&&x.ch==='u'&&x.re===m.uid&&now-x.at<3*60e3);
-    const who=C.find(u=>S.players[u]&&!recent(u));if(!who)continue;
+const univMsgs=()=>(S.chat||[]).filter(x=>x.ch==='u');
+function talkPick(who,kind,seed){const L=TALK_LINES[who][kind]||TALK_LINES[who].mention,used=new Set(univMsgs().filter(x=>x.uid===who).slice(-40).map(x=>x.text)),h=hash(seed+kind);
+  for(let i=0;i<L.length;i++){const t=L[(h+i)%L.length];if(![...used].some(u=>u.startsWith(t.split('{')[0].slice(0,24))))return t}return L[h%L.length]}
+function talkMemory(who,uid,now){const e=Object.values(S.events).filter(x=>x&&x.news&&x.pv&&now-(x.at||0)<24*HR&&[...(x.pv.att||[]),...(x.pv.def||[])].includes(who)&&[...(x.pv.att||[]),...(x.pv.def||[])].includes(uid)&&x.pv.win).sort((a,b)=>b.at-a.at)[0];
+  if(!e)return null;const lordSide=(e.pv.att||[]).includes(who)?'att':'def';return{won:e.pv.win===lordSide,pl:uplName(e.pid)}}
+function talkCtx(){const T=Object.values(S.players).filter(p=>p&&p.uid&&!isBot(p.uid)&&!isNpc(p.uid)).map(p=>[p.uid,playerPower(p.uid)]).sort((a,b)=>b[1]-a[1]),L=S.events['orion-lords'],peace=((L&&L.created)||0)+BOT_PEACE,now=Date.now();
+  const pj=Object.keys(PROJ).map(k=>[k,projEv(k)]).filter(([,e])=>e&&!e.done&&projPct&&e.got).sort((a,b)=>projPct(b[0])-projPct(a[0]))[0];
+  return{top:T[0]?pname(T[0][0]):null,d:peace>now?fmtDur((peace-now)/1000):null,pr:pj?PROJ[pj[0]].n:null,pc:pj?Math.floor(projPct(pj[0])*100):0}}
+const talkSay=(who,text,id,re)=>db.collection('chat').doc(id).set({kind:'chat',ch:'u',uid:who,name:pname(who),text,at:Date.now(),...(re?{re}:{})});
+async function botTalkTick(now){const U=univMsgs(),has=id=>(S.chat||[]).some(x=>x.id===id);
+  const M=U.filter(m=>m.uid&&!isUnivSpk(m.uid)&&S.players[m.uid]&&now-m.at<15*60e3&&now>=m.at+talkDelay(m)&&!has('u-r-'+m.id));
+  for(const m of M.slice(0,3)){const P=talkParse(m.text),h0=hash(m.id),busyW=u=>U.filter(x=>x.uid===u&&x.re===m.uid&&now-x.at<10*60e3).length>=4;
+    const conv=U.filter(x=>isBot(x.uid)&&x.re===m.uid&&m.at-x.at<8*60e3&&m.at>=x.at).sort((a,b)=>b.at-a.at)[0],lastLord=U.filter(x=>isBot(x.uid)&&m.at-x.at<10*60e3&&m.at>=x.at).sort((a,b)=>b.at-a.at)[0];
+    const C=P.to.length?P.to:P.team?[]:conv&&m.at-conv.at<5*60e3?[conv.uid]:P.you&&lastLord?[lastLord.uid]:P.gen||P.kind==='insult'||P.kind==='threat'||P.kind==='ally'?BOTS.map((b,i)=>BOTS[(h0+i)%BOTS.length].uid):[];
+    const who=C.find(u=>S.players[u]&&!busyW(u));if(!who)continue;
     let kind=P.kind,n=0;if(kind==='insult'||kind==='threat'){await locked('players/'+who,async(x,ref)=>{if(!x||!x.bot)return;const g={...(x.bot.grudge||{})},c=g[m.uid]&&now-g[m.uid].at<48*HR?g[m.uid]:{n:0};n=(c.n||0)+1;g[m.uid]={n,at:now};x.bot={...x.bot,grudge:g};await ref.set(x)}).catch(()=>{});if(n===3)kind='grudge'}
-    const L=TALK_LINES[who][kind]||TALK_LINES[who].mention,text=L[hash(m.id+kind)%L.length].replace(/\{p\}/g,pname(m.uid));
-    try{const id='u-r-'+m.id;if((S.chat||[]).some(x=>x.id===id))continue;if((S.chat||[]).filter(x=>x.uid===who&&x.ch==='u'&&now-x.at<HR).length>=UNIV_CAP+4)continue;await db.collection('chat').doc(id).set({kind:'chat',ch:'u',uid:who,name:pname(who),text,at:Date.now(),re:m.uid})}catch(e){}}}
+    const ctx={p:pname(m.uid)},mem=talkMemory(who,m.uid,now);let text=talkPick(who,kind,m.id);
+    if(mem&&(kind==='insult'||kind==='threat'||kind==='brag'||kind==='mention')&&h0%2===0){text=talkPick(who,mem.won?'memw':'meml',m.id);ctx.pl=mem.pl}
+    else if(kind!=='grudge'&&(grudgeOf(who)[m.uid]||{}).n>=3&&h0%3===0)text+=' '+TALK_LINES[who].still[0];
+    text=text.replace(/\{(\w+)\}/g,(_,k)=>ctx[k]??'');
+    const id='u-r-'+m.id;if(has(id))continue;if(U.filter(x=>x.uid===who&&now-x.at<HR).length>=UNIV_CAP+6)continue;try{await talkSay(who,text,id,m.uid)}catch(e){}}
+  // un autre seigneur glisse parfois un mot (30 %)
+  for(const r of U.filter(x=>x.id.startsWith('u-r-')&&isBot(x.uid)&&now-x.at>50e3&&now-x.at<10*60e3&&hash(x.id)%10<3&&!has('u-c-'+x.id.slice(4)))){const o=BOTS.map(b=>b.uid).filter(u=>u!==r.uid&&S.players[u]),who=o[hash(r.id)%o.length];if(!who)continue;
+    const t=talkPick(who,'banter',r.id).replace(/\{l\}/g,pname(r.uid)).replace(/\{p\}/g,pname(r.re));try{await talkSay(who,t,'u-c-'+r.id.slice(4),r.re)}catch(e){}}
+  // de temps en temps, un seigneur parle de lui-même (toutes les 8 à 14 h)
+  for(const b of BOTS){if(!S.players[b.uid])continue;const per=11*HR,bk=Math.floor(now/per),id='u-i-'+b.uid+'-'+bk;
+    if(now<bk*per+hash(b.uid+bk)%(per/2)||has(id)||U.some(x=>x.uid===b.uid&&now-x.at<2*HR))continue;const c=talkCtx(),opts=['idle_lore','idle_war'];if(c.top)opts.push('idle_top','idle_top');if(c.d)opts.push('idle_truce','idle_truce');if(c.pr&&c.pc>=5)opts.push('idle_proj');
+    const k=opts[hash(id)%opts.length],t=talkPick(b.uid,k,id).replace(/\{(\w+)\}/g,(_,x)=>c[x]??'');try{await talkSay(b.uid,t,id)}catch(e){}}}
 
 // ---------- chat ----------
 const CHAT={open:false,lastSend:0,seenInit:false,heard:new Set(),ch:(()=>{try{return localStorage.getItem('orion-chat-ch')==='u'?'u':'j'}catch(e){return'j'}})()};

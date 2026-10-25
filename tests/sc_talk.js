@@ -10,7 +10,7 @@ T.ok(R('m3')&&R('m3').uid==='orion-3'&&TALK_LINES['orion-3'].threat.some(l=>l.re
 T.ok(!R('m4'),'réponse différée (1 à 3 min), pas instantanée');
 const n0=(S.chat||[]).length;await botTalkTick(Date.now());await sleep(40);T.ok((S.chat||[]).length===n0,'pas de double réponse');
 T.ok((grudgeOf('orion-1').u1||{}).n===1,'une insulte = 1 point de rancune');
-for(const i of [1,2,3]){await add('y'+i,'Ysmera tu es minable '+i,(200-i)*1e3);await sleep(20);await botTalkTick(Date.now());await sleep(40);for(const x of S.chat)if(x.uid==='orion-2')x.at-=4*60e3}
+for(const i of [1,2,3]){await add('y'+i,'Ysmera tu es minable '+i,(200-i)*1e3);await sleep(20);await botTalkTick(Date.now());await sleep(40);for(const x of S.chat)if(x.uid==='orion-2')x.at-=11*60e3}
 T.ok((grudgeOf('orion-2').u1||{}).n===3,'3 provocations = rancune 3');T.ok(R('y3')&&TALK_LINES['orion-2'].grudge.some(l=>l.replace(/\{p\}/g,'ren')===R('y3').text),'3e provocation : « tu es sur ma liste »');T.L('   «',R('y3')&&R('y3').text,'»');
 await add('g1','Les seigneurs vont tomber',200e3);await sleep(20);await botTalkTick(Date.now());await sleep(40);T.ok(R('g1')&&isBot(R('g1').uid),'« les seigneurs » sans nom → un seigneur répond');
 for(const x of S.chat)if(isBot(x.uid))x.at-=4*60e3;await add('p1','bonjour Ysmera',200e3);await sleep(20);await botTalkTick(Date.now());await sleep(40);T.ok(R('p1')&&R('p1').uid==='orion-2','salutation → réponse');

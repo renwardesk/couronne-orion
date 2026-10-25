@@ -1985,6 +1985,23 @@ async function launch0(){const M=S.modal;if(!M)return;if(M.fleet)return launchHe
     const AB=autoBackOn()&&AUTOB.includes(M.mission)?{autoBack:true}:{};
     await db.doc('fleets/'+id).set({kind:'fleet',fid:id,owner:ME,...AB,...(dropOk(M.drop,ME)&&M.drop!==M.from?{drop:M.drop}:{}),from:M.from,to:M.to,mission:M.mission,ships,...(M.mission==='rallysup'?{rally:M.rally}:{}),cargo:{m:0,c:0,f:0},depart:now,arrive:IP?IP.t:LJ?LJ.arrive:now+eta*1000,phase:'out',...(IP?{meet:IP.p}:{}),...(LJ?{group:LJ.fid}:{}),...(M.cmd?{cmd:M.cmd,ships:{...ships,flag:1}}:{}),...(M.intercept?{target:M.intercept}:{})});
     S.modal=null;renderModal();sfx.launch();toast(IP?`Interception lancée : rencontre à ${clock(IP.t)}.`:`Flotte lancée. Arrivée à ${clock(LJ?LJ.arrive:now+eta*1000)}.`)})}
+// accueil d'un nouvel empire : un mot de bienvenue pour lui, une annonce pour les autres, et la menace des Seigneurs d'Orion
+const WELCOME_LINES=n=>[`Les étoiles d’Orion ont un nouveau maître, ${n}. Ta capitale vient de s’allumer dans la nuit, et tout l’univers l’a vue.`,
+  'Développe tes mines, arme ton chantier, envoie tes sondes : ici, l’information vaut plus que les vaisseaux.',
+  'Méfie-toi des Écumeurs du Vide qui rôdent entre les systèmes, et des Pillards du Néant qui guettent les colonies mal gardées.',
+  'Les autres empires peuvent être tes alliés : un « Renfort » ou un « ⚑ Ralliement » change le cours d’une bataille.',
+  'Et au centre de la galaxie, le Cœur d’Orion attend celui qui osera le prendre.'];
+const LORD_THREATS=[
+  n=>`« Encore un roitelet qui allume sa petite étoile. Profite de ta lumière, ${n} : depuis le Cœur, nous comptons déjà les jours qu’il te reste. »`,
+  n=>`« Nos sondes ont vu naître ta capitale, ${n}. Elle est jolie. Elle brûlera bien. »`,
+  n=>`« Orion appartient à l’Empereur Vorgath et à ses seigneurs. Tu n’es qu’un locataire, ${n}… et le loyer se paie en vaisseaux. »`,
+  n=>`« Construis, ${n}. Arme-toi. Rassemble des alliés. Plus ta chute sera haute, plus elle sera belle à regarder depuis le Cœur. »`];
+async function newcomerRp(uid,name,pid){const L=BOTS.filter(b=>S.players[b.uid]),others=humanIds().filter(u=>u!==uid),sys=PLANETS[pid]?SYSTEMS[PLANETS[pid].sys].name:'';
+  await report({push:true,ptitle:'🌌 Bienvenue dans Orion',pid,to:[uid],tone:'win',title:`🌌 Bienvenue dans Orion, ${name}`,lines:WELCOME_LINES(name)});
+  if(others.length)await report({news:'conquest',newsBy:[uid],push:true,ptitle:'🚀 Un nouvel empire',pid,to:others,tone:'info',title:`🚀 Un nouvel empire s’éveille : ${name}`,lines:[`${name} a fondé sa capitale dans le système ${sys}.`,'Accueillez-le comme il se doit : un message dans le chat, un renfort, ou une alliance contre les Seigneurs d’Orion.']});
+  if(L.length){const b=L[hash(uid)%L.length],t=LORD_THREATS[hash(uid+'t')%LORD_THREATS.length](name);
+    await report({push:true,ptitle:`⚜ ${b.name}`,pid:b.seat,to:[uid],tone:'loss',title:`⚜ Un message du Cœur d’Orion pour ${name}`,lines:[t,`— ${b.name}, ${b.title}, vassal de l’Empereur Vorgath.`,'Les Seigneurs d’Orion sont trois. Ils tiennent le Cœur de la galaxie et n’aiment pas les nouveaux venus. Pour l’instant, tu es trop petit pour qu’ils s’en soucient… pour l’instant.']});
+    if(others.length)await report({to:others,tone:'loss',pid:b.seat,title:`⚜ ${b.name} a remarqué ${name}`,lines:[t,'Les Seigneurs d’Orion surveillent chaque nouvel empire. Ne laissez pas le nouveau venu seul face à eux.']})}}
 async function join(){const name=(document.getElementById('pseudo').value||'').trim().slice(0,18);if(name.length<2)return toast('Choisis un nom d’au moins 2 caractères.','bad');
   if(S.joinColor&&takenColors().has(S.joinColor.toLowerCase()))return toast('Cette couleur est déjà prise par un autre empire.','bad');
   const color=(S.joinColor||freeColor()).toLowerCase();
@@ -2002,7 +2019,7 @@ async function join(){const name=(document.getElementById('pseudo').value||'').t
   try{await act(async()=>{// la couleur est réservée d’abord : deux nouveaux joueurs ne peuvent pas prendre la même au même moment
     await locked('colors/'+color.slice(1),async(d,ref)=>{if(d&&d.uid&&d.uid!==ME)throw err('Cette couleur vient d’être prise par un autre empire. Choisis-en une autre.');if(takenColors().has(color))throw err('Cette couleur est déjà prise par un autre empire.');await ref.set({kind:'color',uid:ME,at:Date.now()})});
     for(const cand of c.slice(0,6)){let ok=false;await locked('planets/'+cand.pid,async(d,ref)=>{if(d&&d.owner)return;await ref.set(homePlanet(cand.pid,ME));ok=true});
-    if(ok){await db.doc('players/'+ME).set({kind:'player',uid:ME,name,color,joined:Date.now(),rare:{ir:40,xe:10,am:0},rareAt:Date.now(),tech:{},loadout:{},paint:{}});S.sel=cand.pid;S.tab='planet';sfx.win();toast(`Bienvenue, ${name}. Ta capitale est ${cand.name}.`);return}}
+    if(ok){await db.doc('players/'+ME).set({kind:'player',uid:ME,name,color,joined:Date.now(),rare:{ir:40,xe:10,am:0},rareAt:Date.now(),tech:{},loadout:{},paint:{}});S.sel=cand.pid;S.tab='planet';sfx.win();toast(`Bienvenue, ${name}. Ta capitale est ${cand.name}.`);newcomerRp(ME,name,cand.pid).catch(()=>{});return}}
     throw err('Aucune planète libre trouvée.')})}finally{S.joining=false}}
 
 // ---------- résolution des flottes (n'importe quel client) ----------
@@ -4316,7 +4333,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='216';
+const APP_VERSION='217';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

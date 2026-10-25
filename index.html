@@ -436,7 +436,7 @@ const SLOTS={fighter:1,cruiser:2,battleship:3,colony:1};
 const MOUNT={fighter:2,cruiser:3,battleship:4,colony:2};
 const DEFONLY=['armor','shield'];
 const BQ_MAX=5,SQ_MAX=5;
-const MAXP=15,MAXO=8,LOOT_K=.7,TECHMAX=5;
+const MAXP=20,MAXO=10,LOOT_K=.7,TECHMAX=5;
 const lvBase=k=>BUILD[k]||BUILD_OUT[k];
 const bCostOld=(k,L)=>{const b=lvBase(k).cost,x=1.55**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
 const bCost=(k,L)=>{const b=lvBase(k).cost,x=1.75**L;return{m:Math.round(b.m*x),c:Math.round(b.c*x),f:Math.round(b.f*x)}};
@@ -4316,7 +4316,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='214';
+const APP_VERSION='215';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

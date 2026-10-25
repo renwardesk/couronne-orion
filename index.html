@@ -1454,7 +1454,7 @@ async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at
     const who=C.find(u=>S.players[u]&&U.filter(x=>x.uid===u&&x.re===uid&&now-x.at<10*60e3).length<4);if(!who)continue;
     const PP=named.length?P.filter(p=>p.to.includes(who)||!p.to.length):P,kind0=TALK_PRIO.find(k=>PP.some(p=>p.kind===k))||'mention',pw=(PP.find(p=>p.kind===kind0)||{}).w;
     if(AI.ok(now)&&(S.events['lord-ai']||{}).on!==false&&!AI.fail.has(last.id)){if(AI.pend.has(last.id))continue;const mid=last.id;AI.pend.add(mid);
-      aiTalk(mid,B.map(m=>m.id),who).then(r=>{AI.pend.delete(mid);if(r&&r.ok){if(r.text)relUpdate(who,uid,0,{c:kind0}).catch(()=>{})}else{AI.fail.add(mid);if(/no-key|budget|auth/.test((r&&r.reason)||''))AI.off=Date.now()+10*60e3}});return}
+      aiTalk(mid,B.map(m=>m.id),who).then(r=>{if(r&&r.ok&&r.skip){setTimeout(()=>{AI.pend.delete(mid);AI.fail.add(mid)},25000);return}AI.pend.delete(mid);if(r&&r.ok){if(r.text)relUpdate(who,uid,0,{c:kind0}).catch(()=>{})}else{console.warn('lord-talk',r);AI.fail.add(mid);if(/no-key|budget|auth/.test((r&&r.reason)||''))AI.off=Date.now()+10*60e3}});return}
     let kind=kind0==='echo'&&!pw?'mention':kind0,n=0;
     if(kind==='insult'||kind==='threat'){await locked('players/'+who,async(x,ref)=>{if(!x||!x.bot)return;const g={...(x.bot.grudge||{})},c=g[uid]&&now-g[uid].at<48*HR?g[uid]:{n:0};n=(c.n||0)+1;g[uid]={n,at:now};x.bot={...x.bot,grudge:g};await ref.set(x)}).catch(()=>{});if(n===3)kind='grudge'}
     const nk=await relUpdate(who,uid,REL_DV[kind0]||0,{c:kind0});
@@ -4728,7 +4728,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='229';
+const APP_VERSION='230';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

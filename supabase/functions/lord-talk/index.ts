@@ -9,7 +9,7 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const MODEL = Deno.env.get("LORD_MODEL") ?? "claude-haiku-5-5";
 const DAY_CAP = Number(Deno.env.get("LORD_DAY_CAP") ?? 300); // réponses IA par jour, tous seigneurs confondus
 const HOUR_CAP = 25; // par seigneur et par heure
-const out = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: CORS });
+const out = (o: any, status = 200) => { console.log("lord-talk", JSON.stringify(o).slice(0, 300)); return new Response(JSON.stringify(o), { status, headers: CORS }); };
 const doc = async (path: string) => (await db.from("docs").select("data").eq("path", path).maybeSingle()).data?.data ?? null;
 
 const LORDS: Record<string, { name: string; title: string; seat: string; sheet: string }> = {
@@ -41,16 +41,17 @@ Deno.serve(async (req) => {
     if (await doc("chat/" + rid)) return out({ ok: true, skip: "done" });
     // un seul client fait la réponse (verrou)
     const { error: lockErr } = await db.from("docs").insert({ path: "ailock/" + mid, col: "ailock", data: { at: Date.now(), who } });
-    if (lockErr) return out({ ok: true, skip: "locked" });
+    if (lockErr) return out({ ok: true, skip: "locked", err: lockErr.message });
 
     const now = Date.now();
     db.from("docs").delete().eq("col", "ailock").lt("data->>at", String(now - 864e5)).then(() => {}, () => {});
-    const { data: recent } = await db.from("docs").select("path,data").eq("col", "chat").gt("data->>at", String(now - 24 * 3600e3)).limit(600);
+    const { data: recent } = await db.from("docs").select("path,data").eq("col", "chat").gt("updated_at", new Date(now - 24 * 3600e3).toISOString()).order("updated_at", { ascending: false }).limit(400);
     const msgs = (recent ?? []).map((r) => ({ id: r.path.slice(5), ...r.data })).filter((m) => m && m.ch === "u").sort((a, b) => a.at - b.at);
     const aiDay = msgs.filter((m) => m.ai).length, aiHour = msgs.filter((m) => m.ai && m.uid === who && now - m.at < 3600e3).length;
     if (aiDay >= DAY_CAP || aiHour >= HOUR_CAP) return out({ ok: false, reason: "budget" });
 
-    const batch = msgs.filter((m) => ids.includes(m.id));
+    const { data: bd } = await db.from("docs").select("path,data").in("path", ids.map((i: string) => "chat/" + String(i)));
+    const batch = (bd ?? []).filter((r) => r.data).map((r) => ({ id: r.path.slice(5), ...r.data })).sort((a, b) => a.at - b.at);
     const last = batch[batch.length - 1];
     if (!last || last.id !== mid || now - last.at > 6 * 60e3) return out({ ok: false, reason: "stale" });
     const uid = last.uid, me = await doc("players/" + uid), lordDoc = await doc("players/" + who);
@@ -93,7 +94,7 @@ Réponds UNIQUEMENT avec un objet JSON : {"text": "ta réplique", "rel": entier 
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({ model: MODEL, max_tokens: 300, system, messages: [{ role: "user", content: user }] }) });
     clearTimeout(to);
-    if (!r.ok) { await db.from("docs").delete().eq("path", "ailock/" + mid); return out({ ok: false, reason: "api", status: r.status }); }
+    if (!r.ok) { const body = (await r.text()).slice(0, 200); await db.from("docs").delete().eq("path", "ailock/" + mid); return out({ ok: false, reason: "api", status: r.status, body }); }
     const j = await r.json();
     const raw = String((j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("") ?? "");
     let res: any = null; try { res = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { res = null; }

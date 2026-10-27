@@ -17,3 +17,6 @@ S.tab='cmds';S.cmdOpen='id-l9';render();await sleep(50);T.ok(document.querySelec
 S.tab='planet';render();await withPlayer('u1',d=>{d.cmds=[{id:'z',key:'l2',xp:MX,st:5}];d.chests={g:3};d.frag=0});await sleep(20);await openChest('g');await sleep(20);
 T.ok(S.chestShow.frag>0||!S.chestShow.dup,'★5 : un doublon redonne des Éclats');
 await eliteIntro();await sleep(30);T.ok(S.reports.filter(r=>/éveil des commandants/.test(r.title||'')).length===1,'notif d’explication envoyée une fois');await eliteIntro();await sleep(20);T.ok(S.reports.filter(r=>/éveil des commandants/.test(r.title||'')).length===1,'… et une seule');
+// journal des coffres : nouveaux et doublons, avec le surnom
+{const pl=S.players.u1;T.ok((pl.chlog||[]).length>0&&pl.chlog.length<=20,'journal des coffres rempli ('+(pl.chlog||[]).length+')');
+const h=chlogHtml(pl).replace(/<[^>]+>/g,' ');T.L('   ',h.replace(/\s+/g,' ').slice(0,300));T.ok(/Derniers coffres ouverts/.test(h)&&/doublon/.test(h),'journal affiché avec les doublons')}

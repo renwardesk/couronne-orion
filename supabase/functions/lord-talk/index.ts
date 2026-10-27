@@ -1,5 +1,5 @@
 // Couronne d'Orion : les Seigneurs d'Orion lisent l'onglet Univers et répondent avec une IA (Claude), dans leur personnage.
-// Appelée par la base de données à chaque message de joueur dans l'Univers (déclencheur docs_lord_talk) avec { mid }.
+// Appelée par le jeu à chaque message de joueur dans l'Univers ({ mid }) et pour commenter un événement en direct ({ ev }).
 // La fonction attend que le joueur ait fini d'écrire, relit tout dans la base, et laisse l'IA décider :
 // qui répond (ou personne si les joueurs parlent entre eux), quoi, et parfois un second seigneur qui s'en mêle.
 // La clé ANTHROPIC_API_KEY est un secret Supabase : elle n'est jamais dans le dépôt.
@@ -24,6 +24,19 @@ const LORDS: Record<string, { name: string; title: string; sheet: string }> = {
 `Brute joyeuse, bruyante, fanfaronne, qui adore la bagarre. Majuscules, points d'exclamation, gros rire (HA !), vocabulaire de canons, cuirassés, ferraille, « tout casser ». Susceptible, facile à provoquer, un peu bête et très drôle, mais pas méchant au fond : il respecte ceux qui cognent fort et il lance des défis. Il a peur de l'Empereur et le cache mal. Exemples de ton : « HA ! Enfin quelqu'un qui parle ma langue ! » / « Tu m'insultes ? Moi je t'atomise. Chacun son truc ! »` },
 };
 const LORE = `Le jeu : « Couronne d'Orion », un jeu de conquête spatiale entre amis (quelques joueurs qui se connaissent, ton taquin et théâtral, beaucoup de second degré). La galaxie d'Orion appartient à l'Empereur Vorgath, qui règne depuis le Trône au centre du Cœur d'Orion (cinq forteresses : Bastion, Forge, Arsenal, Trône, Citadelle). Ses trois vassaux, les Seigneurs d'Orion — Kael Voryn (Bastion), Ysmera la Pâle (Forge), Draxen Ashkar (Arsenal) — tiennent chacun une forteresse et quelques colonies. Les joueurs sont des empires rivaux entre eux, qui veulent tous prendre le Cœur. Les Seigneurs se chamaillent parfois entre eux mais restent unis et se défendent mutuellement. Les Pillards du Néant sont une menace à part (des pirates), sans lien avec les Seigneurs.`;
+const MOOD = `Leur ton dépend de leur situation (voir « État des Seigneurs ») :
+- Confiants : arrogants, joueurs, sûrs de la victoire.
+- Sous pression : piqués au vif, plus agressifs, promettent des représailles, se rassurent en évoquant l'Empereur.
+- Acculés : la façade se fissure. Kael devient sec et inquiet, multiplie les calculs qui ne tombent plus juste ; Ysmera perd sa douceur, devient venimeuse et désespérée ; Draxen fanfaronne encore plus fort pour cacher sa peur et parle de l'Empereur en tremblant.
+- Au bord de la chute : supplient l'Empereur, menacent de tout entraîner dans leur chute, ou font face avec une dignité tragique. Une forteresse tombée est une blessure qu'ils ne digèrent pas.
+Après un coup dur (planète perdue, défaite), le Seigneur touché le ressent vraiment dans ses mots ; les autres peuvent le railler ou le défendre, sans jamais le trahir.`;
+const PERSONA = `Tu fais vivre les trois Seigneurs d'Orion, des personnages d'un jeu vidéo, dans le chat « Univers » du jeu.
+${LORE}
+
+Les trois Seigneurs :
+${BOTS.map((b) => `## ${LORDS[b].name}, ${LORDS[b].title} (id ${b})\n${LORDS[b].sheet}`).join("\n\n")}
+
+${MOOD}`;
 const STANCE = (v: number, g: number) => g >= 3 ? "haine (rancune forte : ce joueur est sur sa liste)" : v >= 40 ? "respect" : v >= 15 ? "intérêt" : v <= -40 ? "mépris" : v <= -15 ? "agacement" : "neutre";
 const MEMK: Record<string, string> = { pw: "ce joueur l'a battu", pl: "ce joueur a perdu contre lui", pa: "ce joueur lui a pris une planète", lw: "son raid contre ce joueur a réussi", ll: "ce joueur a repoussé son raid" };
 const ago = (t: number, now: number) => { const m = Math.round((now - t) / 60e3); return m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
@@ -39,8 +52,9 @@ Deno.serve(async (req) => {
   // noms des planètes envoyés par le jeu (la galaxie est calculée chez les joueurs) : simple habillage, filtré
   const names: Record<string, string> = {};
   if (body.names && typeof body.names === "object") for (const [k, v] of Object.entries(body.names).slice(0, 600)) if (/^[\w-]{1,20}$/.test(k) && typeof v === "string") names[k] = v.replace(/[<>"`]/g, "").slice(0, 40);
-  if (!/^[\w-]{4,40}$/.test(mid)) return new Response(JSON.stringify({ ok: false, reason: "bad" }), { status: 400, headers: CORS });
-  const job = work(mid, names).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
+  const isEv = body.ev && typeof body.ev === "object";
+  if (!isEv && !/^[\w-]{4,40}$/.test(mid)) return new Response(JSON.stringify({ ok: false, reason: "bad" }), { status: 400, headers: CORS });
+  const job = (isEv ? liveEvent(body.ev, names) : work(mid, names)).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
   // @ts-ignore EdgeRuntime est fourni par Supabase
   if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
   return new Response(JSON.stringify({ ok: true, queued: mid }), { status: 202, headers: CORS });
@@ -72,53 +86,11 @@ async function work(mid: string, names: Record<string, string>): Promise<any> {
     const batch = msgs.filter((m) => m.uid === uid && m.at <= m0.at && m0.at - m.at < 3 * 60e3 && (!lastR || m.at > lastR.at)).slice(-6);
     if (!batch.length) batch.push({ id: mid, ...m0 });
 
-    // contexte du jeu, relu dans la base
-    const players: Record<string, any> = {};
-    const { data: pd } = await db.from("docs").select("path,data").eq("col", "players");
-    for (const r of pd ?? []) if (r.data?.uid) players[r.data.uid] = r.data;
-    const me = players[uid]; if (!me || me.bot) return out({ ok: true, skip: "who" });
-    const pn = (id: string) => LORDS[id]?.name ?? (id === "vorgath" ? "L'Empereur Vorgath" : id === "univers" ? "Univers" : players[id]?.name ?? "?");
-    const { data: pls } = await db.from("docs").select("path,data").eq("col", "planets");
-    const count: Record<string, number> = {}; const mine = new Set<string>(), owner: Record<string, string> = {}, owned: Record<string, string[]> = {};
-    const pl = (pid: string) => names[pid] ?? `la planète ${pid}`;
-    for (const p of pls ?? []) { const o = p.data?.owner; if (!o) continue; const pid = p.path.slice(8); owner[pid] = o; count[o] = (count[o] || 0) + 1; if (o === uid) mine.add(pid); (owned[o] ??= []).push(pl(pid) + (p.data?.capital ? " (capitale)" : p.data?.outpost ? " (avant-poste)" : "")); }
-    // flottes en vol en ce moment : attaques, renforts, espionnage, interceptions (tout le monde, en temps réel)
-    const { data: fl } = await db.from("docs").select("path,data").eq("col", "fleets");
-    const MIS: Record<string, string> = { attack: "attaque", colonize: "conquête", reinforce: "renfort", spy: "espionnage", intercept: "interception", rallysup: "soutien de ralliement" };
-    const tot = (sh: any) => Object.entries(sh || {}).filter(([k]) => k !== "probe").reduce((a, [, v]) => a + (Number(v) || 0), 0);
-    const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill"));
-    const incoming = flying.filter((f) => BOTS.includes(f.owner) && f.mission === "attack" && mine.has(f.to));
-    const rel2 = (f: any) => (f.owner === uid || owner[f.to] === uid ? 0 : BOTS.includes(f.owner) || BOTS.includes(owner[f.to]) ? 1 : 2);
-    const flyTxt = flying.sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 14).map((f) => `- ${f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner)} → ${pl(f.to)}${owner[f.to] ? ` (${pn(owner[f.to])})` : ""} : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
-    const { data: ev } = await db.from("docs").select("path,data").eq("col", "events").gt("updated_at", new Date(now - 36 * 3600e3).toISOString());
-    const news = (ev ?? []).map((r) => r.data).filter((e) => e && e.news && e.title && now - (e.at || 0) < 36 * 3600e3).sort((a, b) => b.at - a.at).slice(0, 10);
-    const fights = (ev ?? []).map((r) => r.data).filter((e) => e && e.battle && !e.done && e.pid).slice(0, 6).map((e) => `- Bataille en cours à ${pl(e.pid)}${e.owner ? ` (planète de ${pn(e.owner)})` : ""}${Array.isArray(e.att) && e.att.length ? `, attaquants : ${[...new Set(e.att.map((a: any) => pn(a.owner ?? a.uid)))].join(", ")}` : ""}`);
-    const saga = await doc("events/orion-saga"), lordsEv = await doc("events/orion-lords"), peace = (lordsEv?.created ?? now) + 7 * 864e5;
-    const humans = Object.values(players).filter((p: any) => p.uid && !p.bot && p.name);
-    const lordFacts = BOTS.filter((b) => players[b]).map((b) => {
-      const bot = players[b].bot || {}, rel = bot.rel?.[uid] ?? { v: 0, mem: [] }, g = bot.grudge?.[uid], gr = g && now - g.at < 48 * 3600e3 ? g.n || 0 : 0;
-      const mem = (rel.mem ?? []).filter((x: any) => MEMK[x.k]).slice(-3).map((x: any) => `${MEMK[x.k]}${x.pl ? " à " + x.pl : ""} (${ago(x.at, now)})`);
-      const others = humans.filter((h: any) => h.uid !== uid).map((h: any) => { const r2 = bot.rel?.[h.uid]; return r2 ? `${h.name} : ${STANCE(r2.v ?? 0, 0)}` : null; }).filter(Boolean);
-      return `- ${LORDS[b].name} : ${count[b] || 0} planètes. Envers ${me.name} : ${STANCE(rel.v ?? 0, gr)} (jauge ${rel.v ?? 0}/100)${rel.nick ? `, il le surnomme « ${rel.nick} »` : ""}${mem.length ? `. Souvenirs : ${mem.join(" ; ")}` : ". Aucun combat entre eux pour l'instant"}.${others.length ? ` Envers les autres : ${others.join(", ")}.` : ""}`;
-    }).join("\n");
-    const facts = [
-      `Joueurs et leurs planètes :\n${humans.map((h: any) => `- ${h.name} (${count[h.uid] || 0}) : ${(owned[h.uid] || []).slice(0, 20).join(", ") || "aucune"}`).join("\n")}`,
-      `Planètes des Seigneurs :\n${BOTS.filter((b) => players[b]).map((b) => `- ${LORDS[b].name} : ${(owned[b] || []).slice(0, 10).join(", ")}`).join("\n")}`,
-      flyTxt.length ? `Flottes en vol en ce moment (tout est visible des Seigneurs, qui espionnent tout Orion) :\n${flyTxt.join("\n")}` : "Aucune flotte en vol en ce moment.",
-      fights.length ? fights.join("\n") : "",
-      `Seigneurs :\n${lordFacts}`,
-      incoming.length ? `Flottes de Seigneurs en route pour attaquer ${me.name} : ${incoming.map((f) => `${pn(f.owner)} (arrivée à ${hhmm(f.arrive)})`).join(", ")}.` : `Aucune flotte de Seigneur n'attaque ${me.name} en ce moment.`,
-      now < peace ? `Trêve : les Seigneurs n'attaquent pas encore les empires (fin dans ${Math.ceil((peace - now) / 3600e3)} h), sauf pour se venger de qui les attaque.` : "La trêve est finie : les Seigneurs attaquent les empires.",
-      saga?.ch ? `Histoire d'Orion : chapitre ${saga.ch} sur 5 en cours.` : "",
-      news.length ? `Événements récents :\n${news.map((e) => `- ${e.title} (${ago(e.at, now)})`).join("\n")}` : "",
-    ].filter(Boolean).join("\n");
-    const conv = msgs.filter((m) => now - m.at < 3 * 3600e3).slice(-36).map((m) => `[${hhmm(m.at)}] ${pn(m.uid)}${m.re && BOTS.includes(m.uid) ? ` (répond à ${pn(m.re)})` : ""} : ${String(m.text).slice(0, 300)}`).join("\n");
+    const C = await gameCtx(uid, names, msgs);
+    const { players, me, pn, facts, conv } = C;
+    if (!me || me.bot) return out({ ok: true, skip: "who" });
 
-    const system = `Tu fais vivre les trois Seigneurs d'Orion, des personnages d'un jeu vidéo, dans le chat « Univers » du jeu.
-${LORE}
-
-Les trois Seigneurs :
-${BOTS.map((b) => `## ${LORDS[b].name}, ${LORDS[b].title} (id ${b})\n${LORDS[b].sheet}`).join("\n\n")}
+    const system = `${PERSONA}
 
 Ta mission : un joueur vient d'écrire. Décide si un Seigneur répond, lequel, et quoi.
 Qui répond :
@@ -179,5 +151,119 @@ Réponds UNIQUEMENT avec ce JSON, sans texte autour :
   } catch (e) {
     await db.from("docs").delete().eq("path", "ailock/" + mid).then(() => {}, () => {});
     return out({ ok: false, reason: "error", msg: String(e).slice(0, 200) });
+  }
+}
+
+// contexte du jeu relu dans la base (joueurs, planètes, flottes en vol, batailles, relations, état des seigneurs)
+async function gameCtx(uid: string | null, names: Record<string, string>, msgs: any[]) {
+  const now = Date.now();
+    const players: Record<string, any> = {};
+  const { data: pd } = await db.from("docs").select("path,data").eq("col", "players");
+  for (const r of pd ?? []) if (r.data?.uid) players[r.data.uid] = r.data;
+  const me = uid ? players[uid] : null;
+  const meName = me?.name ?? "les joueurs";
+  const pn = (id: string) => LORDS[id]?.name ?? (id === "vorgath" ? "L'Empereur Vorgath" : id === "univers" ? "Univers" : players[id]?.name ?? "?");
+  const { data: pls } = await db.from("docs").select("path,data").eq("col", "planets");
+  const count: Record<string, number> = {}; const mine = new Set<string>(), owner: Record<string, string> = {}, owned: Record<string, string[]> = {};
+  const pl = (pid: string) => names[pid] ?? `la planète ${pid}`;
+  for (const p of pls ?? []) { const o = p.data?.owner; if (!o) continue; const pid = p.path.slice(8); owner[pid] = o; count[o] = (count[o] || 0) + 1; if (o === uid) mine.add(pid); (owned[o] ??= []).push(pl(pid) + (p.data?.capital ? " (capitale)" : p.data?.outpost ? " (avant-poste)" : "")); }
+  // flottes en vol en ce moment : attaques, renforts, espionnage, interceptions (tout le monde, en temps réel)
+  const { data: fl } = await db.from("docs").select("path,data").eq("col", "fleets");
+  const MIS: Record<string, string> = { attack: "attaque", colonize: "conquête", reinforce: "renfort", spy: "espionnage", intercept: "interception", rallysup: "soutien de ralliement" };
+  const tot = (sh: any) => Object.entries(sh || {}).filter(([k]) => k !== "probe").reduce((a, [, v]) => a + (Number(v) || 0), 0);
+  const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill"));
+  const incoming = flying.filter((f) => BOTS.includes(f.owner) && f.mission === "attack" && mine.has(f.to));
+  const rel2 = (f: any) => (f.owner === uid || owner[f.to] === uid ? 0 : BOTS.includes(f.owner) || BOTS.includes(owner[f.to]) ? 1 : 2);
+  const flyTxt = flying.sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 14).map((f) => `- ${f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner)} → ${pl(f.to)}${owner[f.to] ? ` (${pn(owner[f.to])})` : ""} : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
+  const { data: ev } = await db.from("docs").select("path,data").eq("col", "events").gt("updated_at", new Date(now - 36 * 3600e3).toISOString());
+  const news = (ev ?? []).map((r) => r.data).filter((e) => e && e.news && e.title && now - (e.at || 0) < 36 * 3600e3).sort((a, b) => b.at - a.at).slice(0, 10);
+  const fights = (ev ?? []).map((r) => r.data).filter((e) => e && e.battle && !e.done && e.pid).slice(0, 6).map((e) => `- Bataille en cours à ${pl(e.pid)}${e.owner ? ` (planète de ${pn(e.owner)})` : ""}${Array.isArray(e.att) && e.att.length ? `, attaquants : ${[...new Set(e.att.map((a: any) => pn(a.owner ?? a.uid)))].join(", ")}` : ""}`);
+  const saga = await doc("events/orion-saga"), lordsEv = await doc("events/orion-lords"), peace = (lordsEv?.created ?? now) + 7 * 864e5;
+  const humans = Object.values(players).filter((p: any) => p.uid && !p.bot && p.name);
+  const lordFacts = BOTS.filter((b) => players[b]).map((b) => {
+    const bot = players[b].bot || {}, rel = bot.rel?.[uid] ?? { v: 0, mem: [] }, g = bot.grudge?.[uid], gr = g && now - g.at < 48 * 3600e3 ? g.n || 0 : 0;
+    const mem = (rel.mem ?? []).filter((x: any) => MEMK[x.k]).slice(-3).map((x: any) => `${MEMK[x.k]}${x.pl ? " à " + x.pl : ""} (${ago(x.at, now)})`);
+    const others = humans.filter((h: any) => h.uid !== uid).map((h: any) => { const r2 = bot.rel?.[h.uid]; return r2 ? `${h.name} : ${STANCE(r2.v ?? 0, 0)}` : null; }).filter(Boolean);
+    return `- ${LORDS[b].name} : ${count[b] || 0} planètes. Envers ${meName} : ${STANCE(rel.v ?? 0, gr)} (jauge ${rel.v ?? 0}/100)${rel.nick ? `, il le surnomme « ${rel.nick} »` : ""}${mem.length ? `. Souvenirs : ${mem.join(" ; ")}` : ". Aucun combat entre eux pour l'instant"}.${others.length ? ` Envers les autres : ${others.join(", ")}.` : ""}`;
+  }).join("\n");
+  // état de chaque seigneur : plus il perd, plus il est acculé (le ton s'adapte)
+  const W: Record<string, number> = { fighter: 1, cruiser: 4, battleship: 12, colony: 6, flag: 30 };
+  const worth = (sh: any) => Object.entries(sh || {}).reduce((a, [k, v]) => a + (W[k] ?? 0) * (Number(v) || 0), 0);
+  const power: Record<string, number> = {};
+  for (const p of pls ?? []) { const o = p.data?.owner; if (o) power[o] = (power[o] || 0) + worth(p.data?.ships); }
+  for (const f of (fl ?? []).map((r) => r.data)) if (f?.owner) power[f.owner] = (power[f.owner] || 0) + worth(f.ships);
+  const hp = humans.map((h: any) => power[h.uid] || 0).filter((x) => x > 0), avgH = hp.length ? hp.reduce((a, b) => a + b, 0) / hp.length : 1;
+  const SEAT: Record<string, string> = { "orion-1": "o0-0", "orion-2": "o0-2", "orion-3": "o0-3" };
+  const lordState = BOTS.filter((b) => players[b]).map((b) => {
+    const rels = Object.values(players[b].bot?.rel ?? {}) as any[];
+    const losses = rels.reduce((a, r) => a + (r.mem ?? []).filter((x: any) => (x.k === "pw" || x.k === "pa") && now - x.at < 48 * 3600e3).length, 0);
+    const ratio = (power[b] || 0) / avgH, seatLost = owner[SEAT[b]] !== b, n = count[b] || 0;
+    const score = Math.max(0, 8 - n) + (seatLost ? 3 : 0) + losses * 0.7 + (ratio < 0.6 ? 2 : ratio < 0.9 ? 1 : 0);
+    const lvl = score >= 6 ? "au bord de la chute" : score >= 4 ? "acculé" : score >= 2 ? "sous pression" : "confiant";
+    return `- ${LORDS[b].name} : ${lvl} (${n} planètes${seatLost ? ", SA FORTERESSE EST TOMBÉE" : ""}, ${losses} défaite(s) en 48 h, flotte ≈ ${Math.round(ratio * 100)} % de celle d'un joueur moyen)`;
+  }).join("\n");
+  const facts = [
+    `État des Seigneurs (adapte leur ton) :\n${lordState}`,
+    `Joueurs et leurs planètes :\n${humans.map((h: any) => `- ${h.name} (${count[h.uid] || 0}) : ${(owned[h.uid] || []).slice(0, 20).join(", ") || "aucune"}`).join("\n")}`,
+    `Planètes des Seigneurs :\n${BOTS.filter((b) => players[b]).map((b) => `- ${LORDS[b].name} : ${(owned[b] || []).slice(0, 10).join(", ")}`).join("\n")}`,
+    flyTxt.length ? `Flottes en vol en ce moment (tout est visible des Seigneurs, qui espionnent tout Orion) :\n${flyTxt.join("\n")}` : "Aucune flotte en vol en ce moment.",
+    fights.length ? fights.join("\n") : "",
+    `Seigneurs :\n${lordFacts}`,
+    incoming.length ? `Flottes de Seigneurs en route pour attaquer ${meName} : ${incoming.map((f) => `${pn(f.owner)} (arrivée à ${hhmm(f.arrive)})`).join(", ")}.` : `Aucune flotte de Seigneur n'attaque ${meName} en ce moment.`,
+    now < peace ? `Trêve : les Seigneurs n'attaquent pas encore les empires (fin dans ${Math.ceil((peace - now) / 3600e3)} h), sauf pour se venger de qui les attaque.` : "La trêve est finie : les Seigneurs attaquent les empires.",
+    saga?.ch ? `Histoire d'Orion : chapitre ${saga.ch} sur 5 en cours.` : "",
+    news.length ? `Événements récents :\n${news.map((e) => `- ${e.title} (${ago(e.at, now)})`).join("\n")}` : "",
+  ].filter(Boolean).join("\n");
+  const conv = (msgs ?? []).filter((m) => now - m.at < 3 * 3600e3).slice(-36).map((m) => `[${hhmm(m.at)}] ${pn(m.uid)}${m.re && BOTS.includes(m.uid) ? ` (répond à ${pn(m.re)})` : ""} : ${String(m.text).slice(0, 300)}`).join("\n");
+  return { players, me, pn, facts, conv, owner };
+}
+
+// commentaire en direct d'un événement (attaque lancée, bataille, planète perdue, renfort, grosse attaque entre joueurs)
+async function liveEvent(ev: any, names: Record<string, string>): Promise<any> {
+  const S = (x: any, n = 120) => String(x ?? "").replace(/[<>`]/g, "").slice(0, n);
+  const key = S(ev.key, 70);
+  try {
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) return { ok: false, reason: "no-key" };
+    if (!/^[\w-]{3,70}$/.test(key)) return { ok: false, reason: "bad" };
+    const lord = BOTS.includes(ev.lord) ? ev.lord : null;
+    if (await doc("chat/u-e-" + key)) return { ok: true, skip: "done" };
+    const { error: lockErr } = await db.from("docs").insert({ path: "ailock/e-" + key, col: "ailock", data: { at: Date.now() } });
+    if (lockErr) return { ok: true, skip: "locked" };
+    await sleep(5000 + Math.random() * 6000); // laisser le rapport de bataille arriver
+    const now = Date.now();
+    const { data: recent } = await db.from("docs").select("path,data").eq("col", "chat").gt("updated_at", new Date(now - 3 * 3600e3).toISOString()).order("updated_at", { ascending: false }).limit(300);
+    const msgs = (recent ?? []).filter((r) => r.data && r.data.text && r.data.ch === "u").map((r) => ({ id: r.path.slice(5), ...r.data })).sort((a, b) => a.at - b.at);
+    if (msgs.filter((m) => m.ai && m.id.startsWith("u-e") && now - m.at < 3600e3).length >= 8) return { ok: true, skip: "rate" };
+    if (msgs.filter((m) => m.ai && now - m.at < 864e5).length >= DAY_CAP) return { ok: false, reason: "budget" };
+    const { players, facts, conv } = await gameCtx(null, names, msgs);
+    const what = [`Événement : ${S(ev.what)}`, lord ? `Seigneur concerné : ${LORDS[lord].name}` : "", ev.p ? `Joueur(s) : ${S(ev.p)}` : "", ev.pl ? `Planète : ${S(ev.pl, 40)}` : "", ev.h ? `Seigneur aidé : ${S(ev.h, 40)}` : "", ev.n ? `Taille de la flotte : environ ${Math.round(Number(ev.n) || 0)} points de puissance` : "", ev.eta ? `Arrivée prévue à ${hhmm(Number(ev.eta) || now)}` : ""].filter(Boolean).join("\n");
+    const system = `${PERSONA}
+
+Ta mission : réagir EN DIRECT à un événement qui vient de se produire, comme si le Seigneur le voyait sur ses écrans. Un seul message, celui du Seigneur concerné (ou, pour une attaque entre joueurs, celui dont le caractère colle le mieux : il peut se moquer, attiser la rivalité, parier sur le vainqueur).
+- Dans son personnage, avec sa voix propre, adapté à son état actuel et à ce que l'événement représente pour lui (victoire, humiliation, menace, coup dur).
+- 1 ou 2 phrases, 220 caractères maximum. Pas de guillemets, pas de nom devant, pas d'astérisques. Jamais vulgaire. Ne dis jamais que tu es une IA.
+- N'invente rien d'absent du contexte, ne promets rien de concret. Ne répète pas une formule déjà utilisée dans la discussion.
+Second Seigneur (« chime ») : rarement (une fois sur cinq), seulement si ça rend la scène plus vivante. Sinon null.
+Réponds UNIQUEMENT avec ce JSON : {"reply": {"lord": "orion-1|orion-2|orion-3", "text": "..."}, "chime": {"lord": "...", "text": "..."} ou null}`;
+    const user = `Contexte du jeu :\n${facts}\n\nDiscussion récente de l'onglet Univers :\n${conv}\n\n${what}`;
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal: ctl.signal,
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 600, thinking: { type: "disabled" }, system, messages: [{ role: "user", content: user }] }) });
+    clearTimeout(to);
+    if (!r.ok) return { ok: false, reason: "api", status: r.status, body: (await r.text()).slice(0, 300) };
+    const j = await r.json();
+    const raw = String((j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join(""));
+    let res: any = null; try { res = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { res = null; }
+    const ok = (x: any) => x && BOTS.includes(x.lord) && players[x.lord] && typeof x.text === "string" && x.text.trim() && !/(intelligence artificielle|chatbot|modèle de langage|en tant qu.IA)/i.test(x.text);
+    const rep = res?.reply; if (!ok(rep)) return { ok: false, reason: "parse", raw: raw.slice(0, 200) };
+    const text = clip(clean(rep.text), 260);
+    await db.from("docs").upsert({ path: "chat/u-e-" + key, col: "chat", data: { kind: "chat", ch: "u", uid: rep.lord, name: LORDS[rep.lord].name, text, at: Date.now(), ai: true, ev: S(ev.kind, 20) } });
+    const ch = res.chime;
+    if (ok(ch) && ch.lord !== rep.lord) { await sleep(20000 + Math.random() * 20000); await db.from("docs").upsert({ path: "chat/u-ec-" + key, col: "chat", data: { kind: "chat", ch: "u", uid: ch.lord, name: LORDS[ch.lord].name, text: clip(clean(ch.text), 220), at: Date.now(), ai: true } }); }
+    return { ok: true, ev: key, lord: rep.lord, text };
+  } catch (e) {
+    return { ok: false, reason: "error", msg: String(e).slice(0, 200) };
   }
 }

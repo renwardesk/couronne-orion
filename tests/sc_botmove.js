@@ -14,3 +14,16 @@ T.ok(BOTS.every(b=>botPlanets(b.uid).filter(p=>!PLANETS[p.pid].core).every(p=>p.
 const r=S.reports.filter(x=>/rappellent leurs colons/.test(x.title||''));T.ok(r.length===1,'message aux joueurs');
 await T.tick(2);T.ok(S.reports.filter(x=>/rappellent leurs colons/.test(x.title||'')).length===1,'déménagement fait une seule fois');
 T.L('   ',BOTS.map(b=>b.name+' : '+botPlanets(b.uid).map(p=>PLANETS[p.pid].name).join(', ')).join(' | '));
+// 2e renfort impérial : seulement pour des seigneurs déjà installés (> 2 jours), une seule fois
+T.ok(S.events['orion-lords'].boost2&&BOTS.every((b,i)=>Math.abs(playerPower(b.uid)-pw0[i])<1),'partie neuve : pas de renfort rétroactif');
+{const e=S.events['orion-lords'];delete e.boost2;e.created=Date.now()-4*864e5;e.kind='event';T.sync();T.adv(31e3);const p1=BOTS.map(b=>playerPower(b.uid)),d0=S.planets[BOTS[0].seat].lv.def;
+await T.tick(2);await sleep(50);
+T.ok(BOTS.every((b,i)=>playerPower(b.uid)>p1[i]*1.25&&playerPower(b.uid)<p1[i]*1.45),'renfort impérial : flottes ×1,35 ('+BOTS.map((b,i)=>Math.round(p1[i])+'→'+Math.round(playerPower(b.uid))).join(', ')+')');
+T.ok(S.planets[BOTS[0].seat].lv.def===d0+1,'défenses +1');
+T.ok(S.reports.filter(x=>/renforce les Seigneurs/.test(x.title||'')).length===1&&S.chat&&Object.values(S.chat).some(m=>m.uid==='vorgath'),'annonce de l’Empereur');
+const p2=BOTS.map(b=>playerPower(b.uid));T.adv(31e3);await T.tick(2);T.ok(BOTS.every((b,i)=>Math.abs(playerPower(b.uid)-p2[i])<1),'une seule fois')}
+// aide impériale après une planète perdue : une fois toutes les 12 h
+{const b=BOTS[1],s0=playerPower(b.uid);await imperialAid(b.uid,'Test');await sleep(30);const s1=playerPower(b.uid);
+T.ok(s1>s0,'aide impériale : renforts sur la forteresse ('+Math.round(s0)+'→'+Math.round(s1)+')');
+await imperialAid(b.uid,'Test');await sleep(30);T.ok(Math.abs(playerPower(b.uid)-s1)<1,'pas deux fois en 12 h');
+T.adv(13*3600e3);await imperialAid(b.uid,'Test');await sleep(30);T.ok(playerPower(b.uid)>s1,'de nouveau après 12 h')}

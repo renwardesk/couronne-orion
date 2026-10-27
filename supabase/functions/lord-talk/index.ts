@@ -35,15 +35,18 @@ const clean = (s: string) => String(s).replace(/^["«\s*]+|["»\s*]+$/g, "");
 // la base n'attend pas : on répond tout de suite et le travail continue en arrière-plan
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  const mid = String((await req.json().catch(() => ({}))).mid ?? "");
+  const body = await req.json().catch(() => ({})), mid = String(body.mid ?? "");
+  // noms des planètes envoyés par le jeu (la galaxie est calculée chez les joueurs) : simple habillage, filtré
+  const names: Record<string, string> = {};
+  if (body.names && typeof body.names === "object") for (const [k, v] of Object.entries(body.names).slice(0, 600)) if (/^[\w-]{1,20}$/.test(k) && typeof v === "string") names[k] = v.replace(/[<>"`]/g, "").slice(0, 40);
   if (!/^[\w-]{4,40}$/.test(mid)) return new Response(JSON.stringify({ ok: false, reason: "bad" }), { status: 400, headers: CORS });
-  const job = work(mid).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
+  const job = work(mid, names).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
   // @ts-ignore EdgeRuntime est fourni par Supabase
   if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
   return new Response(JSON.stringify({ ok: true, queued: mid }), { status: 202, headers: CORS });
 });
 
-async function work(mid: string): Promise<any> {
+async function work(mid: string, names: Record<string, string>): Promise<any> {
   const out = (o: any) => o;
   try {
     const key = Deno.env.get("ANTHROPIC_API_KEY");
@@ -76,12 +79,20 @@ async function work(mid: string): Promise<any> {
     const me = players[uid]; if (!me || me.bot) return out({ ok: true, skip: "who" });
     const pn = (id: string) => LORDS[id]?.name ?? (id === "vorgath" ? "L'Empereur Vorgath" : id === "univers" ? "Univers" : players[id]?.name ?? "?");
     const { data: pls } = await db.from("docs").select("path,data").eq("col", "planets");
-    const count: Record<string, number> = {}; const mine = new Set<string>();
-    for (const p of pls ?? []) { const o = p.data?.owner; if (!o) continue; count[o] = (count[o] || 0) + 1; if (o === uid) mine.add(p.path.slice(8)); }
-    const { data: fl } = await db.from("docs").select("path,data").eq("col", "fleets").in("data->>owner", BOTS);
-    const incoming = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && f.mission === "attack" && mine.has(f.to) && f.arrive > now);
+    const count: Record<string, number> = {}; const mine = new Set<string>(), owner: Record<string, string> = {}, owned: Record<string, string[]> = {};
+    const pl = (pid: string) => names[pid] ?? `la planète ${pid}`;
+    for (const p of pls ?? []) { const o = p.data?.owner; if (!o) continue; const pid = p.path.slice(8); owner[pid] = o; count[o] = (count[o] || 0) + 1; if (o === uid) mine.add(pid); (owned[o] ??= []).push(pl(pid) + (p.data?.capital ? " (capitale)" : p.data?.outpost ? " (avant-poste)" : "")); }
+    // flottes en vol en ce moment : attaques, renforts, espionnage, interceptions (tout le monde, en temps réel)
+    const { data: fl } = await db.from("docs").select("path,data").eq("col", "fleets");
+    const MIS: Record<string, string> = { attack: "attaque", colonize: "conquête", reinforce: "renfort", spy: "espionnage", intercept: "interception", rallysup: "soutien de ralliement" };
+    const tot = (sh: any) => Object.entries(sh || {}).filter(([k]) => k !== "probe").reduce((a, [, v]) => a + (Number(v) || 0), 0);
+    const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill"));
+    const incoming = flying.filter((f) => BOTS.includes(f.owner) && f.mission === "attack" && mine.has(f.to));
+    const rel2 = (f: any) => (f.owner === uid || owner[f.to] === uid ? 0 : BOTS.includes(f.owner) || BOTS.includes(owner[f.to]) ? 1 : 2);
+    const flyTxt = flying.sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 14).map((f) => `- ${f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner)} → ${pl(f.to)}${owner[f.to] ? ` (${pn(owner[f.to])})` : ""} : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
     const { data: ev } = await db.from("docs").select("path,data").eq("col", "events").gt("updated_at", new Date(now - 36 * 3600e3).toISOString());
     const news = (ev ?? []).map((r) => r.data).filter((e) => e && e.news && e.title && now - (e.at || 0) < 36 * 3600e3).sort((a, b) => b.at - a.at).slice(0, 10);
+    const fights = (ev ?? []).map((r) => r.data).filter((e) => e && e.battle && !e.done && e.pid).slice(0, 6).map((e) => `- Bataille en cours à ${pl(e.pid)}${e.owner ? ` (planète de ${pn(e.owner)})` : ""}${Array.isArray(e.att) && e.att.length ? `, attaquants : ${[...new Set(e.att.map((a: any) => pn(a.owner ?? a.uid)))].join(", ")}` : ""}`);
     const saga = await doc("events/orion-saga"), lordsEv = await doc("events/orion-lords"), peace = (lordsEv?.created ?? now) + 7 * 864e5;
     const humans = Object.values(players).filter((p: any) => p.uid && !p.bot && p.name);
     const lordFacts = BOTS.filter((b) => players[b]).map((b) => {
@@ -91,7 +102,10 @@ async function work(mid: string): Promise<any> {
       return `- ${LORDS[b].name} : ${count[b] || 0} planètes. Envers ${me.name} : ${STANCE(rel.v ?? 0, gr)} (jauge ${rel.v ?? 0}/100)${rel.nick ? `, il le surnomme « ${rel.nick} »` : ""}${mem.length ? `. Souvenirs : ${mem.join(" ; ")}` : ". Aucun combat entre eux pour l'instant"}.${others.length ? ` Envers les autres : ${others.join(", ")}.` : ""}`;
     }).join("\n");
     const facts = [
-      `Joueurs : ${humans.map((h: any) => `${h.name} (${count[h.uid] || 0} planètes)`).join(", ")}.`,
+      `Joueurs et leurs planètes :\n${humans.map((h: any) => `- ${h.name} (${count[h.uid] || 0}) : ${(owned[h.uid] || []).slice(0, 20).join(", ") || "aucune"}`).join("\n")}`,
+      `Planètes des Seigneurs :\n${BOTS.filter((b) => players[b]).map((b) => `- ${LORDS[b].name} : ${(owned[b] || []).slice(0, 10).join(", ")}`).join("\n")}`,
+      flyTxt.length ? `Flottes en vol en ce moment (tout est visible des Seigneurs, qui espionnent tout Orion) :\n${flyTxt.join("\n")}` : "Aucune flotte en vol en ce moment.",
+      fights.length ? fights.join("\n") : "",
       `Seigneurs :\n${lordFacts}`,
       incoming.length ? `Flottes de Seigneurs en route pour attaquer ${me.name} : ${incoming.map((f) => `${pn(f.owner)} (arrivée à ${hhmm(f.arrive)})`).join(", ")}.` : `Aucune flotte de Seigneur n'attaque ${me.name} en ce moment.`,
       now < peace ? `Trêve : les Seigneurs n'attaquent pas encore les empires (fin dans ${Math.ceil((peace - now) / 3600e3)} h), sauf pour se venger de qui les attaque.` : "La trêve est finie : les Seigneurs attaquent les empires.",
@@ -117,7 +131,7 @@ Comment répondre :
 - Tu as de la liberté : poser une question, lancer un défi, menacer, flatter pour mieux piquer, semer la zizanie entre joueurs, faire de l'humour, bluffer vaguement sur ta puissance.
 - 1 à 3 phrases, 300 caractères maximum. Pas de guillemets autour, pas de nom devant, pas d'astérisques.
 - Jamais vulgaire ni sexuel, rien de haineux, pas de violence détaillée, même si les joueurs le sont (réponds avec classe, froideur ou théâtre). Ne dis jamais que tu es une IA.
-- N'invente pas de règles du jeu, de récompenses, de chiffres ou d'événements absents du contexte. Ne promets rien de concret (pas d'alliance réelle, pas d'attaque à une heure précise).
+- Sers-toi du contexte (planètes de chacun, flottes en vol, batailles) avec justesse : ne confonds pas une planète d'un joueur avec la tienne. N'invente pas de règles du jeu, de récompenses, de chiffres ou d'événements absents du contexte. Ne promets rien de concret (pas d'alliance réelle, pas d'attaque à une heure précise).
 - Un Seigneur ne trahit jamais les autres Seigneurs ni l'Empereur.
 Second Seigneur (« chime ») : rarement (environ une fois sur quatre), et seulement si ça rend la scène plus vivante (une pique entre Seigneurs, un soutien moqueur). Sinon null.
 Réponds UNIQUEMENT avec ce JSON, sans texte autour :

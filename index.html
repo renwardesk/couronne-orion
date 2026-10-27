@@ -1436,6 +1436,7 @@ const talkDelay=m=>(20+hash(m.id)%25)*1000;
 function talkMemory(who,uid,now){const M=(relOf(who,uid).mem||[]).filter(m=>m.k!=='x');const rec=M.filter(m=>now-m.at<24*HR).slice(-1)[0],old=M.filter(m=>now-m.at>=2*864e5).slice(-1)[0];
   return rec?{won:rec.k==='pl'||rec.k==='lw',pl:rec.pl,old:false}:old?{old:true,pl:old.pl,d:Math.floor((now-old.at)/864e5)}:null}
 // réponses écrites par l'IA (fonction lord-talk) ; repli automatique sur les répliques préparées
+const aiNames=()=>{const o={},add=pid=>{if(pid&&PLANETS[pid]&&!o[pid])o[pid]=PLANETS[pid].name};for(const p of Object.values(S.planets))if(p&&p.owner)add(p.pid);for(const f of Object.values(S.fleets))if(f&&f.phase==='out'){add(f.to);add(f.from)}return o}; // noms des planètes pour l'IA des Seigneurs (le serveur ne connaît que les identifiants)
 const AI={on:()=>!!sb&&(S.events['lord-ai']||{}).on!==false}; // réponses IA écrites par le serveur (déclencheur docs_lord_talk → fonction lord-talk) ; le jeu ne répond qu'en secours
 async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at),has=id=>(S.chat||[]).some(x=>x.id===id),isL=x=>isBot(x.uid)||x.uid==='vorgath';
   // 1. messages programmés
@@ -1491,7 +1492,7 @@ function chatUpdate(){const msgs=S.chat||[];
 function chatPeek(m){const el=document.getElementById('chatpeek');if(!el||!S.players[ME])return;el.innerHTML='';const b=document.createElement('b');b.textContent=(chOf(m)==='u'?'🌌 ':'')+(S.players[m.uid]?pname(m.uid):m.name||'?')+' : ';el.classList.toggle('u',chOf(m)==='u');el.dataset.c=chOf(m);const t=document.createElement('span');t.textContent=m.text.length>70?m.text.slice(0,70)+'…':m.text;el.append(b,t);el.hidden=false;clearTimeout(CHAT.peekT);CHAT.peekT=setTimeout(()=>{el.hidden=true},7000)}
 function chatOpen(on){if(on){const pk=document.getElementById('chatpeek');if(pk)pk.hidden=true}CHAT.open=on;document.getElementById('chatov').hidden=!on;document.body.style.overflow=on?'hidden':'';if(on){CHAT.scrolled=false;chatUpdate();setTimeout(()=>{try{document.getElementById('chatin').focus()}catch(e){}},50)}chatBtnSync(true)}
 async function chatSend(){const inp=document.getElementById('chatin'),text=(inp.value||'').trim().slice(0,300);if(!text)return;const now=Date.now();if(now-CHAT.lastSend<1500)return toast('Doucement, un message toutes les deux secondes.','bad');CHAT.lastSend=now;
-  inp.value='';const mid=newId(),u=CHAT.ch==='u';try{await db.collection('chat').doc(mid).set({kind:'chat',...(u?{ch:'u'}:{}),uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()});if(u&&AI.on())try{sb.functions.invoke('lord-talk',{body:{mid}}).catch(()=>{})}catch(e){}}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
+  inp.value='';const mid=newId(),u=CHAT.ch==='u';try{await db.collection('chat').doc(mid).set({kind:'chat',...(u?{ch:'u'}:{}),uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()});if(u&&AI.on())try{sb.functions.invoke('lord-talk',{body:{mid,names:aiNames()}}).catch(()=>{})}catch(e){}}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
 let chatPruning=false;async function chatPrune(){if(chatPruning)return;chatPruning=true;try{const old=(S.chat||[]).filter(m=>Date.now()-m.at>3*864e5).slice(0,10);for(const m of old)await db.doc('chat/'+m.id).delete()}catch(e){}chatPruning=false}
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='chatform'){e.preventDefault();chatSend()}});
 
@@ -4727,7 +4728,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='231';
+const APP_VERSION='232';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -11,8 +11,8 @@ m=U().find(x=>x.uid==='orion-3');T.ok(m&&m.text.length>5,'attaque réussie d’u
 await report({to:['u1'],tone:'win',title:'Pirates',battle:{pid:window.__P1,def:'pirates',att:[{uid:'u1'}]}});await sleep(50);
 T.ok(U().length===3,'combats sans seigneur : rien dans l’Univers');
 for(let i=0;i<9;i++)await univSay('orion-2','spot',{p:'X',pl:'Y'},'k'+i);await sleep(50);
-T.ok(U().filter(x=>x.uid==='orion-2').length===UNIV_CAP,'pas plus de '+UNIV_CAP+' messages par seigneur et par heure');
-await univSay('orion-2','spot',{p:'X',pl:'Y'},'k1',true);await sleep(50);T.ok(U().filter(x=>x.uid==='orion-2').length===UNIV_CAP,'même clé = pas de doublon');
+const A2=()=>(S.chat||[]).filter(m=>m.ch==='u'&&m.uid==='orion-2'&&Date.now()-m.at<HR).length;T.ok(A2()===UNIV_CAP,'pas plus de '+UNIV_CAP+' messages par seigneur et par heure');
+await univSay('orion-2','spot',{p:'X',pl:'Y'},'k1',true);await sleep(50);T.ok(A2()===UNIV_CAP,'même clé = pas de doublon');
 const pid=Object.keys(PLANETS).find(p=>!S.planets[p]&&!isBody(p)&&galOf(p)===0&&!PLANETS[p].raid&&!PLANETS[p].sig&&!PLANETS[p].comet&&!PLANETS[p].core&&!PLANETS[p].deep);
 S.players.u4={kind:'player',uid:'u4',name:'Nova',color:'#00c2a8',joined:Date.now()};S.planets[pid]=homePlanet(pid,'u4');T.sync();await newcomerRp('u4','Nova',pid);await sleep(5300);
 T.ok(U().some(x=>x.uid==='univers'&&/Nova/.test(x.text)),'nouvel empire annoncé dans l’Univers');T.ok(U().some(x=>isBot(x.uid)&&/Nova/.test(x.text)),'menace du seigneur dans l’Univers');

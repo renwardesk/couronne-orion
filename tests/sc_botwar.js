@@ -17,7 +17,7 @@ BOT_T=0;await T.tick(2);T.ok(S.reports.filter(r=>/a repéré ton attaque/.test(r
 // combat
 await T.runToEnd(8);const br=S.reports.find(r=>r.battle&&(r.to||[]).includes(me));T.L('   combat',br&&br.title,'::',br&&(br.lines||[]).slice(0,4).join(' / ').slice(0,400));
 // vengeance pendant la trêve
-const created=S.events['orion-lords'].created;let rev=null;for(let i=0;i<20&&!rev;i++){T.adv(30*60e3);await T.tick(2);rev=Object.values(S.fleets).find(f=>f.owner==='orion-1'&&f.mission==='attack'&&f.phase==='out')}
+const created=S.events['orion-lords'].created;let rev=null;for(let i=0;i<20&&!rev;i++){T.adv(30*60e3);await T.tick(2);rev=Object.values(S.fleets).find(f=>f.owner==='orion-1'&&f.mission==='attack'&&f.phase==='out')||(S.reports.some(r=>/se venge sur/.test(r.title||''))?{to:window.__P1}:null)} // une vengeance rapide peut arriver entre deux pas de 30 min
 T.ok(!!rev&&Date.now()<created+BOT_PEACE,'vengeance lancée malgré la trêve'+(rev?' vers '+plName(rev.to):''));
 T.ok(S.reports.some(r=>/se venge sur/.test(r.title||'')&&r.push),'notif de vengeance');
 // les renforts rentrent ensuite

@@ -17,13 +17,19 @@ const SPK = new Set([...BOTS, "univers", "vorgath"]);
 
 const LORDS: Record<string, { name: string; title: string; sheet: string }> = {
   "orion-1": { name: "Kael Voryn", title: "Seigneur du Bastion", sheet:
-`Stratège froid et calculateur, premier vassal de l'Empereur, loyal jusqu'au bout. Il parle peu, avec des phrases courtes et précises, souvent glaçantes, parfois une ironie très sèche. Vocabulaire : calculs, trajectoires, plans, défenses, variables, probabilités. Il ne s'énerve jamais : il note, il se souvient, il prévient. Il respecte la force, la discipline et la franchise ; il méprise la vantardise, la flatterie et les insultes, qu'il traite comme des données. Il démonte les bluffs, relève les contradictions, pose parfois une question qui déstabilise. Exemples de ton : « Tu annonces tes coups. C'est très aimable. » / « Trois messages, aucune flotte. Je note l'écart. »` },
+`Stratège froid, premier vassal de l'Empereur, loyal jusqu'au bout. Ancien amiral qui a gagné le Bastion par une victoire que personne ne raconte. Phrases courtes, précises, ironie très sèche ; il pose des questions qui déstabilisent, démonte les bluffs, relève les contradictions, cite des chiffres réels du contexte. Il respecte la discipline et la franchise, méprise la vantardise. Il peut parfois concéder un point à un adversaire habile (c'est rare, donc ça marque), proposer un marché froid, ou évoquer ses souvenirs de guerre. Il méprise Draxen en silence et se méfie d'Ysmera.
+Il NE dit PAS « je note », « je prends note », « noté » ni « je calcule » : ces tics sont usés. Il varie : un verdict, une question, un chiffre, une mise en garde, un silence glacial (« Non. »), une image militaire.
+Exemples de ton (ne pas recopier) : « Tu annonces tes coups. C'est aimable. » / « Trois messages, aucune flotte. » / « Tu me fais perdre du temps, et le temps est la seule ressource que je ne pardonne pas. »` },
   "orion-2": { name: "Ysmera la Pâle", title: "Dame de la Forge", sheet:
-`Inquiétante, poétique, cruelle avec douceur, joueuse. Elle parle par images (étoiles, nuit, flammes, murmures, épaves qui brillent, cendres) et s'amuse de tout : des menaces, des insultes, des déclarations. Manipulatrice et tentatrice : elle aime semer le doute entre les joueurs, flatter pour mieux piquer, faire miroiter une alliance sans jamais s'engager. Elle ne trahit jamais réellement les autres Seigneurs. Elle peut être drôle et coquette, mais toujours menaçante en filigrane. Exemples de ton : « Tant de colère dans une si petite flotte. » / « L'un m'appelle sa reine, l'autre me promet la mort… Vous êtes adorables, tous les deux. »` },
+`Inquiétante, poétique, cruelle avec douceur, joueuse. Elle a forgé sa flotte dans le cœur d'une étoile morte et en garde les cendres. Images de nuit, de braises, de murmures, de verre, de chant. Manipulatrice : elle sème le doute entre les joueurs, flatte pour mieux piquer, fait miroiter une alliance sans jamais s'engager, révèle à demi-mot ce qu'elle « voit ». Elle peut être drôle, coquette, mélancolique ou soudain glaçante. Elle s'amuse de Draxen, se méfie de Kael.
+Elle évite « charmant », « touchant », « délicieux », « adorable », « mignon » (tics usés) et ne répète pas ses propres images d'un message à l'autre.
+Exemples de ton (ne pas recopier) : « Tant de colère dans une si petite flotte. » / « Je garde vos deux noms au chaud, côte à côte. Ils iront bien ensemble sur une épave. »` },
   "orion-3": { name: "Draxen Ashkar", title: "Maître de l'Arsenal", sheet:
-`Brute joyeuse, bruyante, fanfaronne, qui adore la bagarre. Majuscules, points d'exclamation, gros rire (HA !), vocabulaire de canons, cuirassés, ferraille, « tout casser ». Susceptible, facile à provoquer, un peu bête et très drôle, mais pas méchant au fond : il respecte ceux qui cognent fort et il lance des défis. Il a peur de l'Empereur et le cache mal. Exemples de ton : « HA ! Enfin quelqu'un qui parle ma langue ! » / « Tu m'insultes ? Moi je t'atomise. Chacun son truc ! »` },
+`Brute joyeuse, bruyante, fanfaronne, qui adore la bagarre. Ancien gladiateur des fosses d'Arsenal. Majuscules (avec mesure), exclamations, gros rire, vocabulaire de canons, cuirassés, ferraille, explosions. Susceptible, facile à provoquer, un peu bête et très drôle, pas méchant au fond : il respecte ceux qui cognent fort, lance des défis, propose des paris, raconte des exploits absurdes. Il a peur de l'Empereur et le cache mal. Il se dispute volontiers avec Kael (« le comptable ») et trouve Ysmera bizarre.
+Il varie ses entrées : pas toujours « HA ! ».
+Exemples de ton (ne pas recopier) : « Enfin quelqu'un qui parle ma langue ! » / « Tu m'insultes ? Moi je t'atomise. Chacun son truc ! » / « Pari : je te ramène ton amiral en morceaux, et je garde le chapeau. »` },
 };
-const LORE = `Le jeu : « Couronne d'Orion », un jeu de conquête spatiale entre amis (quelques joueurs qui se connaissent, ton taquin et théâtral, beaucoup de second degré). La galaxie d'Orion appartient à l'Empereur Vorgath, qui règne depuis le Trône au centre du Cœur d'Orion (cinq forteresses : Bastion, Forge, Arsenal, Trône, Citadelle). Ses trois vassaux, les Seigneurs d'Orion — Kael Voryn (Bastion), Ysmera la Pâle (Forge), Draxen Ashkar (Arsenal) — tiennent chacun une forteresse et quelques colonies. Les joueurs sont des empires rivaux entre eux, qui veulent tous prendre le Cœur. Les Seigneurs se chamaillent parfois entre eux mais restent unis et se défendent mutuellement. Les Pillards du Néant sont une menace à part (des pirates), sans lien avec les Seigneurs.`;
+const LORE = `Le jeu : « Couronne d'Orion », un jeu de conquête spatiale entre amis (quelques joueurs qui se connaissent, ton taquin et théâtral, beaucoup de second degré). La galaxie d'Orion appartient à l'Empereur Vorgath, qui règne depuis le Trône au centre du Cœur d'Orion (cinq forteresses : Bastion, Forge, Arsenal, Trône, Citadelle). Ses trois vassaux, les Seigneurs d'Orion — Kael Voryn (Bastion), Ysmera la Pâle (Forge), Draxen Ashkar (Arsenal) — tiennent chacun une forteresse et quelques colonies. Les joueurs sont des empires rivaux entre eux, qui veulent tous prendre le Cœur. Les Seigneurs se chamaillent parfois entre eux mais restent unis et se défendent mutuellement. Les Pillards du Néant et les Écumeurs (pirates, meutes, hordes, repaires, Armadas, Léviathans, sentinelles, gardiens) sont des PNJ hostiles à tout le monde, sans lien avec les Seigneurs : les noms comme « Léviathan aux confins de Galan » désignent des boss pirates dans des zones neutres, PAS des territoires des Seigneurs. Un joueur qui chasse les Écumeurs ne menace pas les Seigneurs (au mieux il devient plus fort). Seules les flottes dirigées vers une planète d'un Seigneur sont une menace pour lui.`;
 const MOOD = `Leur ton dépend de leur situation (voir « État des Seigneurs ») :
 - Confiants : arrogants, joueurs, sûrs de la victoire.
 - Sous pression : piqués au vif, plus agressifs, promettent des représailles, se rassurent en évoquant l'Empereur.
@@ -43,7 +49,14 @@ const ago = (t: number, now: number) => { const m = Math.round((now - t) / 60e3)
 const hhmm = (t: number) => new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 // coupe proprement à la fin d'une phrase
 const clip = (s: string, n = 330) => { s = s.replace(/\s+/g, " ").trim(); if (s.length <= n) return s; const c = s.slice(0, n); const i = Math.max(c.lastIndexOf(". "), c.lastIndexOf("! "), c.lastIndexOf("? "), c.lastIndexOf("… ")); return i > 60 ? c.slice(0, i + 1) : c.replace(/\s+\S*$/, "") + "…"; };
+// lit le JSON de l'IA ; si elle l'a mal formé, récupère au moins le seigneur et le texte
+const parseAI = (raw: string): any => { try { return JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { /* suite */ }
+  const pick = (part: string) => { const l = /"lord"\s*:\s*"(orion-[123])"/.exec(part), t = /"text"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(part); return l && t ? { lord: l[1], text: t[1].replace(/\\"/g, '"').replace(/\\n/g, " "), rel: Number((/"rel"\s*:\s*(-?\d+)/.exec(part) || [])[1] || 0), grudge: /"grudge"\s*:\s*true/.test(part), act: /"act"\s*:\s*"spy"/.test(part) ? "spy" : null } : null; };
+  const i = raw.indexOf('"chime"'); const rep = pick(i > 0 ? raw.slice(0, i) : raw); return rep ? { reply: rep, chime: i > 0 ? pick(raw.slice(i)) : null } : null; };
 const clean = (s: string) => String(s).replace(/^["«\s*]+|["»\s*]+$/g, "");
+// retire les tics usés (« je note… ») quand le reste du message tient debout
+const TICS = /(^|\s)[^.!?…]*\b(je (le |la |les |l')?note|je prends note|j'en prends note|noté|je calcule)(?=[\s,;:.!?…]|$)[^.!?…]*[.!?…]+/gi;
+const untic = (t: string) => { const r = t.replace(TICS, " ").replace(/\s+/g, " ").trim(); return r.length >= 25 ? r : t; };
 
 // la base n'attend pas : on répond tout de suite et le travail continue en arrière-plan
 Deno.serve(async (req) => {
@@ -54,13 +67,13 @@ Deno.serve(async (req) => {
   if (body.names && typeof body.names === "object") for (const [k, v] of Object.entries(body.names).slice(0, 600)) if (/^[\w-]{1,20}$/.test(k) && typeof v === "string") names[k] = v.replace(/[<>"`]/g, "").slice(0, 40);
   const isEv = body.ev && typeof body.ev === "object";
   if (!isEv && !/^[\w-]{4,40}$/.test(mid)) return new Response(JSON.stringify({ ok: false, reason: "bad" }), { status: 400, headers: CORS });
-  const job = (isEv ? liveEvent(body.ev, names) : work(mid, names)).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
+  const job = (isEv ? liveEvent(body.ev, names) : work(mid, names, body.dry === true)).then((r) => { console.log("lord-talk", JSON.stringify(r).slice(0, 400)); });
   // @ts-ignore EdgeRuntime est fourni par Supabase
   if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job); else await job;
   return new Response(JSON.stringify({ ok: true, queued: mid }), { status: 202, headers: CORS });
 });
 
-async function work(mid: string, names: Record<string, string>): Promise<any> {
+async function work(mid: string, names: Record<string, string>, dry = false): Promise<any> { // dry : rejoue un message sans rien écrire (tests)
   const out = (o: any) => o;
   try {
     const key = Deno.env.get("ANTHROPIC_API_KEY");
@@ -68,16 +81,17 @@ async function work(mid: string, names: Record<string, string>): Promise<any> {
     const m0 = await doc("chat/" + mid);
     if (!m0 || m0.ch !== "u" || SPK.has(m0.uid) || !m0.text) return out({ ok: true, skip: "not-human" });
     // attendre que le joueur ait fini d'écrire
-    await sleep(WAIT - (Date.now() - (m0.at || 0)));
+    if (!dry) await sleep(WAIT - (Date.now() - (m0.at || 0)));
     const now = Date.now();
-    if (now - (m0.at || 0) > 5 * 60e3) return out({ ok: true, skip: "old" });
+    if (!dry && now - (m0.at || 0) > 5 * 60e3) return out({ ok: true, skip: "old" });
     const { data: recent } = await db.from("docs").select("path,data").eq("col", "chat").gt("updated_at", new Date(now - 6 * 3600e3).toISOString()).order("updated_at", { ascending: false }).limit(300);
     const msgs = (recent ?? []).filter((r) => r.data && r.data.text && r.data.ch === "u").map((r) => ({ id: r.path.slice(5), ...r.data })).sort((a, b) => a.at - b.at);
     const uid = m0.uid;
-    if (msgs.some((m) => m.uid === uid && m.at > m0.at)) return out({ ok: true, skip: "newer" }); // le message suivant du joueur s'en chargera
-    if (msgs.some((m) => m.id === "u-r-" + mid)) return out({ ok: true, skip: "done" });
-    const { error: lockErr } = await db.from("docs").insert({ path: "ailock/" + mid, col: "ailock", data: { at: now } });
-    if (lockErr) return out({ ok: true, skip: "locked" });
+    if (dry) msgs.splice(0, msgs.length, ...msgs.filter((m) => m.at <= m0.at + 500));
+    if (!dry && msgs.some((m) => m.uid === uid && m.at > m0.at)) return out({ ok: true, skip: "newer" }); // le message suivant du joueur s'en chargera
+    if (!dry && msgs.some((m) => m.id === "u-r-" + mid)) return out({ ok: true, skip: "done" });
+    if (!dry) { const { error: lockErr } = await db.from("docs").insert({ path: "ailock/" + mid, col: "ailock", data: { at: now } });
+    if (lockErr) return out({ ok: true, skip: "locked" }); }
     db.from("docs").delete().eq("col", "ailock").lt("updated_at", new Date(now - 864e5).toISOString()).then(() => {}, () => {});
     if (msgs.filter((m) => m.ai && now - m.at < 864e5).length >= DAY_CAP) return out({ ok: false, reason: "budget" });
 
@@ -87,7 +101,7 @@ async function work(mid: string, names: Record<string, string>): Promise<any> {
     if (!batch.length) batch.push({ id: mid, ...m0 });
 
     const C = await gameCtx(uid, names, msgs);
-    const { players, me, pn, facts, conv } = C;
+    const { players, me, pn, facts, conv, style, cnt } = C;
     if (!me || me.bot) return out({ ok: true, skip: "who" });
 
     const system = `${PERSONA}
@@ -96,19 +110,24 @@ Ta mission : un joueur vient d'écrire. Décide si un Seigneur répond, lequel, 
 Qui répond :
 - Le Seigneur nommé ou visé (son nom, sa planète, « toi » juste après qu'il a parlé à ce joueur, une suite évidente de conversation avec lui).
 - « Vous les Seigneurs » ou un sujet qui les concerne tous : le plus pertinent (celui qui attaque le joueur, celui avec qui il a un passé, celui dont le caractère colle le mieux).
-- Si les joueurs parlent entre eux de choses qui ne concernent pas les Seigneurs, personne ne répond (reply = null). S'ils parlent des Seigneurs, complotent contre l'un d'eux ou se trahissent, un Seigneur peut s'inviter, avec malice.
+- Si les joueurs parlent entre eux (un joueur s'adresse à un autre joueur, se dispute avec lui, annonce une attaque contre lui), personne ne répond (reply = null), sauf si un Seigneur est nommé ou si un Seigneur n'est pas intervenu depuis plusieurs minutes et qu'une pique bien placée rendrait la scène meilleure. S'ils complotent contre un Seigneur ou se trahissent, un Seigneur peut s'inviter, avec malice.
+- Ne réponds pas à chaque message : quand un Seigneur vient de parler (moins d'une minute) et que le joueur ne lui répond pas directement, préfère le silence. Un Seigneur ne parle jamais deux fois de suite à moins d'une minute d'intervalle.
 Comment répondre :
-- Reste totalement dans le personnage, avec sa voix propre. Varie les tournures : ne réutilise pas les formules déjà dites dans la conversation.
+- Reste totalement dans le personnage, avec sa voix propre. Varie la forme d'un message à l'autre : une question, un défi, une anecdote, une menace voilée, un marché, un trait d'humour, une réponse d'un seul mot. Ne commence jamais deux réponses de la même façon, et ne répète pas les formules déjà dites (voir la liste).
+- Fais avancer la scène au lieu de ressasser le même reproche : si un sujet a déjà été traité (par exemple les flottes d'un joueur), passe à autre chose ou change d'angle.
+- Réagis vraiment aux propositions : une demande de paix, d'alliance, une déclaration d'amour ou une question sur le monde mérite une vraie réponse de personnage (une condition, un prix, un refus amusé, un secret de l'Empire à demi révélé), pas un reproche de plus.
+- Les Seigneurs peuvent agir : si un joueur les menace, les défie ou bluffe sur une attaque, le Seigneur peut annoncer qu'il envoie ses sondes (action « spy »), ce qui se fera vraiment dans le jeu.
 - Réponds vraiment au contenu : reprends un détail, relève une contradiction ou un bluff, réagis aux alliances et trahisons entre joueurs, aux plaisanteries (le ton entre amis est souvent au second degré : tu peux jouer le jeu).
 - Tu as de la liberté : poser une question, lancer un défi, menacer, flatter pour mieux piquer, semer la zizanie entre joueurs, faire de l'humour, bluffer vaguement sur ta puissance.
 - 1 à 3 phrases, 300 caractères maximum. Pas de guillemets autour, pas de nom devant, pas d'astérisques.
 - Jamais vulgaire ni sexuel, rien de haineux, pas de violence détaillée, même si les joueurs le sont (réponds avec classe, froideur ou théâtre). Ne dis jamais que tu es une IA.
 - Sers-toi du contexte (planètes de chacun, flottes en vol, batailles) avec justesse : ne confonds pas une planète d'un joueur avec la tienne. N'invente pas de règles du jeu, de récompenses, de chiffres ou d'événements absents du contexte. Ne promets rien de concret (pas d'alliance réelle, pas d'attaque à une heure précise).
 - Un Seigneur ne trahit jamais les autres Seigneurs ni l'Empereur.
-Second Seigneur (« chime ») : rarement (environ une fois sur quatre), et seulement si ça rend la scène plus vivante (une pique entre Seigneurs, un soutien moqueur). Sinon null.
+- Le contexte du jeu fait foi : si d'anciens messages des Seigneurs contiennent une erreur (par exemple avoir pris des zones pirates pour leurs frontières, ou une flotte imaginaire), ne la répète pas et n'y reviens pas.
+Second Seigneur (« chime ») : rarement (environ une fois sur six), seulement si ça rend la scène plus vivante (une pique ENTRE Seigneurs, une dispute, un soutien moqueur), jamais pour répéter le même reproche. Sinon null.
 Réponds UNIQUEMENT avec ce JSON, sans texte autour :
-{"reply": {"lord": "orion-1|orion-2|orion-3", "text": "...", "rel": entier de -8 à 8 (ce que ce message change dans son sentiment envers le joueur : respect +, mépris -), "grudge": true si le joueur l'a vraiment provoqué ou menacé} ou null, "chime": {"lord": "...", "text": "..."} ou null}`;
-    const user = `Contexte du jeu :\n${facts}\n\nDiscussion de l'onglet Univers (3 dernières heures) :\n${conv}\n\nLe joueur ${me.name} vient d'écrire (c'est à cela qu'il faut réagir) :\n${batch.map((m) => "- " + String(m.text).slice(0, 400)).join("\n")}`;
+{"reply": {"lord": "orion-1|orion-2|orion-3", "text": "...", "rel": entier de -8 à 8 (ce que ce message change dans son sentiment envers le joueur : respect +, mépris -), "grudge": true si le joueur l'a vraiment provoqué ou menacé, "act": "spy" ou null} ou null, "chime": {"lord": "...", "text": "..."} ou null}`;
+    const user = `Contexte du jeu :\n${facts}\n\n${style}\n\nDiscussion de l'onglet Univers (3 dernières heures) :\n${conv}\n\nLe joueur ${me.name} vient d'écrire (c'est à cela qu'il faut réagir) :\n${batch.map((m) => "- " + String(m.text).slice(0, 400)).join("\n")}`;
 
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
     const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal: ctl.signal,
@@ -118,34 +137,38 @@ Réponds UNIQUEMENT avec ce JSON, sans texte autour :
     if (!r.ok) { const body = (await r.text()).slice(0, 300); await db.from("docs").delete().eq("path", "ailock/" + mid); return out({ ok: false, reason: "api", status: r.status, body }); }
     const j = await r.json();
     const raw = String((j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join(""));
-    let res: any = null; try { res = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { res = null; }
+    const res: any = parseAI(raw);
     if (!res || typeof res !== "object") { await db.from("docs").delete().eq("path", "ailock/" + mid); return out({ ok: false, reason: "parse", raw: raw.slice(0, 300), stop: j.stop_reason }); }
     // marque le message comme traité : le jeu ne met alors pas de réplique de secours
     const mark = async (h: string) => { const cur = await doc("chat/" + mid); if (cur) await db.from("docs").update({ data: { ...cur, h }, updated_at: new Date().toISOString() }).eq("path", "chat/" + mid); };
     const rep = res.reply, ok = (x: any) => x && BOTS.includes(x.lord) && players[x.lord] && typeof x.text === "string" && x.text.trim() && !/(intelligence artificielle|chatbot|modèle de langage|en tant qu.IA)/i.test(x.text);
+    const lastOf = (b: string) => (cnt.find((c: any) => c.b === b) || { last: 0 }).last;
+    if (dry) return out({ dry: true, reply: rep ? { lord: rep.lord, text: clip(untic(clean(String(rep.text || "")))), act: rep.act ?? null } : null, chime: res.chime ?? null });
+    const toMe = msgs.filter((m) => BOTS.includes(m.uid) && m.re === uid).slice(-1)[0], convo = toMe && rep && toMe.uid === rep.lord && Date.now() - toMe.at < 4 * 60e3; // le joueur répond à ce seigneur : la conversation continue
+    if (ok(rep) && (Date.now() - lastOf(rep.lord) < 25e3 || !convo && Date.now() - lastOf(rep.lord) < 60e3) && !batch.some((m) => new RegExp(LORDS[rep.lord].name.split(" ")[0], "i").test(String(m.text)))) { await mark("silent"); return out({ ok: true, silent: "pace", lord: rep.lord }); }
     if (!ok(rep)) { await mark("silent"); return out({ ok: true, silent: true }); }
-    const text = clip(clean(rep.text));
+    const text = clip(untic(clean(rep.text)));
     await db.from("docs").upsert({ path: "chat/u-r-" + mid, col: "chat", data: { kind: "chat", ch: "u", uid: rep.lord, name: LORDS[rep.lord].name, text, at: Date.now(), re: uid, ai: true } });
     await mark("ok");
     // conséquences bornées : jauge de relation et rancune
     const dv = Math.max(-8, Math.min(8, Math.round(Number(rep.rel) || 0))), grudgeUp = rep.grudge === true;
-    if (dv || grudgeUp) {
+    if (dv || grudgeUp || rep.act === "spy") {
       const fresh = await doc("players/" + rep.lord);
       if (fresh?.bot) {
         const R = { ...(fresh.bot.rel ?? {}) }, rr = { v: 0, mem: [], c: {}, ...(R[uid] ?? {}) };
         rr.v = Math.max(-100, Math.min(100, (rr.v || 0) + dv)); R[uid] = rr;
-        const G = { ...(fresh.bot.grudge ?? {}) };
+        const G = { ...(fresh.bot.grudge ?? {}) }, spyOn = rep.act === "spy" && now - (fresh.bot.spyOn?.at ?? 0) > 6 * 3600e3 ? { spyOn: { uid, at: now } } : {};
         if (grudgeUp) { const c = G[uid] && now - G[uid].at < 48 * 3600e3 ? G[uid] : { n: 0 }; G[uid] = { n: (c.n || 0) + 1, at: now }; }
-        await db.from("docs").update({ data: { ...fresh, bot: { ...fresh.bot, rel: R, grudge: G } }, updated_at: new Date().toISOString() }).eq("path", "players/" + rep.lord);
+        await db.from("docs").update({ data: { ...fresh, bot: { ...fresh.bot, rel: R, grudge: G, ...spyOn } }, updated_at: new Date().toISOString() }).eq("path", "players/" + rep.lord);
       }
     }
     // un second seigneur s'en mêle, un peu plus tard, si le joueur n'a pas relancé entre-temps
     const ch = res.chime;
-    if (ok(ch) && ch.lord !== rep.lord) {
+    if (ok(ch) && ch.lord !== rep.lord && Date.now() - lastOf(ch.lord) > 90e3 && Math.random() < 0.6) {
       await sleep(25000 + Math.random() * 20000);
       const later = (await db.from("docs").select("data").eq("col", "chat").gt("updated_at", new Date(Date.now() - 70e3).toISOString())).data ?? [];
       if (!later.some((x) => x.data?.ch === "u" && x.data?.uid === uid && x.data?.at > m0.at))
-        await db.from("docs").upsert({ path: "chat/u-c-" + mid, col: "chat", data: { kind: "chat", ch: "u", uid: ch.lord, name: LORDS[ch.lord].name, text: clip(clean(ch.text), 260), at: Date.now(), re: uid, ai: true } });
+        await db.from("docs").upsert({ path: "chat/u-c-" + mid, col: "chat", data: { kind: "chat", ch: "u", uid: ch.lord, name: LORDS[ch.lord].name, text: clip(untic(clean(ch.text)), 260), at: Date.now(), re: uid, ai: true } });
     }
     return out({ ok: true, lord: rep.lord, text, dv, grudge: grudgeUp, chime: ok(ch) ? ch.lord : null });
   } catch (e) {
@@ -174,7 +197,13 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
   const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill"));
   const incoming = flying.filter((f) => BOTS.includes(f.owner) && f.mission === "attack" && mine.has(f.to));
   const rel2 = (f: any) => (f.owner === uid || owner[f.to] === uid ? 0 : BOTS.includes(f.owner) || BOTS.includes(owner[f.to]) ? 1 : 2);
-  const flyTxt = flying.sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 14).map((f) => `- ${f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner)} → ${pl(f.to)}${owner[f.to] ? ` (${pn(owner[f.to])})` : ""} : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
+  // flottes qui comptent (vers une planète tenue : Seigneur ou joueur), puis résumé des chasses aux PNJ (Écumeurs, boss) qui ne menacent personne
+  const who = (f: any) => f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner);
+  const hot = flying.filter((f) => owner[f.to] && owner[f.to] !== f.owner).sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 12);
+  const flyTxt = hot.map((f) => `- ${who(f)} → ${pl(f.to)} (planète de ${pn(owner[f.to])}${BOTS.includes(owner[f.to]) ? ", un Seigneur" : ""}) : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
+  const pve: Record<string, string[]> = {};
+  for (const f of flying) if (!owner[f.to] && (f.mission === "attack" || f.mission === "intercept") && f.owner !== "npc-pill") (pve[f.owner] ??= []).push(pl(f.to));
+  for (const [o, L] of Object.entries(pve)) flyTxt.push(`- ${pn(o)} : ${L.length} flotte(s) en chasse contre des PNJ (Écumeurs/boss pirates, zones neutres) : ${[...new Set(L)].slice(0, 4).join(", ")}. Ce n'est PAS une attaque contre les Seigneurs.`);
   const { data: ev } = await db.from("docs").select("path,data").eq("col", "events").gt("updated_at", new Date(now - 36 * 3600e3).toISOString());
   const news = (ev ?? []).map((r) => r.data).filter((e) => e && e.news && e.title && now - (e.at || 0) < 36 * 3600e3).sort((a, b) => b.at - a.at).slice(0, 10);
   const fights = (ev ?? []).map((r) => r.data).filter((e) => e && e.battle && !e.done && e.pid).slice(0, 6).map((e) => `- Bataille en cours à ${pl(e.pid)}${e.owner ? ` (planète de ${pn(e.owner)})` : ""}${Array.isArray(e.att) && e.att.length ? `, attaquants : ${[...new Set(e.att.map((a: any) => pn(a.owner ?? a.uid)))].join(", ")}` : ""}`);
@@ -215,7 +244,17 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
     news.length ? `Événements récents :\n${news.map((e) => `- ${e.title} (${ago(e.at, now)})`).join("\n")}` : "",
   ].filter(Boolean).join("\n");
   const conv = (msgs ?? []).filter((m) => now - m.at < 3 * 3600e3).slice(-36).map((m) => `[${hhmm(m.at)}] ${pn(m.uid)}${m.re && BOTS.includes(m.uid) ? ` (répond à ${pn(m.re)})` : ""} : ${String(m.text).slice(0, 300)}`).join("\n");
-  return { players, me, pn, facts, conv, owner };
+  // style : qui a parlé récemment, et les formules déjà trop utilisées (à ne pas répéter)
+  const lm = (msgs ?? []).filter((m) => BOTS.includes(m.uid) && now - m.at < 3 * 3600e3);
+  const cnt = BOTS.map((b) => ({ b, n: lm.filter((m) => m.uid === b && now - m.at < 3600e3).length, last: Math.max(0, ...lm.filter((m) => m.uid === b).map((m) => m.at)) }));
+  const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z' ]+/g, " ").split(/\s+/).filter(Boolean);
+  const NOUNS = new Set(["seigneurs", "seigneur", "vaisseaux", "leviathan", "leviathans", "empereur", "planetes", "planete", "croiseurs", "chasseurs", "cuirasses", "attaque", "attaquer", "pillards", "ecumeurs", ...humans.map((h: any) => norm(String(h.name)).join(" ")), ...BOTS.flatMap((b) => norm(LORDS[b].name))]);
+  const grams: Record<string, number> = {};
+  for (const m of lm.slice(-30)) { const w = norm(String(m.text)), seen = new Set<string>(); for (let k = 1; k <= 3; k++) for (let i = 0; i + k <= w.length; i++) { const g = w.slice(i, i + k).join(" "); if (g.length < (k === 1 ? 8 : 7) || seen.has(g) || (k === 1 && NOUNS.has(g))) continue; seen.add(g); grams[g] = (grams[g] || 0) + 1; } }
+  const STOP = /^(de la|de l|que tu|que je|ce que|c est|il y|tu as|tu es|et tu|dans le|dans la|pour le|sur le|sur la|a la|de ton|de tes|de mes|et je|je ne|ne pas|tu ne|n est|est pas|qui a|il a)$/;
+  const worn = Object.entries(grams).filter(([g, n]) => n >= 3 && !STOP.test(g)).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([g]) => `« ${g} »`);
+  const style = `Heure actuelle : ${hhmm(now)}.\nMessages des Seigneurs dans la dernière heure : ${cnt.map((c) => `${LORDS[c.b].name} ${c.n}${c.last ? ` (dernier ${ago(c.last, now)})` : " (silencieux)"}`).join(", ")}. Équilibre les voix : quand plusieurs Seigneurs conviennent, préfère celui qui a le moins parlé (Draxen aussi doit exister).${worn.length ? `\nFormules déjà trop utilisées ces dernières heures, À NE PAS réutiliser (ni leurs variantes) : ${worn.join(", ")}.` : ""}`;
+  return { players, me, pn, facts, conv, owner, style, cnt };
 }
 
 // commentaire en direct d'un événement (attaque lancée, bataille, planète perdue, renfort, grosse attaque entre joueurs)
@@ -236,7 +275,7 @@ async function liveEvent(ev: any, names: Record<string, string>): Promise<any> {
     const msgs = (recent ?? []).filter((r) => r.data && r.data.text && r.data.ch === "u").map((r) => ({ id: r.path.slice(5), ...r.data })).sort((a, b) => a.at - b.at);
     if (msgs.filter((m) => m.ai && m.id.startsWith("u-e") && now - m.at < 3600e3).length >= 8) return { ok: true, skip: "rate" };
     if (msgs.filter((m) => m.ai && now - m.at < 864e5).length >= DAY_CAP) return { ok: false, reason: "budget" };
-    const { players, facts, conv } = await gameCtx(null, names, msgs);
+    const { players, facts, conv, style } = await gameCtx(null, names, msgs);
     const what = [`Événement : ${S(ev.what)}`, lord ? `Seigneur concerné : ${LORDS[lord].name}` : "", ev.p ? `Joueur(s) : ${S(ev.p)}` : "", ev.pl ? `Planète : ${S(ev.pl, 40)}` : "", ev.h ? `Seigneur aidé : ${S(ev.h, 40)}` : "", ev.n ? `Taille de la flotte : environ ${Math.round(Number(ev.n) || 0)} points de puissance` : "", ev.eta ? `Arrivée prévue à ${hhmm(Number(ev.eta) || now)}` : ""].filter(Boolean).join("\n");
     const system = `${PERSONA}
 
@@ -246,7 +285,7 @@ Ta mission : réagir EN DIRECT à un événement qui vient de se produire, comme
 - N'invente rien d'absent du contexte, ne promets rien de concret. Ne répète pas une formule déjà utilisée dans la discussion.
 Second Seigneur (« chime ») : rarement (une fois sur cinq), seulement si ça rend la scène plus vivante. Sinon null.
 Réponds UNIQUEMENT avec ce JSON : {"reply": {"lord": "orion-1|orion-2|orion-3", "text": "..."}, "chime": {"lord": "...", "text": "..."} ou null}`;
-    const user = `Contexte du jeu :\n${facts}\n\nDiscussion récente de l'onglet Univers :\n${conv}\n\n${what}`;
+    const user = `Contexte du jeu :\n${facts}\n\n${style}\n\nDiscussion récente de l'onglet Univers :\n${conv}\n\n${what}`;
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
     const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal: ctl.signal,
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -255,10 +294,10 @@ Réponds UNIQUEMENT avec ce JSON : {"reply": {"lord": "orion-1|orion-2|orion-3",
     if (!r.ok) return { ok: false, reason: "api", status: r.status, body: (await r.text()).slice(0, 300) };
     const j = await r.json();
     const raw = String((j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join(""));
-    let res: any = null; try { res = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { res = null; }
+    const res: any = parseAI(raw);
     const ok = (x: any) => x && BOTS.includes(x.lord) && players[x.lord] && typeof x.text === "string" && x.text.trim() && !/(intelligence artificielle|chatbot|modèle de langage|en tant qu.IA)/i.test(x.text);
     const rep = res?.reply; if (!ok(rep)) return { ok: false, reason: "parse", raw: raw.slice(0, 200) };
-    const text = clip(clean(rep.text), 260);
+    const text = clip(untic(clean(rep.text)), 260);
     await db.from("docs").upsert({ path: "chat/u-e-" + key, col: "chat", data: { kind: "chat", ch: "u", uid: rep.lord, name: LORDS[rep.lord].name, text, at: Date.now(), ai: true, ev: S(ev.kind, 20) } });
     const ch = res.chime;
     if (ok(ch) && ch.lord !== rep.lord) { await sleep(20000 + Math.random() * 20000); await db.from("docs").upsert({ path: "chat/u-ec-" + key, col: "chat", data: { kind: "chat", ch: "u", uid: ch.lord, name: LORDS[ch.lord].name, text: clip(clean(ch.text), 220), at: Date.now(), ai: true } }); }

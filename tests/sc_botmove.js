@@ -27,3 +27,9 @@ const p2=BOTS.map(b=>playerPower(b.uid));T.adv(31e3);await T.tick(2);T.ok(BOTS.e
 T.ok(s1>s0,'aide impériale : renforts sur la forteresse ('+Math.round(s0)+'→'+Math.round(s1)+')');
 await imperialAid(b.uid,'Test');await sleep(30);T.ok(Math.abs(playerPower(b.uid)-s1)<1,'pas deux fois en 12 h');
 T.adv(13*3600e3);await imperialAid(b.uid,'Test');await sleep(30);T.ok(playerPower(b.uid)>s1,'de nouveau après 12 h')}
+// sondes annoncées par l'IA dans l'Univers : elles partent vraiment vers ce joueur
+{const b=BOTS[2],seat=S.planets[b.seat];seat.ships.probe=20;const pl=S.players[b.uid];pl.bot={...pl.bot,spyOn:{uid:'u1',at:Date.now()},next:Date.now()-1,spyAt:Date.now()+9e8};T.sync();
+T.adv(31e3);await T.tick(3);await sleep(50);
+const f=Object.values(S.fleets).find(x=>x.owner===b.uid&&x.mission==='spy');
+T.ok(f&&S.planets[f.to]&&S.planets[f.to].owner==='u1','sondes de '+b.name+' lancées vers le joueur visé');
+T.ok(!S.players[b.uid].bot.spyOn,'demande effacée après envoi')}

@@ -1426,18 +1426,17 @@ function lordsRelHtml(){const L=BOTS.filter(b=>S.players[b.uid]);if(!L.length||!
     <span class="eff" style="font-size:12px">Ce qu’ils pensent change avec tes combats et ce que tu leur écris dans l’onglet Univers du chat.</span></div></section>`}
 function talkParse(text){const n=talkNorm(text).replace(/\s+/g,' ').trim(),W=n.split(' ').filter(Boolean),w=new Set(W),has=L=>L.some(k=>k.includes(' ')?(' '+n+' ').includes(' '+k+' '):k.length>=5?W.some(x=>x.startsWith(k)):w.has(k));
   const hum=Object.values(S.players).some(p=>p&&p.uid&&!isBot(p.uid)&&p.name&&p.name.length>2&&w.has(talkNorm(p.name).trim())),to=BOTS.filter(b=>has(BOT_NAMES[b.uid])).map(b=>b.uid),gen=has(TALK_GEN),you=has(TALK_PL.you);
-  const team=hum||/rally|ralliement|rallie|soutien|renfort/.test(n)||has(TALK_KW.joke),q=n.includes('?')||TALK_Q.some(k=>(' '+n+' ').startsWith(' '+k+' ')||(k.includes(' ')&&n.includes(k)));
+  const sing=has(['tu','ton','ta','tes','toi','te','t','votre']),team=hum||/rally|ralliement|rallie|soutien|renfort/.test(n)||has(TALK_KW.joke),q=n.includes('?')||TALK_Q.some(k=>(' '+n+' ').startsWith(' '+k+' ')||(k.includes(' ')&&n.includes(k)));
   const K={surrender:has(TALK_KW.surrender),sorry:has(TALK_KW.sorry),ally:has(TALK_TOPIC.ally),who:q&&has(TALK_TOPIC.who),want:has(TALK_KW.want),why:q&&(has(TALK_TOPIC.why)||/probleme/.test(n)),count:q&&has(TALK_KW.count),help:has(TALK_KW.help)&&q,weak:has(TALK_TOPIC.weak),
     insult:has(TALK_KW.insult),threat:has(TALK_KW.threat),fear:/pas peur|aucune peur|meme pas peur/.test(n)||has(TALK_KW.fear),brag:has(TALK_TOPIC.brag),flirt:has(TALK_KW.flirt),compliment:has(TALK_KW.compliment),demand:has(TALK_KW.demand),
     emperor:has(TALK_TOPIC.emperor),core:q&&has(TALK_TOPIC.core),laugh:has(TALK_KW.laugh)||/^(a?h+a+){2,}/.test(n.replace(/ /g,'')),peace:has(TALK_KW.peace),bye:has(TALK_KW.bye),greet:has(TALK_KW.greet),yn:q&&/^(tu|t|est ce|vous|as tu|es tu)\b/.test(n),ask:q,echo:W.length>=5};
   const kind=TALK_PRIO.find(k=>K[k])||'mention',ww=String(text).split(/[^\p{L}’'-]+/u).filter(x=>x.length>=5&&!TALK_STOP.has(talkNorm(x).trim())).sort((a,b)=>b.length-a.length)[0]||null;
-  return{to,gen,you,q,kind,team,w:ww}}
+  return{to,gen,you,sing,q,kind,team,w:ww}}
 const talkDelay=m=>(20+hash(m.id)%25)*1000;
 function talkMemory(who,uid,now){const M=(relOf(who,uid).mem||[]).filter(m=>m.k!=='x');const rec=M.filter(m=>now-m.at<24*HR).slice(-1)[0],old=M.filter(m=>now-m.at>=2*864e5).slice(-1)[0];
   return rec?{won:rec.k==='pl'||rec.k==='lw',pl:rec.pl,old:false}:old?{old:true,pl:old.pl,d:Math.floor((now-old.at)/864e5)}:null}
 // réponses écrites par l'IA (fonction lord-talk) ; repli automatique sur les répliques préparées
-const AI={off:0,pend:new Set(),fail:new Set(),ok:now=>now>AI.off&&!!sb&&!!(sb.functions)};
-async function aiTalk(mid,ids,who){try{const p=sb.functions.invoke('lord-talk',{body:{mid,ids,who}}),t=new Promise(r=>setTimeout(()=>r({data:{ok:false,reason:'timeout'}}),18000));const r=await Promise.race([p,t]);if(r.error)return{ok:false,reason:'net'};return r.data||{ok:false}}catch(e){return{ok:false,reason:'net'}}}
+const AI={on:()=>!!sb&&(S.events['lord-ai']||{}).on!==false}; // réponses IA écrites par le serveur (déclencheur docs_lord_talk → fonction lord-talk) ; le jeu ne répond qu'en secours
 async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at),has=id=>(S.chat||[]).some(x=>x.id===id),isL=x=>isBot(x.uid)||x.uid==='vorgath';
   // 1. messages programmés
   const Q=((S.events['orion-talkq']||{}).q||[]).filter(i=>i.at<=now);if(Q.length){for(const i of Q)if(!has(i.id)&&S.players[i.uid])try{await talkSay(i.uid,i.text,i.id,i.re||null)}catch(e){}
@@ -1446,15 +1445,13 @@ async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at
   // 2. réponses : on regroupe les messages qu'un joueur envoie d'affilée, et on répond une seule fois quand il a fini d'écrire
   const H=[...new Set(U.filter(m=>!isUnivSpk(m.uid)&&S.players[m.uid]&&now-m.at<4*60e3).map(m=>m.uid))];
   for(const uid of H){const lastR=U.filter(x=>isL(x)&&x.re===uid&&x.id.startsWith('u-r-')).slice(-1)[0],o0=lastR?(U.find(y=>y.id===lastR.id.slice(4))||{at:lastR.at-50e3}).at:0,B=U.filter(m=>m.uid===uid&&now-m.at<4*60e3&&m.at>o0);
-    if(!B.length)continue;const last=B[B.length-1];if(now-last.at<talkDelay(last)||has('u-r-'+last.id))continue;
+    if(!B.length)continue;const last=B[B.length-1];if(last.h||B.some(m=>m.h==='silent'&&m.id===last.id)||now-last.at<(AI.on()?95e3:talkDelay(last))||has('u-r-'+last.id))continue;
     const P=B.map(m=>talkParse(m.text)),named=P.filter(p=>p.to.length),prev=U.filter(x=>x.at<B[0].at&&x.uid!==uid).slice(-1)[0];
     if(!named.length&&P.some(p=>p.team))continue;
-    const conv=prev&&isBot(prev.uid)&&prev.re===uid&&B[0].at-prev.at<3*60e3?prev.uid:null,youL=prev&&isBot(prev.uid)&&B[0].at-prev.at<3*60e3&&P.some(p=>p.you)?prev.uid:null,h0=hash(last.id);
+    const lastTalk=U.filter(x=>isBot(x.uid)&&x.re===uid&&B[0].at-x.at<10*60e3&&x.at<=B[0].at).slice(-1)[0],lastFight=P.some(p=>p.sing)?BOTS.map(b=>({u:b.uid,m:(relOf(b.uid,uid).mem||[]).filter(m=>m.k!=='x'&&now-m.at<24*HR).slice(-1)[0]})).filter(x=>x.m).sort((a,b)=>b.m.at-a.m.at)[0]:null,conv=prev&&isBot(prev.uid)&&prev.re===uid&&B[0].at-prev.at<3*60e3?prev.uid:lastTalk&&P.some(p=>p.sing||p.q)?lastTalk.uid:lastFight?lastFight.u:null,youL=prev&&isBot(prev.uid)&&B[0].at-prev.at<3*60e3&&P.some(p=>p.you)?prev.uid:null,h0=hash(last.id);
     const C=named.length?named[named.length-1].to:conv?[conv]:youL?[youL]:P.some(p=>p.gen||p.kind==='insult'||p.kind==='threat'||p.kind==='ally')?BOTS.map((b,i)=>BOTS[(h0+i)%BOTS.length].uid):[];
     const who=C.find(u=>S.players[u]&&U.filter(x=>x.uid===u&&x.re===uid&&now-x.at<10*60e3).length<4);if(!who)continue;
     const PP=named.length?P.filter(p=>p.to.includes(who)||!p.to.length):P,kind0=TALK_PRIO.find(k=>PP.some(p=>p.kind===k))||'mention',pw=(PP.find(p=>p.kind===kind0)||{}).w;
-    if(AI.ok(now)&&(S.events['lord-ai']||{}).on!==false&&!AI.fail.has(last.id)){if(AI.pend.has(last.id))continue;const mid=last.id;AI.pend.add(mid);
-      aiTalk(mid,B.map(m=>m.id),who).then(r=>{if(r&&r.ok&&r.skip){setTimeout(()=>{AI.pend.delete(mid);AI.fail.add(mid)},25000);return}AI.pend.delete(mid);if(r&&r.ok){if(r.text)relUpdate(who,uid,0,{c:kind0}).catch(()=>{})}else{console.warn('lord-talk',r);AI.fail.add(mid);if(/no-key|budget|auth/.test((r&&r.reason)||''))AI.off=Date.now()+10*60e3}});return}
     let kind=kind0==='echo'&&!pw?'mention':kind0,n=0;
     if(kind==='insult'||kind==='threat'){await locked('players/'+who,async(x,ref)=>{if(!x||!x.bot)return;const g={...(x.bot.grudge||{})},c=g[uid]&&now-g[uid].at<48*HR?g[uid]:{n:0};n=(c.n||0)+1;g[uid]={n,at:now};x.bot={...x.bot,grudge:g};await ref.set(x)}).catch(()=>{});if(n===3)kind='grudge'}
     const nk=await relUpdate(who,uid,REL_DV[kind0]||0,{c:kind0});
@@ -1467,7 +1464,7 @@ async function botTalkTick(now){const U=univMsgs().slice().sort((a,b)=>a.at-b.at
     if(nk)await talkQ([{id:'u-n-'+who+'-'+uid+'-'+talkNorm(nk).replace(/ /g,''),uid:who,text:talkPick(who,'nick',last.id).replace(/\{nick\}/g,nk).replace(/\{p\}/g,pname(uid)),at:now+30e3,re:uid}]);
     return}
   // 3. parfois, un autre seigneur s'en mêle, si personne n'a répondu entre-temps
-  const lastM=U[U.length-1];if(lastM&&lastM.id.startsWith('u-r-')&&isBot(lastM.uid)&&now-lastM.at>40e3&&now-lastM.at<5*60e3&&hash(lastM.id)%4===0&&!has('u-c-'+lastM.id.slice(4))){const o=BOTS.map(b=>b.uid).filter(u=>u!==lastM.uid&&S.players[u]),who=o[hash(lastM.id)%o.length];
+  const lastM=U[U.length-1];if(lastM&&lastM.id.startsWith('u-r-')&&isBot(lastM.uid)&&!lastM.ai&&now-lastM.at>40e3&&now-lastM.at<5*60e3&&hash(lastM.id)%4===0&&!has('u-c-'+lastM.id.slice(4))){const o=BOTS.map(b=>b.uid).filter(u=>u!==lastM.uid&&S.players[u]),who=o[hash(lastM.id)%o.length];
     if(who){const t=talkPick(who,'banter',lastM.id).replace(/\{l\}/g,pname(lastM.uid)).replace(/\{p\}/g,relAddr(who,lastM.re,lastM.id));try{await talkSay(who,t,'u-c-'+lastM.id.slice(4),lastM.re)}catch(e){}return}}
   // 4. messages spontanés quand le canal est calme
   if(lastM&&now-lastM.at<20*60e3)return;
@@ -1494,7 +1491,7 @@ function chatUpdate(){const msgs=S.chat||[];
 function chatPeek(m){const el=document.getElementById('chatpeek');if(!el||!S.players[ME])return;el.innerHTML='';const b=document.createElement('b');b.textContent=(chOf(m)==='u'?'🌌 ':'')+(S.players[m.uid]?pname(m.uid):m.name||'?')+' : ';el.classList.toggle('u',chOf(m)==='u');el.dataset.c=chOf(m);const t=document.createElement('span');t.textContent=m.text.length>70?m.text.slice(0,70)+'…':m.text;el.append(b,t);el.hidden=false;clearTimeout(CHAT.peekT);CHAT.peekT=setTimeout(()=>{el.hidden=true},7000)}
 function chatOpen(on){if(on){const pk=document.getElementById('chatpeek');if(pk)pk.hidden=true}CHAT.open=on;document.getElementById('chatov').hidden=!on;document.body.style.overflow=on?'hidden':'';if(on){CHAT.scrolled=false;chatUpdate();setTimeout(()=>{try{document.getElementById('chatin').focus()}catch(e){}},50)}chatBtnSync(true)}
 async function chatSend(){const inp=document.getElementById('chatin'),text=(inp.value||'').trim().slice(0,300);if(!text)return;const now=Date.now();if(now-CHAT.lastSend<1500)return toast('Doucement, un message toutes les deux secondes.','bad');CHAT.lastSend=now;
-  inp.value='';try{await db.collection('chat').doc(newId()).set({kind:'chat',...(CHAT.ch==='u'?{ch:'u'}:{}),uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()})}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
+  inp.value='';const mid=newId(),u=CHAT.ch==='u';try{await db.collection('chat').doc(mid).set({kind:'chat',...(u?{ch:'u'}:{}),uid:ME,name:(S.players[ME]&&S.players[ME].name)||'',text,at:Date.now()});if(u&&AI.on())try{sb.functions.invoke('lord-talk',{body:{mid}}).catch(()=>{})}catch(e){}}catch(e){inp.value=text;toast('Message non envoyé. Réessaie.','bad')}}
 let chatPruning=false;async function chatPrune(){if(chatPruning)return;chatPruning=true;try{const old=(S.chat||[]).filter(m=>Date.now()-m.at>3*864e5).slice(0,10);for(const m of old)await db.doc('chat/'+m.id).delete()}catch(e){}chatPruning=false}
 document.addEventListener('submit',e=>{if(e.target&&e.target.id==='chatform'){e.preventDefault();chatSend()}});
 
@@ -1989,9 +1986,11 @@ async function meetFight(f,fref){let c=null,G=null,stopped=false;
   if(c.cmd&&(stopped||!(G.B.d.flag>0)))await killCmd(c.owner,c.cmd,stopped?'fleet':'flag');
   const surv=G.surv[0];if(isEmpty(surv)){await fref.delete();if(f.cmd)await killCmd(f.owner,f.cmd)}else{let nf={...f,ships:surv,phase:'back',from:home,back,target:null};if(f.cmd&&!(surv.flag>0)){await killCmd(f.owner,f.cmd,'flag');nf.cmd=null}await fref.set(nf)}
   await award([{uid:f.owner,cmd:f.cmd,v:worth(G.B.id)-worth(G.B.d)},...(isNpc(c.owner)?[]:[{uid:c.owner,cmd:c.cmd,v:worth(G.B.ia)-worth(G.B.a)}])],'interception en plein espace');
-  const tn=plName(c.to),atk=isNpc(c.owner)?`les ${NPC_NAME}`:pname(c.owner),owner=S.planets[c.to]&&S.planets[c.to].owner;
+  const tn=plName(c.to),atk=isNpc(c.owner)?`les ${NPC_NAME}`:pname(c.owner),owner=S.planets[c.to]&&S.planets[c.to].owner;const pts=Math.round(worth(G.B.id)-worth(G.B.d)),ptsD=Math.round(worth(G.B.ia)-worth(G.B.a));
   await report({to:[...new Set([f.owner,owner,isNpc(c.owner)?null:c.owner].filter(Boolean))],tone:stopped?'win':'info',loser:stopped?c.owner:null,title:stopped?`Attaque interceptée en route vers ${tn}`:`Combat en plein espace sur la route de ${tn}`,
-    lines:[`Intercepteurs de ${pname(f.owner)} : ${unitLine(G.B.ia)} — pertes : ${lossLine(G.B.ia,G.B.a)}.`,`Flotte de ${atk} : ${unitLine(G.B.id)} — pertes : ${lossLine(G.B.id,G.B.d)}.`,stopped?'L’attaque est anéantie avant d’atteindre la planète.':`Il reste ${unitLine(G.B.d)} : l’attaque continue, impact à ${clock(c.arrive)}.`,isEmpty(surv)?'Aucun intercepteur ne revient.':`Les intercepteurs survivants rentrent, arrivée à ${clock(back)}.`]})}
+    battle:{ia:G.B.ia,id:G.B.id,rounds:G.B.snaps,att:[{uid:f.owner,ships:f.ships,ck:(cmdById(f.owner,f.cmd)||{}).key||null}],def:isNpc(c.owner)?'raid':c.owner,pid:c.to,meet:true},
+    lines:[...(()=>{const a=cmdById(f.owner,f.cmd),d=c.cmd&&cmdById(c.owner,c.cmd),L=[];if(a)L.push(`🎖 Commandant des intercepteurs : ${cmdInfo(a).n} (${pname(f.owner)})${stopped?' — victorieux':''}.`);if(d)L.push(`🎖 Commandant adverse : ${cmdInfo(d).n} (${atk})${!stopped&&isEmpty(surv)?' — victorieux':''}.`);return L})(),
+      `Lieu : en plein espace, sur la trajectoire vers ${tn}${owner?` (planète de ${pname(owner)})`:''}.`,`Intercepteurs de ${pname(f.owner)} : ${unitLine(G.B.ia)} — pertes : ${lossLine(G.B.ia,G.B.a)}.`,`Flotte de ${atk} : ${unitLine(G.B.id)} — pertes : ${lossLine(G.B.id,G.B.d)}.`,stopped?'L’attaque est anéantie avant d’atteindre la planète.':`Il reste ${unitLine(G.B.d)} : l’attaque continue, impact à ${clock(c.arrive)}.`,isEmpty(surv)?'Aucun intercepteur ne revient.':`Les intercepteurs survivants rentrent, arrivée à ${clock(back)}.`,`Points de combat : ${pts} pour les intercepteurs${isNpc(c.owner)?'':`, ${ptsD} pour ${atk}`}.`]})}
 // ---------- encadré d'attaque sur la page Base ----------
 function attackCards(pid){const L=Object.values(S.fleets).filter(f=>f.phase==='out'&&f.mission==='attack'&&f.to===pid&&f.owner!==ME).sort((a,b)=>a.arrive-b.arrive);if(!L.length)return guardsHtml(pid);
   const v=view(pid),mine={};for(const k of SK)if(k!=='probe'&&v.ships[k]>0)mine[k]=v.ships[k];const tur=(v.lv&&v.lv.def||0)*4;
@@ -4728,7 +4727,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='230';
+const APP_VERSION='231';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

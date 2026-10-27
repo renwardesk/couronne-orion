@@ -1787,7 +1787,12 @@ async function joinBattle(f,fref,side,minesL){let joined=false,lost={};const id=
     await fref.set({...f,ships,phase:'battle',bt:id})});
   if(joined)await report({to:[f.owner],tone:'info',title:`Ta flotte entre dans la bataille de ${plName(f.to)}`,lines:[`${side==='att'?'Côté attaquants':'Côté défenseurs'} · ${unitLine(f.ships)}.`,...(count(lost)?[`Champ de mines : ${unitLine(lost)} détruits en entrant en orbite.`]:[])]});
   return joined}
-async function battleTicks(){const now=Date.now();for(const e of Object.values(S.events)){if(!e.battle||e.done||e.next>now||busy.has(e.id))continue;busy.add(e.id);
+async function battleTicks(){const now=Date.now();
+  for(const f of Object.values(S.fleets)){if(f.phase!=='battle'||!f.bt||!S.got.e||busy.has('st-'+f.fid))continue;const e=S.events[f.bt]; // flotte restée bloquée en bataille : combat fini mais fin interrompue
+    const stuck=e?(e.done&&!e.settled&&now-(e.doneAt||0)>60e3&&now-(e.fin||0)>90e3):now-(f.arrive||0)>45*60e3;if(!stuck)continue;busy.add('st-'+f.fid);
+    try{if(e&&e.raid&&RAIDS[e.pid]){await locked('events/'+e.id,async(ev,eref)=>{if(!ev||!ev.done||ev.settled||Date.now()-(ev.fin||0)<90e3)return;ev.fin=Date.now();await eref.set(ev);await bossFinish(ev,eref,RAIDS[ev.pid],ev.home||zeroShips())})}
+      else if(!e||e.done&&now-(e.doneAt||0)>5*60e3)await locked('fleets/'+f.fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle'||fl.bt!==f.bt)return;const x=e&&[...(e.att||[]),...(e.dal||[])].find(y=>y.fid===fl.fid);await holdAt({...fl,arrive:Date.now()},fref,x?x.ships:fl.ships,fl.cargo||{m:0,c:0,f:0})})}catch(x){console.error(x)}finally{busy.delete('st-'+f.fid)}}
+  for(const e of Object.values(S.events)){if(!e.battle||e.done||e.next>now||busy.has(e.id))continue;busy.add(e.id);
   try{await locked('events/'+e.id,async(ev,eref)=>{if(!ev||ev.done||ev.next>Date.now())return;if(ev.raid)await bossRound(ev,eref);else await battleRound(ev,eref)})}catch(x){console.error(x)}finally{busy.delete(e.id)}}}
 async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[];
   await locked('planets/'+e.pid,async(d,ref)=>{const p=d&&d.owner?settle(d,now):null,mine=p&&p.owner===e.owner;
@@ -1843,12 +1848,16 @@ async function bossRound(e,eref){const now=Date.now(),R=RAIDS[e.pid],A=e.att;let
     rv.remaining=B.d;if(isEmpty(B.d)){rv.done=true;rv.doneAt=now;rv.at=now}await rref.set(rv);
     ended=isEmpty(B.a)||isEmpty(B.d)||e.rounds>=(e.maxR||LB_MAXR)});
   if(!ended){await eref.set(e);return}
-  e.done=true;e.doneAt=now;e.won=isEmpty(rem)&&A.some(x=>!isEmpty(x.ships));await eref.set(e);if(!R)return;
+  e.done=true;e.doneAt=now;e.won=isEmpty(rem)&&A.some(x=>!isEmpty(x.ships));e.fin=now;await eref.set(e);if(!R)return;
+  await bossFinish(e,eref,R,rem)}
+// fin d'un combat de boss : libère les flottes et distribue le butin ; refaite par battleTicks si elle a été interrompue (téléphone en veille, réseau)
+async function bossFinish(e,eref,R,rem){const now=Date.now(),A=e.att;
   const forces=[],surv=[];for(const x of A)await locked('fleets/'+x.fid,async(fl,ref)=>{if(fl&&fl.phase==='battle'&&fl.bt===e.id){forces.push({f:{...fl,arrive:now},ref,owner:fl.owner,ships:{...x.ships0}});surv.push({...x.ships})}}).catch(()=>{});
-  if(!forces.length)return;
+  if(!forces.length){await eref.set({...e,settled:true});return}
   const lead=forces[0].f,tn=plName(e.pid),C=fightCtx(lead,forces),G={B:{ia:e.iA,id:e.iD,a:sumShips(surv),d:rem,snaps:e.snaps},surv},val=e.kA,frac=val/(worth(R.ships)||1);
   await raidSettle({f:lead,forces,atkUids:C.atkUids,R,tn,G,val,frac,btn0:R.bounty?(e.btn||btName(e.pid)):null,reps:[],finish:C.finish,fightLines:C.fightLines,rec:C.rec,
-    pre:[`Durée : ${fmtDur((now-e.start)/1000)} · ${e.rounds} échanges${forces.length>1?` · ${forces.length} flottes engagées`:''}.`,...(!isEmpty(rem)&&!isEmpty(G.B.a)?['Le temps est écoulé : le boss tient encore.']:[])]})}
+    pre:[`Durée : ${fmtDur(((e.doneAt||now)-e.start)/1000)} · ${e.rounds} échanges${forces.length>1?` · ${forces.length} flottes engagées`:''}.`,...(!isEmpty(rem)&&!isEmpty(G.B.a)?['Le temps est écoulé : le boss tient encore.']:[]),...(now-(e.doneAt||now)>120e3?['(Fin du combat enregistrée en retard : la flotte était restée bloquée en bataille.)']:[])]});
+  await eref.set({...e,settled:true})}
 async function retreatBattle(fid){await act(async()=>{const f=S.fleets[fid];if(!f||f.owner!==ME||f.phase!=='battle')throw err('Cette flotte n’est plus au combat.');let ent=null;
   await locked('events/'+f.bt,async(ev,eref)=>{if(!ev||ev.done)return;for(const side of['att','dal']){const i=ev[side].findIndex(x=>x.fid===fid);if(i>=0){ent=ev[side][i];ev[side].splice(i,1)}}if(!ent)return;if(!ev.att.length)ev.next=Date.now();await eref.set(ev)});
   await locked('fleets/'+fid,async(fl,fref)=>{if(!fl||fl.phase!=='battle')throw err('Cette flotte n’est plus au combat.');const ships=ent?ent.ships:fl.ships;if(isEmpty(ships)){await fref.delete();return}
@@ -4752,7 +4761,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='235';
+const APP_VERSION='236';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

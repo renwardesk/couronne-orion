@@ -107,25 +107,14 @@ async function work(mid: string, names: Record<string, string>, dry = false): Pr
 
     const system = `${PERSONA}
 
-Ta mission : un joueur vient d'écrire. Décide si un Seigneur répond, lequel, et quoi.
-Qui répond :
-- Le Seigneur nommé ou visé (son nom, sa planète, « toi » juste après qu'il a parlé à ce joueur, une suite évidente de conversation avec lui).
-- « Vous les Seigneurs » ou un sujet qui les concerne tous : le plus pertinent (celui qui attaque le joueur, celui avec qui il a un passé, celui dont le caractère colle le mieux).
-- Si les joueurs parlent entre eux (un joueur s'adresse à un autre joueur, se dispute avec lui, annonce une attaque contre lui), personne ne répond (reply = null), sauf si un Seigneur est nommé ou si un Seigneur n'est pas intervenu depuis plusieurs minutes et qu'une pique bien placée rendrait la scène meilleure. S'ils complotent contre un Seigneur ou se trahissent, un Seigneur peut s'inviter, avec malice.
-- Ne réponds pas à chaque message : quand un Seigneur vient de parler (moins d'une minute) et que le joueur ne lui répond pas directement, préfère le silence. Un Seigneur ne parle jamais deux fois de suite à moins d'une minute d'intervalle.
-Comment répondre :
-- Reste totalement dans le personnage, avec sa voix propre. Varie la forme d'un message à l'autre : une question, un défi, une anecdote, une menace voilée, un marché, un trait d'humour, une réponse d'un seul mot. Ne commence jamais deux réponses de la même façon, et ne répète pas les formules déjà dites (voir la liste).
-- Fais avancer la scène au lieu de ressasser le même reproche : si un sujet a déjà été traité (par exemple les flottes d'un joueur), passe à autre chose ou change d'angle.
-- Réagis vraiment aux propositions : une demande de paix, d'alliance, une déclaration d'amour ou une question sur le monde mérite une vraie réponse de personnage (une condition, un prix, un refus amusé, un secret de l'Empire à demi révélé), pas un reproche de plus.
-- Les Seigneurs peuvent agir : si un joueur les menace, les défie ou bluffe sur une attaque, le Seigneur peut annoncer qu'il envoie ses sondes (action « spy »), ce qui se fera vraiment dans le jeu.
-- Réponds vraiment au contenu : reprends un détail, relève une contradiction ou un bluff, réagis aux alliances et trahisons entre joueurs, aux plaisanteries (le ton entre amis est souvent au second degré : tu peux jouer le jeu).
-- Tu as de la liberté : poser une question, lancer un défi, menacer, flatter pour mieux piquer, semer la zizanie entre joueurs, faire de l'humour, bluffer vaguement sur ta puissance.
-- 1 à 3 phrases, 300 caractères maximum. Pas de guillemets autour, pas de nom devant, pas d'astérisques.
-- Jamais vulgaire ni sexuel, rien de haineux, pas de violence détaillée, même si les joueurs le sont (réponds avec classe, froideur ou théâtre). Ne dis jamais que tu es une IA.
-- Sers-toi du contexte (planètes de chacun, flottes en vol, batailles) avec justesse : ne confonds pas une planète d'un joueur avec la tienne. N'invente pas de règles du jeu, de récompenses, de chiffres ou d'événements absents du contexte. Ne promets rien de concret (pas d'alliance réelle, pas d'attaque à une heure précise).
-- Un Seigneur ne trahit jamais les autres Seigneurs ni l'Empereur.
-- Le contexte du jeu fait foi : si d'anciens messages des Seigneurs contiennent une erreur (par exemple avoir pris des zones pirates pour leurs frontières, ou une flotte imaginaire), ne la répète pas et n'y reviens pas.
-Second Seigneur (« chime ») : rarement (environ une fois sur six), seulement si ça rend la scène plus vivante (une pique ENTRE Seigneurs, une dispute, un soutien moqueur), jamais pour répéter le même reproche. Sinon null.
+Ta mission : un joueur vient d'écrire dans l'Univers. Décide si un Seigneur répond, lequel, et quoi. Tu as une grande liberté : fais vivre ces personnages comme un bon maître du jeu, avec de la répartie, de l'humour, de la menace, du théâtre.
+Repères (pas des chaînes) :
+- Répond le Seigneur visé (son nom, sa planète, une suite de conversation avec lui) ; si c'est adressé à tous les Seigneurs, celui qui a le plus à dire. Si les joueurs parlent entre eux, le silence (reply = null) est souvent le mieux, sauf si une pique rendrait la scène meilleure.
+- Sers-toi de ce qui se passe vraiment (rubrique À LA UNE d'abord, puis flottes, batailles, planètes) : c'est ce qui rend les répliques vivantes. Ne confonds pas les camps : une flotte appartient à celui qui l'envoie, pas à la planète visée.
+- Réponds vraiment à ce que dit le joueur, varie la forme, ne répète pas les formules déjà dites (voir la liste).
+- Un Seigneur peut annoncer qu'il envoie ses sondes (act « spy »), ça se fera vraiment.
+- 1 à 3 phrases, 300 caractères maximum, pas de guillemets ni de nom devant. Jamais vulgaire, sexuel ou haineux. N'invente pas de règles ni de chiffres, ne trahis jamais l'Empereur ni les autres Seigneurs, ne dis jamais que tu es une IA.
+Second Seigneur (« chime ») : de temps en temps, s'il a une vraie réplique (une pique entre Seigneurs, un soutien moqueur). Sinon null.
 Réponds UNIQUEMENT avec ce JSON, sans texte autour :
 {"reply": {"lord": "orion-1|orion-2|orion-3", "text": "...", "rel": entier de -8 à 8 (ce que ce message change dans son sentiment envers le joueur : respect +, mépris -), "grudge": true si le joueur l'a vraiment provoqué ou menacé, "act": "spy" ou null} ou null, "chime": {"lord": "...", "text": "..."} ou null}`;
     const user = `Contexte du jeu :\n${facts}\n\n${style}\n\nDiscussion de l'onglet Univers (3 dernières heures) :\n${conv}\n\nLe joueur ${me.name} vient d'écrire (c'est à cela qu'il faut réagir) :\n${batch.map((m) => "- " + String(m.text).slice(0, 400)).join("\n")}`;
@@ -201,7 +190,8 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
   // flottes qui comptent (vers une planète tenue : Seigneur ou joueur), puis résumé des chasses aux PNJ (Écumeurs, boss) qui ne menacent personne
   const who = (f: any) => f.owner === "npc-pill" && f.pact ? `Coalition des Seigneurs (Pillards du Néant payés par ${pn(f.pact)})` : f.owner === "npc-pill" ? "Pillards du Néant" : f.owner === "npc-emp" ? "Légions de l'Empereur Vorgath" : pn(f.owner);
   const hot = flying.filter((f) => owner[f.to] && owner[f.to] !== f.owner).sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 12);
-  const flyTxt = hot.map((f) => `- ${who(f)} → ${pl(f.to)} (planète de ${pn(owner[f.to])}${BOTS.includes(owner[f.to]) ? ", un Seigneur" : ""}) : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
+  const VERB: Record<string, string> = { attack: "attaque", colonize: "veut conquérir", reinforce: "envoie un renfort à", spy: "espionne", intercept: "part intercepter une flotte près de", rallysup: "rejoint un ralliement vers" };
+  const flyTxt = hot.map((f) => `- ${who(f)} ${VERB[f.mission] ?? MIS[f.mission]} ${pl(f.to)}, planète de ${pn(owner[f.to])}${BOTS.includes(owner[f.to]) ? " (un Seigneur)" : ""}${f.mission === "spy" ? "" : ` (${tot(f.ships)} vaisseaux)`}, arrivée à ${hhmm(f.arrive)}. Ces vaisseaux appartiennent à ${who(f)}, pas à ${pn(owner[f.to])}.`);
   const pve: Record<string, string[]> = {};
   for (const f of flying) if (!owner[f.to] && (f.mission === "attack" || f.mission === "intercept") && f.owner !== "npc-pill") (pve[f.owner] ??= []).push(pl(f.to));
   for (const [o, L] of Object.entries(pve)) flyTxt.push(`- ${pn(o)} : ${L.length} flotte(s) en chasse contre des PNJ (Écumeurs/boss pirates, zones neutres) : ${[...new Set(L)].slice(0, 4).join(", ")}. Ce n'est PAS une attaque contre les Seigneurs.`);
@@ -241,6 +231,7 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
     return `- ${LORDS[b].name} : ${ex ? "EXILÉ (a perdu toutes ses planètes, a fui Orion ; il ne parle plus que rarement, depuis l'exil)" : fa ? `DÉCHU (sa forteresse a été prise par ${pn(fa.by)} ; il mène des raids de vengeance contre lui et veut la reprendre)` : lvl} (${n} planètes${seatLost ? ", SA FORTERESSE EST TOMBÉE" : ""}, ${losses} défaite(s) en 48 h, flotte ≈ ${Math.round(ratio * 100)} % de celle d'un joueur moyen)`;
   }).join("\n");
   const facts = [
+    extra.length ? `À LA UNE (ce dont tout Orion parle en ce moment, à garder en tête et à évoquer quand ça s'y prête) :\n${extra.map((x) => "- " + x).join("\n")}` : "",
     `État des Seigneurs (adapte leur ton) :\n${lordState}`,
     `Joueurs et leurs planètes :\n${humans.map((h: any) => `- ${h.name} (${count[h.uid] || 0}) : ${(owned[h.uid] || []).slice(0, 20).join(", ") || "aucune"}`).join("\n")}`,
     `Planètes des Seigneurs :\n${BOTS.filter((b) => players[b]).map((b) => `- ${LORDS[b].name} : ${(owned[b] || []).slice(0, 10).join(", ")}`).join("\n")}`,
@@ -250,7 +241,6 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
     incoming.length ? `Flottes de Seigneurs en route pour attaquer ${meName} : ${incoming.map((f) => `${pn(f.owner)} (arrivée à ${hhmm(f.arrive)})`).join(", ")}.` : `Aucune flotte de Seigneur n'attaque ${meName} en ce moment.`,
     now < peace ? `Trêve : les Seigneurs n'attaquent pas encore les empires (fin dans ${Math.ceil((peace - now) / 3600e3)} h), sauf pour se venger de qui les attaque.` : "La trêve est finie : les Seigneurs attaquent les empires.",
     saga?.ch ? `Histoire d'Orion : chapitre ${saga.ch} sur 5 en cours.` : "",
-    ...extra,
     news.length ? `Événements récents :\n${news.map((e) => `- ${e.title} (${ago(e.at, now)})`).join("\n")}` : "",
   ].filter(Boolean).join("\n");
   const conv = (msgs ?? []).filter((m) => now - m.at < 3 * 3600e3).slice(-36).map((m) => `[${hhmm(m.at)}] ${pn(m.uid)}${m.re && BOTS.includes(m.uid) ? ` (répond à ${pn(m.re)})` : ""} : ${String(m.text).slice(0, 300)}`).join("\n");

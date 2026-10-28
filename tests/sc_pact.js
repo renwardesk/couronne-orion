@@ -15,6 +15,8 @@ T.ok(F.every(f=>f.owner===NPC&&isBot(f.pact)&&f.arrive-Date.now()>=4*HR-60e3&&f.
 {const w1=F.filter(f=>S.planets[f.to].owner==='u1').reduce((a,f)=>a+worth(f.ships),0);T.ok(w1>=playerPower('u1')*.5,'coalition lourde : au moins la moitié de la puissance de l’empire ('+Math.round(w1)+' / '+Math.round(playerPower('u1'))+')')}
 T.ok(S.reports.some(r=>/Coalition en route/.test(r.title||'')&&r.push&&r.to[0]==='u1'),'notif « Coalition en route »');
 PACT_TK=0;await T.tick(2);T.ok(Object.values(S.fleets).filter(f=>f.pact).length===F.length,'lancée une seule fois');
+{const sv={...S.fleets},e0=S.events['orion-pact'];for(const f of F)delete S.fleets[f.fid];PACT_TK=0;await pactTick();T.ok(!S.events['orion-pact'].done,'flottes pas encore visibles chez ce joueur : la coalition ne se termine pas');
+ S.events['orion-pact']={...e0,fl:{}};PACT_TK=0;await pactTick();T.ok(!S.events['orion-pact'].done,'liste des flottes pas encore écrite : la coalition ne se termine pas');S.events['orion-pact']=e0;Object.assign(S.fleets,sv);T.sync()}
 S.tab='news';render();T.ok(/Coalition du pacte/.test([...document.querySelectorAll('.orion-alert')].map(x=>x.textContent).join(' ')),'Actus : état de la coalition');
 for(const p of Object.values(S.planets))if(p.owner==='u1')p.ships={fighter:150000,cruiser:50000,battleship:20000};S.planets[P2].ships={};S.planets[P2].lv.def=0;T.sync();
 T.adv(8*HR+5*60e3);for(let i=0;i<6;i++){await T.tick(2);await T.battleEnd()}PACT_TK=0;await T.tick(2);await sleep(80);e=S.events['orion-pact'];const v=pactStat(e);

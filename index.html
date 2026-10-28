@@ -2310,7 +2310,7 @@ async function pactTick(){const now=Date.now();if(now-PACT_TK<30000)return;PACT_
       const locs=T.map(t=>worth(t.ships||{})+1),sum=locs.reduce((a,b)=>a+b,0);
       for(let i=0;i<T.length;i++){const t=T[i],lord=L[k++%L.length],fid='pl'+newId(),share=.5/T.length+.5*locs[i]/sum,ships=pactArmy(t.pid,u,r,share),from=pillOrigin(t.pid,r),arr=Date.now()+PACT_T+r()*span;
         await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:NPC,npc:true,from,to:t.pid,mission:'attack',ships,cargo:{m:0,c:0,f:0},depart:Date.now(),arrive:arr,phase:'out',conquer:!t.capital&&r()<.25,spied:[],pact:lord.uid});
-        fl[fid]={uid:u,pid:t.pid,lord:lord.uid};(per[u]=per[u]||[]).push(`${plName(t.pid)} · impact à ${clock(arr)} (pacte de ${lord.name})`)}
+        fl[fid]={uid:u,pid:t.pid,lord:lord.uid,arr};(per[u]=per[u]||[]).push(`${plName(t.pid)} · impact à ${clock(arr)} (pacte de ${lord.name})`)}
       await withPlayer(u,d=>{d.pillLast=Date.now();d.nextRaid=Math.max(d.nextRaid||0,Date.now()+PILL_MIN)}).catch(()=>{})}
     await locked('events/'+PACT_ID,async(x,ref)=>{if(!x)return;x.fl={...(x.fl||{}),...fl};await ref.set(x)}).catch(()=>{});
     for(const u of H)await report({push:true,ptitle:'⚜ Coalition en route',to:[u],tone:'loss',title:'⚜ Coalition en route : les Seigneurs ont pactisé avec les Pillards',lines:['À la veille de la fin de leur trêve, les Seigneurs d’Orion ont scellé un pacte avec les Pillards du Néant. Une coalition fonce sur plusieurs de tes planètes :',...(per[u]||[]).map(x=>'• '+x),`Impacts dans 4 à 8 h. La coalition est taillée sur ton empire : plus tu as de planètes et de flottes, plus elle est nombreuse et lourde.`,'Espionne les flottes, rappelle tes vaisseaux, demande des renforts et intercepte : tes alliés sont attaqués en même temps que toi.']});
@@ -2318,7 +2318,7 @@ async function pactTick(){const now=Date.now();if(now-PACT_TK<30000)return;PACT_
     univSay(L[hash('pacts'+ol.created)%L.length].uid,'pact',{},'pact-go',true).catch(()=>{});return}
   if(e.fl&&!e.done&&!e.talk2&&now-e.at>20*60e3&&now<peace){let go=false;await locked('events/'+PACT_ID,async(x,ref)=>{if(!x||x.talk2)return;x.talk2=Date.now();await ref.set(x);go=true}).catch(()=>{});
     if(go&&L.length)univSay(L[(hash('pact2'+ol.created)+1)%L.length].uid,'pact2',{},'pact-talk2',true).catch(()=>{});return} // les Seigneurs font le lien avec leurs propres attaques à la fin de la trêve
-  if(e.done||!e.fl)return;const F=Object.entries(e.fl),open=F.filter(([id,x])=>!x.res&&S.fleets[id]);if(open.length&&now-e.at<PACT_MAXT)return;
+  if(e.done||!e.fl)return;const F=Object.entries(e.fl);if(!F.length&&now-e.at<10*60e3)return;const open=F.filter(([id,x])=>!x.res&&(S.fleets[id]||now<(x.arr||e.at+PACT_T+PACT_SPAN)+30*60e3));if(open.length&&now-e.at<PACT_MAXT)return; // flotte pas encore visible ici (synchronisation) : on attend son heure d'arrivée
   let fin=null;await locked('events/'+PACT_ID,async(x,ref)=>{if(!x||x.done)return;x.done=true;x.doneAt=Date.now();await ref.set(x);fin=pactStat(x)}).catch(()=>{});if(!fin)return;
   const H=[...new Set(Object.values(e.fl).map(y=>y.uid))],ok=fin.tot&&fin.rep/fin.tot>=.8;if(ok)for(const u of H)await giveChest(u,'b');
   await report({news:'battle',push:true,ptitle:'⚜ Fin de la coalition',to:H,tone:ok?'win':'loss',title:ok?'🛡 La coalition des Seigneurs est brisée':'⚜ La coalition des Seigneurs a frappé',lines:[`${fin.rep} flotte${fin.rep>1?'s':''} repoussée${fin.rep>1?'s':''} sur ${fin.tot} · ${fin.won} attaque${fin.won>1?'s':''} réussie${fin.won>1?'s':''}.`,ok?'Récompense : un coffre de bronze pour chaque empire visé.':'Il fallait repousser 80 % des flottes pour une récompense.','La trêve des Seigneurs touche à sa fin : leurs propres attaques vont commencer.']})}
@@ -2338,12 +2338,12 @@ async function invasionTick(){const now=Date.now();if(now-INV_T<20000)return;INV
     for(const u of HT){const L=Object.values(S.planets).filter(p=>p.owner===u&&!isBody(p.pid)),cap=L.find(p=>p.capital),rest=L.filter(p=>!p.capital).sort((a,b)=>worth(b.ships||{})-worth(a.ships||{})).slice(0,cap?INV_N-1:INV_N),T=[...(cap?[cap]:[]),...rest];
       for(const t of T){const chief=u===top&&t===T[0],fid='pl'+newId(),ships=scaleShips(pillArmy(t.pid,u,r),INV_K*pillK()*(chief?INV_CHIEF:1)),from=pillOrigin(t.pid,r),arr=Date.now()+PILL_TRAVEL+r()*PILL_TRAVEL_SPAN;
         await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:NPC,npc:true,from,to:t.pid,mission:'attack',ships,cargo:{m:0,c:0,f:0},depart:Date.now(),arrive:arr,phase:'out',conquer:!t.capital&&r()<.3,spied:[],inv:ev.n,...(chief?{chief:ch}:{})});
-        fl[fid]={uid:u,pid:t.pid,...(chief?{chief:1}:{})};(per[u]=per[u]||[]).push(`${plName(t.pid)}${chief?` (${ch} en personne)`:''} · impact à ${clock(arr)}`)}
+        fl[fid]={uid:u,pid:t.pid,arr,...(chief?{chief:1}:{})};(per[u]=per[u]||[]).push(`${plName(t.pid)}${chief?` (${ch} en personne)`:''} · impact à ${clock(arr)}`)}
       await withPlayer(u,d=>{d.pillLast=Date.now();d.nextRaid=Math.max(d.nextRaid||0,Date.now()+PILL_MIN)}).catch(()=>{})}
     await locked('events/'+INV_ID,async(x,ref)=>{if(!x||x.phase!=='live')return;x.fl={...(x.fl||{}),...fl};x.chief=ch;await ref.set(x)}).catch(()=>{});
     for(const u of H)await report({push:true,ptitle:'🌑 L’invasion du Néant commence',to:[u],tone:'loss',title:`🌑 L’invasion du Néant commence`,lines:[`${Object.keys(fl).length} flottes pillardes foncent sur les empires d’Orion. Chez toi :`,...(per[u]||[]).map(x=>'• '+x),'Espionne, intercepte, renforce : chaque flotte repoussée compte pour la récompense collective.']});
     await univSys(`🌑 ${ch} lance ${Object.keys(fl).length} flottes du Néant sur tous les empires. Impacts dans 3 à 5 heures.`,'inv-go-'+ev.n);return}
-  if(e.phase==='live'){const F=Object.entries(e.fl||{}),open=F.filter(([id,x])=>!x.res&&S.fleets[id]);if(F.length&&open.length&&now-(e.start||now)<INV_MAXT)return;
+  if(e.phase==='live'){const F=Object.entries(e.fl||{}),open=F.filter(([id,x])=>!x.res&&(S.fleets[id]||now<(x.arr||(e.start||now)+PILL_TRAVEL+PILL_TRAVEL_SPAN)+30*60e3));if((!F.length&&now-(e.start||now)<10*60e3)||F.length&&open.length&&now-(e.start||now)<INV_MAXT)return; // flotte pas encore visible ici : on attend son heure d'arrivée
     let fin=null;await locked('events/'+INV_ID,async(x,ref)=>{if(!x||x.phase!=='live')return;const L=Object.values(x.fl||{}),known=L.filter(y=>y.res),rep=known.filter(y=>y.res==='rep').length,ratio=known.length?rep/known.length:0,chief=L.find(y=>y.chief),by={};
       for(const y of L)if(y.res==='rep')by[y.uid]=(by[y.uid]||0)+1;fin={n:x.n,chief:x.chief,tot:L.length,known:known.length,rep,ratio,chiefRep:!chief||chief.res==='rep',by,best:Object.entries(by).sort((a,b)=>b[1]-a[1])[0]};
       const nx=x.at+7*864e5;await ref.set({kind:'event',id:INV_ID,v:2,at:nx-Date.now()>INV_ANN?nx:invNext(Date.now()),n:(x.n||0)+1,phase:'wait',ann:false,last:{...fin,at:Date.now()}})}).catch(()=>{});
@@ -4062,12 +4062,14 @@ function musicSetup(c){if(MUS.master)return;
   const padF=c.createBiquadFilter();padF.type='lowpass';padF.frequency.value=900;padF.Q.value=2;padF.connect(bus);
   const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.05;lg.gain.value=450;lfo.connect(lg).connect(padF.frequency);lfo.start();
   const dly=c.createDelay(1.5);dly.delayTime.value=.375;const fb=c.createGain();fb.gain.value=.38;const dF=c.createBiquadFilter();dF.type='lowpass';dF.frequency.value=2800;dly.connect(dF).connect(fb).connect(dly);dF.connect(bus);
-  Object.assign(MUS,{master,bus,padF,dly})}
+  Object.assign(MUS,{master,bus,padF,dly,verb})}
 function mPad(c,notes,t,dur){notes.forEach((n,i)=>{for(const det of[-9,9]){const o=c.createOscillator();o.type=i===0?'triangle':'sawtooth';o.frequency.value=NOTE(n);o.detune.value=det+(Math.random()-.5)*5;const g2=c.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(.018,t+dur*.4);g2.gain.setValueAtTime(.018,t+dur*.75);g2.gain.linearRampToValueAtTime(0,t+dur+1.8);o.connect(g2).connect(MUS.padF);o.start(t);o.stop(t+dur+2)}})}
 function mBass(c,n,t,dur){const o=c.createOscillator();o.type='sine';o.frequency.value=NOTE(n);const g2=c.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(.11,t+.6);g2.gain.linearRampToValueAtTime(0,t+dur);o.connect(g2).connect(MUS.bus);o.start(t);o.stop(t+dur+.1)}
 function mPluck(c,n,t,v){for(const[ty,mul,vol]of[['triangle',1,v],['sine',2,v*.35]]){const o=c.createOscillator();o.type=ty;o.frequency.value=NOTE(n)*mul;const g2=c.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(vol,t+.01);g2.gain.exponentialRampToValueAtTime(.0001,t+1.6);o.connect(g2);g2.connect(MUS.bus);g2.connect(MUS.dly);o.start(t);o.stop(t+1.7)}}
 function mKick(c,t,v){const o=c.createOscillator();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(38,t+.35);const g2=c.createGain();g2.gain.setValueAtTime(v,t);g2.gain.exponentialRampToValueAtTime(.0001,t+.5);o.connect(g2).connect(MUS.bus);o.start(t);o.stop(t+.55)}
 function mSchedule(){const c=SFX.ctx;if(!c||!MUS.playing)return;if(BMUS.on){ambient(false);return}
+  {const ek=evTheme();if(ek!==(MUS.ev||null)){MUS.ev=ek;MUS.eb=0;MUS.eloop=0;MUS.step=0;MUS.chord=0;const g=MUS.master.gain,t=c.currentTime;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(.15,t+.8);g.linearRampToValueAtTime(.9,t+3.5);MUS.next=t+.9}
+   if(ek){evSchedule(c,ek);return}}
   while(MUS.next<c.currentTime+.8){const P=MUS.tension?PROG.war:PROG.calm,steps=P.len*2,t=MUS.next;
     if(MUS.step===0){const[root,notes]=P.chords[MUS.chord%P.chords.length];mPad(c,notes,t,P.len);mBass(c,root,t,P.len)}
     if(Math.random()<(MUS.tension?.22:.3)){const s=P.scale;mPluck(c,s[Math.floor(Math.random()*s.length)],t+(Math.random()<.3?.25:0),MUS.tension?.045:.038)}
@@ -4077,6 +4079,71 @@ function ambient(on){const c=audio();if(!c)return;if(on&&(BMUS.on||(typeof FLYA!
   if(on&&!MUS.playing){musicSetup(c);MUS.playing=true;MUS.next=c.currentTime+.1;MUS.step=0;MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(.9,c.currentTime+3);MUS.timer=setInterval(mSchedule,200);mSchedule();SFX.amb=true}
   else if(!on&&MUS.playing){MUS.playing=false;SFX.amb=null;clearInterval(MUS.timer);MUS.master.gain.cancelScheduledValues(c.currentTime);MUS.master.gain.setValueAtTime(MUS.master.gain.value,c.currentTime);MUS.master.gain.linearRampToValueAtTime(0,c.currentTime+1.2)}}
 function musicTension(on){if(MUS.tension!==on){MUS.tension=on;MUS.step=0}}
+// ---------- musiques d'événement (coalition, invasion du Néant, croisade) : mêmes nappes et réverbération que l'ambiance, plus cors, cordes, grave et tambours ----------
+function evEnv(c,g,t,a,dur,r,v){g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+a);g.gain.setValueAtTime(v,t+Math.max(a,dur));g.gain.linearRampToValueAtTime(0,t+Math.max(a,dur)+r)}
+function evVib(c,o,t,rate,depth,delay=.3){const l=c.createOscillator(),g=c.createGain();l.frequency.value=rate;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(depth,t+delay+.4);l.connect(g).connect(o.detune);l.start(t);return l}
+// nappe et basse de l'ambiance
+function evPad(c,notes,t,dur,v=.014){notes.forEach((n,i)=>{for(const det of[-9,9]){const o=c.createOscillator();o.type=i===0?'triangle':'sawtooth';o.frequency.value=NOTE(n);o.detune.value=det+(Math.random()-.5)*5;const g=c.createGain();evEnv(c,g,t,dur*.4,dur*.75,1.8,v);o.connect(g).connect(MUS.padF);o.start(t);o.stop(t+dur+2)}})}
+function evBass(c,n,t,dur,v=.11){const o=c.createOscillator();o.type='sine';o.frequency.value=NOTE(n);const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.6);g.gain.linearRampToValueAtTime(0,t+dur);o.connect(g).connect(MUS.bus);o.start(t);o.stop(t+dur+.1)}
+// violons / altos : section de 5 cordes désaccordées, vibrato qui arrive après l'attaque, trémolo possible
+function evStr(c,n,t,dur,v,o2={}){const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=o2.bright||3200;f.Q.value=.6;const hp=c.createBiquadFilter();hp.type='highpass';hp.frequency.value=o2.hp||180;
+  const g=c.createGain();evEnv(c,g,t,o2.att||Math.min(.45,dur*.3),dur,o2.rel||.9,v);f.connect(hp).connect(g);g.connect(MUS.bus);
+  if(o2.trem){const tl=c.createOscillator(),tg=c.createGain();tl.frequency.value=o2.trem;tg.gain.value=v*.8;tl.connect(tg).connect(g.gain);tl.start(t);tl.stop(t+dur+1.2)}
+  for(let k=0;k<5;k++){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=NOTE(n);o.detune.value=(k-2)*7+(Math.random()-.5)*4;const l=evVib(c,o,t,5.2+k*.15,9);o.connect(f);o.start(t);o.stop(t+dur+1.3);l.stop(t+dur+1.3)}}
+// cor : rond, attaque lente, filtre qui s'ouvre puis se referme, octave basse discrète
+function evHorn(c,n,t,dur,v){const f=c.createBiquadFilter();f.type='lowpass';f.Q.value=1.4;f.frequency.setValueAtTime(350,t);f.frequency.linearRampToValueAtTime(1500,t+.18);f.frequency.linearRampToValueAtTime(950,t+Math.max(.3,dur));
+  const g=c.createGain();evEnv(c,g,t,.14,dur,.5,v);f.connect(g);g.connect(MUS.bus);
+  for(const[ty,mul,dv]of[['sawtooth',1,1],['sawtooth',1,1],['square',.5,.35]]){const o=c.createOscillator();o.type=ty;o.frequency.value=NOTE(n)*mul;o.detune.value=(Math.random()-.5)*10;const gg=c.createGain();gg.gain.value=dv;const l=evVib(c,o,t,4.6,5,.5);o.connect(gg).connect(f);o.start(t);o.stop(t+dur+.7);l.stop(t+dur+.7)}}
+// violoncelles / contrebasses en ostinato (coups d'archet courts)
+function evCello(c,n,t,v,len=.22){const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=1100;f.Q.value=.8;const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+len);f.connect(g);g.connect(MUS.bus);
+  for(const det of[-6,6]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=NOTE(n);o.detune.value=det;o.connect(f);o.start(t);o.stop(t+len+.05)}}
+// grave : contrebasse tenue + sous-basse
+function evGrave(c,n,t,dur,v){evBass(c,n,t,dur,v);const o=c.createOscillator();o.type='sawtooth';o.frequency.value=NOTE(n+12);const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=320;const g=c.createGain();evEnv(c,g,t,.5,dur*.85,.8,v*.35);o.connect(f).connect(g).connect(MUS.bus);o.start(t);o.stop(t+dur+1)}
+function evNoise(c,sec){const b=c.createBuffer(1,Math.ceil(c.sampleRate*sec),c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b}
+function evTaiko(c,t,v){const o=c.createOscillator();o.frequency.setValueAtTime(95,t);o.frequency.exponentialRampToValueAtTime(42,t+.45);const g=c.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.8);o.connect(g).connect(MUS.bus);o.start(t);o.stop(t+.85);
+  const s=c.createBufferSource();s.buffer=evNoise(c,.5);const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=420;const ng=c.createGain();ng.gain.setValueAtTime(v*.6,t);ng.gain.exponentialRampToValueAtTime(.0001,t+.4);s.connect(f).connect(ng).connect(MUS.bus);s.start(t)}
+function evTimp(c,n,t,v){const o=c.createOscillator();o.type='sine';o.frequency.setValueAtTime(NOTE(n)*1.5,t);o.frequency.exponentialRampToValueAtTime(NOTE(n),t+.08);const g=c.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+1.4);o.connect(g).connect(MUS.bus);o.start(t);o.stop(t+1.5)}
+function evChoir(c,notes,t,dur,v){for(const n of notes)for(const det of[-7,0,7]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=NOTE(n);o.detune.value=det;const f1=c.createBiquadFilter();f1.type='bandpass';f1.frequency.value=650;f1.Q.value=5;const f2=c.createBiquadFilter();f2.type='bandpass';f2.frequency.value=1080;f2.Q.value=6;
+    const l=evVib(c,o,t,4.8+Math.random(),4,.6);const g=c.createGain();evEnv(c,g,t,dur*.4,dur*.8,2,v);o.connect(f1).connect(g);o.connect(f2).connect(g);g.connect(MUS.bus);o.start(t);o.stop(t+dur+2.2);l.stop(t+dur+2.2)}}
+function evRiser(c,t,dur,v){const s=c.createBufferSource();s.buffer=evNoise(c,dur+.2);const f=c.createBiquadFilter();f.type='bandpass';f.Q.value=3;f.frequency.setValueAtTime(160,t);f.frequency.exponentialRampToValueAtTime(1800,t+dur);const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+dur*.92);g.gain.linearRampToValueAtTime(0,t+dur);s.connect(f).connect(g);g.connect(MUS.bus);g.connect(MUS.verb);s.start(t);s.stop(t+dur+.2)}
+// ---------- partitions : mélodies en [note MIDI, temps], accords par mesure de 4 temps ----------
+const evLine=a=>{let b=0;return a.map(([n,d])=>{const e={b,n,d};b+=d;return e}).filter(e=>e.n!=null)};
+const EVT={
+  // Coalition : ré mineur, appel de cors, violoncelles qui martèlent, violons à partir du 2e tour
+  pact:{bpm:70,chords:[[38,[50,53,57]],[38,[50,53,57]],[34,[50,53,58]],[34,[50,53,58]],[31,[50,55,58]],[31,[50,55,58]],[33,[49,52,57]],[33,[49,52,57]]],
+    horn:evLine([[62,2],[65,1],[64,1],[62,4],[57,2],[58,1],[60,1],[62,4],[65,2],[64,1],[62,1],[58,4],[61,3],[64,1],[57,4]]),
+    vln:evLine([[81,8],[77,8],[74,8],[76,6],[73,2]]),
+    beat(c,t,b,bar,loop,ch,P){const sp=60/P.bpm,r=ch[0];
+      if(b%4===0){evPad(c,ch[1],t,sp*4,.011);evGrave(c,r,t,sp*4,.12)}
+      for(const k of[0,.5])evCello(c,(k===0&&b%2===0?r+12:r+12),t+k*sp,b%4===0&&k===0?.06:.035);
+      if(b%4===0)evTaiko(c,t,.32);if(b%4===2)evTaiko(c,t+sp*.5,.18);
+      if(b===28)evRiser(c,t,sp*4,.05)}},
+  // Invasion : do♯ mineur, cordes en doubles croches sans arrêt, cuivres très graves, violons qui grincent
+  void:{bpm:84,chords:[[25,[49,52,56]],[25,[49,52,56]],[26,[50,54,57]],[26,[50,54,57]],[25,[49,52,56]],[25,[49,52,56]],[23,[47,50,54]],[32,[48,51,56]]],
+    horn:evLine([[49,4],[50,2],[49,2],[52,3],[50,1],[49,4],[56,4],[55,2],[53,2],[52,2],[50,2],[49,4]]),hornOct:-12,
+    vln:evLine([[null,8],[73,4],[74,4],[null,8],[80,4],[81,4]]),vlnTrem:11,
+    beat(c,t,b,bar,loop,ch,P){const sp=60/P.bpm,r=ch[0];
+      if(b%4===0){evPad(c,ch[1],t,sp*4,.012);evGrave(c,r,t,sp*4,.14)}
+      const pat=[0,12,7,12];for(let k=0;k<4;k++)evCello(c,r+24+pat[k]*(k%2?0:0)+(k===2?1:0),t+k*sp/4,k===0?.05:.03,.13);
+      if(b%2===0)evTaiko(c,t,b%4===0?.36:.22);if(b%4===3)evTaiko(c,t+sp*.5,.16),evTaiko(c,t+sp*.75,.14);
+      if(b===24)evRiser(c,t,sp*8,.07)}},
+  // Croisade : la mineur, grand thème aux violons, réponses de cors, chœur, timbales
+  crown:{bpm:76,chords:[[33,[57,60,64]],[29,[53,57,60]],[36,[55,60,64]],[31,[55,59,62]],[33,[57,60,64]],[29,[53,57,60]],[28,[56,59,64]],[28,[56,59,64]]],
+    vln:evLine([[76,3],[81,1],[79,2],[77,2],[76,4],[72,2],[74,2],[76,2],[77,1],[79,1],[81,2],[79,1],[77,1],[76,4],[80,4]]),vlnOct:0,
+    horn:evLine([[57,1],[64,1],[69,2],[null,4],[60,4],[62,4],[null,4],[64,2],[65,2],[64,8]]),
+    beat(c,t,b,bar,loop,ch,P){const sp=60/P.bpm,r=ch[0];
+      if(b%4===0){evPad(c,ch[1],t,sp*4,.012);evGrave(c,r,t,sp*4,.12);if(loop>0)evChoir(c,ch[1].map(n=>n+12),t,sp*4,.009)}
+      for(const k of[0,.5])evCello(c,r+12+(k?7:0),t+k*sp,.032);
+      if(b%4===0)evTaiko(c,t,.3);if(b%4===2)evTaiko(c,t,.2);if(b%4===3)evTaiko(c,t+sp*.5,.14);
+      if(b>=28){evTimp(c,r+12,t,.22);evTimp(c,r+12,t+sp*.5,.16)}}}
+};
+let EVK={t:0,k:null};function evTheme(){const n=Date.now();if(n-EVK.t<5000)return EVK.k;let k=null;const cr=S.events&&S.events[CRU_ID],iv=S.events&&S.events[INV_ID],pa=S.events&&S.events[PACT_ID];
+  if(cr&&cr.phase>=1&&cr.phase<=3)k='crown';else if(iv&&iv.phase==='live')k='void';else if(pa&&pa.fl&&!pa.done)k='pact';EVK={t:n,k};return k} // null : retour à l'ambiance de base
+function evSchedule(c,k){const P=EVT[k],sp=60/P.bpm,total=P.chords.length*4;
+  while(MUS.next<c.currentTime+1){const t=MUS.next,b=MUS.eb,bar=Math.floor(b/4),ch=P.chords[bar];P.beat(c,t,b,bar,MUS.eloop,ch,P);
+    for(const e of P.horn||[])if(e.b===b)evHorn(c,e.n+(P.hornOct||0),t,e.d*sp*.95,.034);
+    if(MUS.eloop>0||k==='crown')for(const e of P.vln||[])if(e.b===b)evStr(c,e.n+(P.vlnOct||0),t,e.d*sp,k==='crown'?.03:.02,{trem:P.vlnTrem,att:k==='crown'?.18:.6});
+    MUS.next+=sp;MUS.eb++;if(MUS.eb>=total){MUS.eb=0;MUS.eloop++}}}
 
 // ---------- événements sonores (constructions finies, attaques, rapports) ----------
 // pastille sur l'icône de l'appli (écran d'accueil) quand une attaque arrive
@@ -4925,7 +4992,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='246';
+const APP_VERSION='247';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

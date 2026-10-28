@@ -21,6 +21,7 @@ for(const p of Object.values(S.planets))if(p.owner==='u1'||p.owner==='u2')p.ship
 T.L('   flottes',F.length,'empires',owners.map(pname).join(', '),'chef',e.chief);
 T.ok(e.phase==='live'&&F.length>=2&&owners.length>=2,'invasion lancée sur plusieurs empires en même temps');
 T.ok(owners.every(u=>F.filter(f=>S.planets[f.to].owner===u).length<=5),'au plus 5 planètes par empire');
+{const sv={...S.fleets};for(const f of F)delete S.fleets[f.fid];INV_T=0;await invasionTick();T.ok(S.events.invasion.phase==='live','flottes pas encore visibles : l’invasion ne se termine pas');Object.assign(S.fleets,sv);T.sync()}
 T.ok(F.every(f=>f.arrive-Date.now()>=3*HR-60e3&&f.arrive-Date.now()<=5*HR+60e3),'trajet comme les Pillards : 3 à 5 h');
 T.ok(F.filter(f=>f.chief).length===1,'un seul chef, contre l’empire le plus fort');
 T.ok(!F.some(f=>isBot(S.planets[f.to].owner)),'les seigneurs ne sont pas visés');

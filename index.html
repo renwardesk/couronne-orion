@@ -1940,7 +1940,9 @@ function battlesHtml(){const L=Object.values(S.events).filter(e=>e.battle&&!e.do
     <div class="eff">Attaque (${[...new Set(e.att.map(x=>x.owner))].map(u=>esc(pname(u))).join(', ')||'—'}) : ${seeA?unitLine(tA):hid(wa)}</div><div class="eff">Défense (${e.raid?'Écumeurs':esc(pname(e.owner))}${e.dal.length?` + ${e.dal.length} renfort${e.dal.length>1?'s':''}`:''}) : ${seeD?unitLine(tD):hid(wd)}</div>${(iAtk||iDef)&&!e.raid?`<div class="eff" style="font-size:12px">${(iAtk?seeD:seeA)?`Tes sondes au combat (${iAtk?pa:pd}) dépassent celles de l’ennemi (${iAtk?pd:pa}) : tu vois ses unités.`:`Envoie plus de sondes que l’ennemi dans la bataille (${iAtk?pd:pa} en face) pour voir ses unités.`}</div>`:''}
     <span class="prog" title="Rapport de force"><b style="width:${pc}%;background:var(--bad)"></b></span>
     ${S.players[ME]&&S.sel?`<div class="foot"><span class="eff">${fmtDur(etaOf(S.sel,e.pid,{fighter:1}))} en chasseurs depuis ${esc(plName(S.sel))}</span><div style="display:flex;gap:6px;flex-wrap:wrap">${own?`<button class="btn sm" data-act="sendm" data-p="${e.pid}" data-m="transfer">Envoyer des renforts</button>`:`${iAtk||e.raid?'':`<button class="btn sm" data-act="sendm" data-p="${e.pid}" data-m="reinforce">Défendre</button>`}<button class="btn ghost sm" data-act="sendm" data-p="${e.pid}" data-m="attack">${iAtk?'Renforcer l’attaque':'Attaquer'}</button>`}</div></div>`:''}</div>`}).join('')}</div></section>`}
-async function reinforceArrival(f,fref){if(await joinBattle(f,fref,'dal',0))return;const o=S.planets[f.to]&&S.planets[f.to].owner;await holdAt(f,fref,f.ships,f.cargo);
+async function reinforceArrival(f,fref){if(await joinBattle(f,fref,'dal',0))return;const o=S.planets[f.to]&&S.planets[f.to].owner;
+  if(!o||isNpc(o)||isBot(o)){await goBack(f,fref,f.ships,f.cargo);await report({to:[f.owner],tone:'info',title:`Renfort sans objet : ${plName(f.to)} est perdue`,lines:[`La planète est tombée avant l’arrivée de ta flotte (${o?pname(o):'plus de propriétaire'}). Un renfort ne se change jamais en attaque : ta flotte fait demi-tour, sans combat. Pour la reprendre, envoie une attaque avec un vaisseau colon.`]});return} // planète perdue entre-temps : le renfort rentre
+  await holdAt(f,fref,f.ships,f.cargo);
   if(o&&o!==f.owner){await report({to:[f.owner],tone:'info',title:`Ta flotte monte la garde sur ${plName(f.to)}`,lines:[`Elle défendra ${pname(o)} contre toute attaque tant qu’elle reste en position. Rappelle-la depuis l’onglet Flottes.`]});await report({to:[o],tone:'info',title:`${pname(f.owner)} protège ${plName(f.to)}`,lines:[`Renfort : ${unitLine(f.ships)}.`]})}
   else if(o===f.owner)await report({to:[f.owner],tone:'info',title:`Ta flotte soutient ${plName(f.to)}`,lines:['Elle reste en orbite et défend la planète avec ses défenses. Elle reste rattachée à sa planète d’origine : depuis l’onglet Flottes, tu peux la faire rentrer ou lui donner une nouvelle mission.']});
   else await report({to:[f.owner],tone:'info',title:`Bataille terminée à ${plName(f.to)}`,lines:['Ta flotte arrive trop tard : elle reste en position.']})}
@@ -4873,7 +4875,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='240';
+const APP_VERSION='241';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

@@ -6,7 +6,7 @@ const {chromium}=require('playwright');const fs=require('fs');const OUT=process.
  await pg.evaluate(fs.readFileSync(__dirname+'/setup.js','utf8'));await pg.evaluate(fs.readFileSync(__dirname+'/harness.js','utf8'));
  await pg.evaluate(()=>{S.got={f:1,e:1,p:1,pl:1};S.players.u1.kind='player';S.players.u1.joined=Date.now()-30*864e5;S.players.u2={...S.players.u2,kind:'player',joined:Date.now()-30*864e5,rare:{ir:500,xe:300,am:0},cmds:[]};S.players.u3={kind:'player',uid:'u3',joined:Date.now()-30*864e5,name:'Scorpius',color:'#e8a33a',seen:Date.now()-1e6,rare:{ir:0,xe:0,am:0},cmds:[]};S.planets[window.__P1].shipQ=[];S.planets[window.__P1].lv.bay=12;T.sync()});
  await pg.evaluate(async()=>{try{const P1=window.__P1;
-  await withPlayer('u1',d=>{d.cmds=['c1','c9','c12','c16','r3','r13','r14','r5','e3','e9','l2','c8'].map((k,i)=>({id:'k'+k,key:k,xp:2000+i*1500}));d.cmds.find(c=>c.key==='c16').inj=Date.now()+3*HR});await sleep(30);
+  await withPlayer('u1',d=>{d.cmds=['c1','c9','c12','c16','r3','r13','r14','r5','e3','e9','l2','c8'].map((k,i)=>({id:'k'+k,key:k,xp:2000+i*1500}));d.cmds.find(c=>c.key==='c16').inj=Date.now()+3*HR;d.cmds.find(c=>c.key==='l2').st=5;d.cmds.find(c=>c.key==='e9').st=2;d.cmds.find(c=>c.key==='e3').st=3});await sleep(30);
   S.tab='cmds';render();document.querySelectorAll('.scrim').forEach(e=>e.remove());const t=document.getElementById('tut');if(t)t.innerHTML=''}catch(e){console.log('ERR',e.message||JSON.stringify(e))}});await pg.waitForTimeout(400);
  const sec=await pg.evaluateHandle(()=>document.querySelector('.cmdfilt').parentElement);
  const box=await pg.evaluate(()=>{const a=document.querySelector('.cmdfilt').getBoundingClientRect(),sc=window.scrollY;return{y:a.top+sc}});

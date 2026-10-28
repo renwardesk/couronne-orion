@@ -26,12 +26,19 @@ PILL_T=0;S.players.u1.nextRaid=Date.now()-1;S.players.u1.pillLast=0;T.sync();T.a
 T.ok(Object.values(S.fleets).some(x=>isNpc(x.owner)&&x.phase==='out'&&S.planets[x.to].owner==='u1'),'les raids reprennent le jour');
 window.NIGHT_OFF=true;
 
-// protection des nouveaux empires : 5 jours
+// protection des nouveaux empires : 4 jours
 {S.players.u2={...S.players.u2,joined:Date.now()-2*864e5};T.sync();T.adv(at(14)-Date.now());
-let t=await T.send({from:P1,to:P2,mission:'attack',ships:{fighter:100}});T.ok(t.some(x=>/nouvel empire/.test(x)),'impossible d’attaquer un empire de moins de 5 jours');
+let t=await T.send({from:P1,to:P2,mission:'attack',ships:{fighter:100}});T.ok(t.some(x=>/nouvel empire/.test(x)),'impossible d’attaquer un empire de moins de 4 jours');
 const b=BOTS[0],bp=botPlanets(b.uid)[0];T.ok(!(await botLaunch(b.uid,bp.pid,P2,'attack',{fighter:1})),'les Seigneurs non plus');
 await locked('fleets/fx2',async(d,ref)=>{await ref.set({kind:'fleet',fid:'fx2',owner:'u1',from:P1,to:P2,mission:'attack',ships:{fighter:5},cargo:{m:0,c:0,f:0},depart:Date.now()-1e4,arrive:Date.now()-1000,phase:'out',spied:[]})});await T.tick(2);
 T.ok(S.fleets.fx2&&S.fleets.fx2.phase==='back'&&S.reports.some(r=>/est protégée/.test(r.title||'')),'attaque déjà en route : demi-tour et message');
 S.players.u2.nextRaid=Date.now()-1;S.players.u2.pillLast=0;T.sync();PILL_T=0;await T.tick(2);T.ok(!Object.values(S.fleets).some(x=>isNpc(x.owner)&&x.phase==='out'&&S.planets[x.to]&&S.planets[x.to].owner==='u2'),'pas de raid pillard contre lui');
 S.tab='fleets';render();T.ok(![...document.querySelectorAll('.card')].some(c=>/Protection des nouveaux/.test(c.textContent)),'pas de bandeau pour un ancien empire');
-T.adv(3.1*864e5);T.ok(!shielded('u2'),'protection terminée après 5 jours')}
+T.adv(3.1*864e5);T.ok(!shielded('u2'),'protection terminée après 4 jours')}
+
+// attaquer un Seigneur lève la protection, avec un avertissement d'abord
+{const b=BOTS[0],bp=botPlanets(b.uid).find(p=>!PLANETS[p.pid].core)||botPlanets(b.uid)[0];S.players.u1={...S.players.u1,joined:Date.now()-864e5,shieldOff:null};const hp=S.planets[P1];hp.ships={...hp.ships,fighter:5000};T.sync();
+ T.ok(shielded('u1')&&Math.abs(shieldUntil('u1')-(S.players.u1.joined+4*864e5))<1000,'protection de 4 jours');
+ let t=await T.send({from:P1,to:bp.pid,mission:'attack',ships:{fighter:50}});T.ok(t.some(x=>/lève ta protection/.test(x))&&!Object.values(S.fleets).some(f=>f.owner==='u1'&&f.to===bp.pid),'1er envoi vers un Seigneur : avertissement, rien ne part');
+ t=await T.send({from:P1,to:bp.pid,mission:'attack',ships:{fighter:50}});await sleep(50);
+ T.ok(Object.values(S.fleets).some(f=>f.owner==='u1'&&f.to===bp.pid)&&!shielded('u1')&&S.reports.some(r=>/protection de nouvel empire est levée/.test(r.title||'')&&r.push),'2e envoi : l’attaque part, protection levée, message');}

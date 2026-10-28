@@ -1,6 +1,6 @@
 // Chat Univers : les Seigneurs parlent après les combats, les événements s'y affichent, onglets Joueurs / Univers
 await T.tick(2);await sleep(50);
-const U=()=>(S.chat||[]).filter(m=>m.ch==='u'&&!/^u-(i|s|d|c)-|^u-n-orion|^u-saga/.test(m.id)&&m.uid!=='vorgath'),bp=botPlanets('orion-1')[0].pid;
+const U=()=>(S.chat||[]).filter(m=>m.ch==='u'&&!/^u-(i|s|d|c)-|^u-n-orion|^u-saga|^u-cmdv2|^u-cosmicnews/.test(m.id)&&m.uid!=='vorgath'),bp=botPlanets('orion-1')[0].pid;
 T.ok(BOTS.every(b=>S.players[b.uid]),'seigneurs présents');
 await report({to:['u1'],tone:'loss',loser:'u1',title:'Kael repousse l’assaut',battle:{pid:bp,def:'orion-1',att:[{uid:'u1'}],planet:true}});await sleep(80);
 let m=U().find(x=>x.uid==='orion-1');T.ok(m&&m.text.includes(pname('u1'))===m.text.includes(pname('u1'))&&m.name==='Kael Voryn','défaite du joueur → message moqueur de Kael');T.L('   «',m&&m.text,'»');

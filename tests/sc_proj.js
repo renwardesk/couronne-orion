@@ -10,7 +10,7 @@ T.ok(Math.round(settle(S.planets[P1],Date.now()).res.m)<=2.5e6+5000,'ressources 
 S.events['proj-balises']={...e,got:{m:24e6-10,c:20e6-10,f:16e6-10,ir:40000-5}};S.players[me].rare={ir:500,xe:0,am:0};S.pjSel={m:true,c:true,f:true,ir:true};T.sync();
 await projGive('balises');await sleep(80);const e2=projEv('balises');T.ok(e2.done&&e2.top===me,'projet achevé, plus gros contributeur désigné');
 T.ok(S.reports.some(r=>/Réseau de balises est achevé/.test(r.title||'')&&r.push),'notif à tous');T.ok(/Bâtisseur des Balises/.test(titlesHtml(me)),'titre affiché');
-T.ok(Math.abs(etaOf(P1,other,{fighter:1})/t0-.9)<.02,'balises : trajets −10 %');
+T.ok(Math.abs(etaOf(P1,other,{fighter:1})/t0-.75)<.02,'balises : trajets −25 %');
 // bouclier
 T.ok(pillK()===1,'bouclier pas encore construit');S.events['proj-bouclier']={kind:'event',id:'proj-bouclier',got:{},by:{},done:true};T.sync();T.ok(pillK()===.8,'bouclier : Pillards −20 %');
 // portail

@@ -9,7 +9,7 @@ T.ok(e&&e.phase==='wait'&&new Date(e.at).getUTCDay()===6&&new Date(e.at).getUTCH
 // annonce
 await locked('events/invasion',async(x,ref)=>{await ref.set({...x,at:Date.now()+23*HR})});INV_T=0;await T.tick(2);e=S.events.invasion;
 const ann=S.reports.find(r=>/lance la grande invasion/.test(r.title||''));T.ok(e.ann&&ann&&ann.push&&!ann.to.some(isBot),'annonce 24 h avant, notif à tous les joueurs (pas aux seigneurs)');
-INV_T=0;await T.tick(2);T.ok(S.reports.filter(r=>/lance la grande invasion/.test(r.title||'')).length===1,'annonce envoyée une seule fois');
+await locked('events/invasion',async(x,ref)=>{await ref.set({...x,vg:{none:1}})});INV_T=0;await T.tick(2);T.ok(S.reports.filter(r=>/lance la grande invasion/.test(r.title||'')).length===1,'annonce envoyée une seule fois');
 S.tab='news';render();T.ok(/Invasion du Néant/.test(document.body.textContent)&&document.querySelector('.inv-alert [data-cd]'),'Actus : compte à rebours de l’invasion');
 // un nouvel empire (moins de 5 jours) n'est pas visé
 const P3=Object.keys(PLANETS).filter(k=>!S.planets[k]&&!PLANETS[k].core&&!PLANETS[k].raid&&!PLANETS[k].comet&&!PLANETS[k].sig&&!PLANETS[k].deep&&!isBody(k)&&galOf(k)===galOf(P1)).sort((a,b)=>dist(a,P1)-dist(b,P1))[5];

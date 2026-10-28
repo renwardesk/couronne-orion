@@ -11,3 +11,5 @@ T.ok(Math.abs(etaOf(P1,wk,sh)/t0-.4)<.02,'portail : trajet −60 % ('+t0+' → '
 T.ok(jumpCost(P1,wk,sh,'attack')===null,'portail : plus d’iridium ni de xénite');
 const H=DEEP[0].hole.bodies[0];T.ok(jumpCost(P1,H,sh,'attack')!==null,'autre zone (trou noir) : toujours payante');
 T.ok(/Ouvreur de passage/.test(titlesHtml(me)),'titre du portail');
+const PC=Object.keys(PLANETS).find(x=>!PLANETS[x].deep&&!isBody(x)&&galOf(x)===1);T.ok(jumpCost(PC,wk,sh,'attack')!==null&&!gateFor(PC,wk),'une seule liaison : depuis Céphéide, pas de portail');
+T.ok(/une liaison directe Orion ↔/i.test(GATE[gk].fx),'texte : liaison unique');

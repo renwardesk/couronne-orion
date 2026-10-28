@@ -1,6 +1,6 @@
 // banc d'essai : base simulée en mémoire + horloge avançable, chargé dans la page du jeu
 (()=>{const _dn=Date.now.bind(Date);let OFF=0;Date.now=()=>_dn()+OFF;
-const T=window.T={log:[],fails:0,toasts:[],STORE:new Map()};
+const T=window.T={log:[],fails:0,toasts:[],STORE:new Map()};window.NIGHT_OFF=true; // trêve de nuit coupée dans les tests (sauf sc_night)
 const L=(...a)=>T.log.push(a.join(' '));T.L=L;
 T.ok=(c,msg)=>{if(c)L('  ✔ '+msg);else{T.fails++;L('  ✘ '+msg)}};
 toast=(m)=>{T.toasts.push(m)};window.confirm=()=>true;window.alert=()=>{};

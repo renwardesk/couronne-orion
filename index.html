@@ -732,7 +732,12 @@ function botBuild(p,uid,now,wantColony,wLeft=1e9){if(isBody(p.pid))return false;
     else if((p.ships.probe||0)<12&&PLANETS[p.pid].core&&!p.shipQ.some(x=>x.t==='probe'))add('probe',Math.min(12,can('probe',.2)));
     else{const T=['fighter','cruiser','battleship'].filter(t=>p.lv.yard>=SHIPS[t].yard),r=Math.random(),t=T[r<.3?0:r<.65?Math.min(1,T.length-1):T.length-1];add(t,Math.min(600,can(t,.5),Math.floor(wLeft/VALUE[t])))}}
   return ch}
-async function botLaunch(uid,from,to,mission,ships){const fid='ob'+newId();let ok=false,eta=0;
+// ---------- trêve de nuit : aucune attaque contre un empire entre minuit et 9 h (heure de Paris) ----------
+const NIGHT_FMT=new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',hour:'numeric',minute:'numeric',hourCycle:'h23'});
+const parisHM=t=>{const p=NIGHT_FMT.formatToParts(new Date(t)),g=k=>+((p.find(x=>x.type===k)||{}).value||0);return[g('hour'),g('minute')]};
+const isNight=t=>!window.NIGHT_OFF&&parisHM(t)[0]<9,nightEnd=t=>{const[h,m]=parisHM(t);return h<9?t-(t%60e3)+((9-h)*60-m)*60e3:t};
+const nightProtected=(pid,by)=>{const p=S.planets[pid];return!!(p&&p.owner&&p.owner!==by&&!isBot(p.owner)&&!isNpc(p.owner))};
+async function botLaunch(uid,from,to,mission,ships){if((mission==='attack'||mission==='colonize')&&nightProtected(to,uid)&&(isNight(Date.now())||isNight(Date.now()+etaOf(from,to,ships)*1000)))return null;const fid='ob'+newId();let ok=false,eta=0;
   await locked('planets/'+from,async(d,ref)=>{if(!d||d.owner!==uid)return;const p=settle(d,Date.now());for(const k in ships)if((p.ships[k]||0)<ships[k])return;for(const k in ships)p.ships[k]-=ships[k];await ref.set(p);ok=true});
   if(!ok)return null;eta=etaOf(from,to,ships);const now=Date.now();await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:uid,from,to,mission,ships,cargo:{m:0,c:0,f:0},depart:now,arrive:now+eta*1000,phase:'out',spied:[]});return{fid,arrive:now+eta*1000}}
 const botForce=p=>{const s={};for(const k of ['fighter','cruiser','battleship'])if((p.ships[k]||0)>0)s[k]=p.ships[k];return s};
@@ -2129,7 +2134,7 @@ async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[M
         await eref.set(d)}).catch(()=>{rep2=[]});
       for(const r of rep2){if(r.reward){const R=r.reward;await giveChest(R.uid,R.ch,1);await withPlayer(R.uid,d=>{d.ins=(d.ins||0)+R.ins}).catch(()=>{})}const{reward,...rr}=r;await report(rr)}continue}
     // expédition punitive contre le seigneur
-    if(cur&&!isBot(cur)&&pillReady(cur,now)&&ev&&(ev.nextRaid||0)<=now&&!Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&s.planets.includes(f.to))){let go=false;
+    if(cur&&!isBot(cur)&&!isNight(now)&&pillReady(cur,now)&&ev&&(ev.nextRaid||0)<=now&&!Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&s.planets.includes(f.to))){let go=false;
       await locked('events/'+id,async(e,eref)=>{if(!e||e.uid!==cur||(e.nextRaid||0)>Date.now())return;e.nextRaid=Date.now()+LORD_RAID*(.7+Math.random()*.6)*(sectorOfSys(s.i)?.75:1);go=true;await eref.set(e)}).catch(()=>{});
       if(!go)continue;const r=rng(hash(cur+now+s.i)),t=S.planets[s.planets[Math.floor(r()*s.planets.length)]];if(!t)continue;await markPill(cur);const fid='pl'+newId(),ships=scaleShips(pillArmy(t.pid,cur,r),(sectorOfSys(s.i)?1.6:1.3)*pillK()),eta=PILL_TRAVEL+r()*PILL_TRAVEL_SPAN,from=pillOrigin(t.pid,r);
       await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:NPC,npc:true,from,to:t.pid,mission:'attack',ships,cargo:{m:0,c:0,f:0},depart:now,arrive:now+eta,phase:'out',conquer:!t.capital&&r()<.4,spied:[],punitive:true});
@@ -2174,7 +2179,7 @@ async function pbTick(){const now=Date.now();if(now-PB_T<60000||!S.players[ME])r
         const nb=nearPlayers(t,200);await report({push:true,ptitle:'☠ Pillards du Néant',pid:t,to:allPlayers(),tone:'loss',title:`☠ Les ${NPC_NAME} s’emparent de ${plName(t)}`,lines:[`Depuis leur base de ${plName(B.pid)}, ils étendent leur emprise (${(go.taken||[]).length+1}/${PB_TAKE} planètes prises).`,`Garnison laissée sur place : ${unitLine(g2)}.`,...(nb.length?[`Empires menacés : ${nb.map(pname).join(', ')}.`]:[]),'Détruisez leur base pour arrêter l’expansion : elle grossit à chaque fois.']})}}
     // et lance un raid contre la colonie la plus proche
     if(r()<.5){const T=Object.values(S.planets).filter(q=>q.owner&&!isNpc(q.owner)&&!isBot(q.owner)&&!q.capital&&!isBody(q.pid)&&PLANETS[q.pid]&&galOf(q.pid)===galOf(B.pid)&&dist(q.pid,B.pid)<=160).sort((a,b)=>dist(a.pid,B.pid)-dist(b.pid,B.pid))[0];
-      if(T&&pillReady(T.owner,now)&&!Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&f.to===T.pid)){await markPill(T.owner);const fid='pl'+newId(),ships=scaleShips(grown,.5*pillK()*(1+pillAd(T.owner))),eta=Math.max(1800,etaOf(B.pid,T.pid,{cruiser:1}));
+      if(T&&!isNight(now)&&pillReady(T.owner,now)&&!Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&f.to===T.pid)){await markPill(T.owner);const fid='pl'+newId(),ships=scaleShips(grown,.5*pillK()*(1+pillAd(T.owner))),eta=Math.max(1800,etaOf(B.pid,T.pid,{cruiser:1}));
         await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:NPC,npc:true,from:B.pid,to:T.pid,mission:'attack',ships,cargo:{m:0,c:0,f:0},depart:now,arrive:now+eta*1000,phase:'out',conquer:true,spied:[],pbRaid:B.id});
         await report({push:true,ptitle:'⚠ Raid pillard',pid:T.pid,to:[T.owner],tone:'loss',title:`☠ La base pillarde de ${plName(B.pid)} attaque ${plName(T.pid)}`,lines:[`Arrivée à ${clock(now+eta*1000)} (dans ${fmtDur(eta)}). Si ta défense cède, la colonie tombe entre leurs mains.`,'Renforce-la, demande de l’aide ou frappe leur base.']})}}}
   // fondation d'une nouvelle base
@@ -2204,10 +2209,10 @@ async function deepTick(){const now=Date.now();if(now-DEEP_T<60000||!S.players[M
 const PILL_GAP=18*HR,pillReady=(uid,t=Date.now())=>!uid||isNpc(uid)||t-((S.players[uid]||{}).pillLast||0)>=PILL_GAP,markPill=uid=>uid&&!isNpc(uid)&&S.players[uid]?withPlayer(uid,d=>{d.pillLast=Date.now()}).catch(()=>{}):null;
 const VEND_N=8;const inVend=uid=>((S.players[uid]||{}).vend||0)>Date.now();
 let PILL_T=0;
-async function pillardTick(){const now=Date.now();if(now-PILL_T<60000)return;PILL_T=now;
+async function pillardTick(){const now=Date.now();if(now-PILL_T<60000)return;PILL_T=now;const nightOk=!isNight(now)&&!isNight(now+PILL_TRAVEL)&&!isNight(now+PILL_TRAVEL+PILL_TRAVEL_SPAN); // trêve de nuit : pas de raid qui arriverait entre minuit et 9 h
   for(const pl of Object.values(S.players)){if(!pl||!pl.uid||isBot(pl.uid))continue;const nx=pl.nextRaid;
     if(!nx){try{await withPlayer(pl.uid,d=>{if(!d.nextRaid)d.nextRaid=Math.max(now,(d.joined||now))+PILL_FIRST+Math.random()*6*HR})}catch(e){}continue}
-    if(nx>now)continue;if(!pillReady(pl.uid,now))continue;if(Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&S.planets[f.to]&&S.planets[f.to].owner===pl.uid))continue;
+    if(nx>now||!nightOk)continue;if(!pillReady(pl.uid,now))continue;if(Object.values(S.fleets).some(f=>isNpc(f.owner)&&f.phase==='out'&&S.planets[f.to]&&S.planets[f.to].owner===pl.uid))continue;
     const targets=Object.values(S.planets).filter(p=>p.owner===pl.uid&&!isBody(p.pid));if(!targets.length)continue;
     let go=false;const vd=inVend(pl.uid);try{await withPlayer(pl.uid,d=>{if((d.nextRaid||0)>Date.now()||Date.now()-(d.pillLast||0)<PILL_GAP)return;d.nextRaid=Date.now()+(PILL_MIN+Math.random()*PILL_SPAN)*(vd?.5:1);d.pillLast=Date.now();go=true})}catch(e){}
     if(!go)continue;const r=rng(hash(pl.uid+now)),t=targets[Math.floor(r()*targets.length)],fid='pl'+newId(),ships=scaleShips(pillArmy(t.pid,pl.uid,r),(vd?1.3:1)*pillK()),eta=PILL_TRAVEL+r()*PILL_TRAVEL_SPAN,from=pillOrigin(t.pid,r);
@@ -2226,7 +2231,7 @@ async function invasionTick(){const now=Date.now();if(now-INV_T<20000)return;INV
     if(go){const ch=INV_CHIEFS[(e.n||0)%INV_CHIEFS.length],when=new Date(e.at).toLocaleString('fr-FR',{weekday:'long',hour:'2-digit',minute:'2-digit'});
       await report({news:'battle',push:true,ptitle:'🌑 Invasion du Néant dans 24 h',to:H,tone:'loss',title:`🌑 ${ch} lance la grande invasion du Néant`,lines:[`Demain, ${when}, les Pillards du Néant attaquent TOUS les empires en même temps : jusqu’à 3 planètes par empire, impact environ 40 minutes après le départ.`,`${ch} mène en personne une flotte plus puissante contre l’empire le plus fort.`,'Récompense collective : si au moins 80 % des flottes sont repoussées et le chef battu, chaque empire reçoit un coffre d’argent et 200 Éclats du Vide (un coffre d’or pour le meilleur défenseur) ; à partir de 50 %, un coffre de bronze.','Préparez vos défenses, gardez des flottes à la maison et coordonnez les renforts et les interceptions : personne ne pourra aider tout le monde.']});
       await univSys(`🌑 Dans 24 h, ${ch} et les Pillards du Néant frapperont tous les empires à la fois.`,'inv-ann-'+(e.n||0))}}
-  if(e.phase==='wait'&&now>=e.at){if(now-e.at>INV_LATE){await locked('events/'+INV_ID,async(x,ref)=>{if(!x||x.phase!=='wait'||x.at!==e.at)return;await ref.set({...x,at:invNext(now),ann:false,n:(x.n||0)+1})}).catch(()=>{});return}
+  if(e.phase==='wait'&&now>=e.at){if(isNight(now)&&now-e.at<=INV_LATE)return;if(now-e.at>INV_LATE){await locked('events/'+INV_ID,async(x,ref)=>{if(!x||x.phase!=='wait'||x.at!==e.at)return;await ref.set({...x,at:invNext(now),ann:false,n:(x.n||0)+1})}).catch(()=>{});return}
     let go=false,ev=null;await locked('events/'+INV_ID,async(x,ref)=>{if(!x||x.phase!=='wait'||Date.now()<x.at)return;x.phase='live';x.start=Date.now();x.fl={};await ref.set(x);ev=x;go=true}).catch(()=>{});
     if(!go)return;const ch=INV_CHIEFS[(ev.n||0)%INV_CHIEFS.length],r=rng(hash('inv'+ev.n+ev.at)),top=[...H].sort((a,b)=>playerPower(b)-playerPower(a))[0],fl={},per={};
     for(const u of H){const L=Object.values(S.planets).filter(p=>p.owner===u&&!isBody(p.pid)),cap=L.find(p=>p.capital),rest=L.filter(p=>!p.capital).sort((a,b)=>worth(b.ships||{})-worth(a.ships||{})).slice(0,cap?2:3),T=[...(cap?[cap]:[]),...rest];
@@ -2408,7 +2413,7 @@ const jumpPay=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};if(!aff
 const jumpRefund=async jc=>{if(jc)await withPlayer(ME,d=>{d.rare=d.rare||{};for(const k in jc)d.rare[k]=(d.rare[k]||0)+jc[k]}).catch(()=>{})};
 async function launch(){if(S.launching)return;S.launching=true;try{await launch0()}finally{S.launching=false}}
 async function launch0(){const M=S.modal;if(!M)return;if(M.fleet)return launchHeld(M);fixMis(M);const ships={};for(const k of SK)if(M.ships[k]>0)ships[k]=M.ships[k];
-  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');missionGuard(M);if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
+  await act(async()=>{if(galOf(M.to)>unlockedOf(ME))throw err('Galaxie verrouillée : vaincs d’abord le gardien du trou noir qui y mène.');if(isEmpty(ships))throw err('Choisis au moins un vaisseau.');missionGuard(M);if((M.mission==='attack'||M.mission==='colonize')&&nightProtected(M.to,ME)){const ar=Date.now()+etaOf(M.from,M.to,ships)*1000/cmdSpeed(ME,M.cmd);if(isNight(ar))throw err(`🌙 Trêve de nuit : pas d’attaque contre un empire entre minuit et 9 h. Ta flotte arriverait à ${clock(ar)} : attends ou choisis une autre cible.`)}if(M.mission==='colonize'&&!(ships.colony>0))throw err('Un vaisseau colon est nécessaire.');
     if(M.mission==='spy'&&(!(ships.probe>0)||count(ships)!==ships.probe))throw err('Une mission d’espionnage n’emporte que des sondes.');
     if(M.mission==='reinforce'&&!activeBattle(M.to)&&!(S.planets[M.to]&&S.planets[M.to].owner))throw err('Le renfort se fait vers une planète habitée.');if(M.mission==='intercept'){const c=S.fleets[M.intercept];if(!c||c.phase!=='out')throw err('Cette cible est déjà arrivée.');if(c.owner===ME)throw err('Tu ne peux pas intercepter ta propre flotte.');if(c.mission!=='attack'&&Date.now()+etaOf(M.from,M.to,ships)*1000>c.arrive-5000)throw err('Trop lent : ta flotte arriverait après le convoi.')}if(M.cmd&&cmdBusy(ME,M.cmd))throw err('Ce commandant est déjà en mission.');if(M.cmd&&cmdHome(ME,cmdById(ME,M.cmd))!==M.from)throw err('Ce commandant n’est pas stationné sur cette planète.');
     const IPc=M.mission==='intercept'&&S.fleets[M.intercept]&&S.fleets[M.intercept].mission==='attack'?S.fleets[M.intercept]:null,IP=IPc?interceptPlan(M.from,IPc,ships,cmdSpeed(ME,M.cmd)):null;if(IPc&&!IP)throw err('Trop lent : ta flotte ne peut pas rattraper cette attaque avant son arrivée.');
@@ -2564,6 +2569,8 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   if(f.mission==='rallysup'){const L=S.fleets[f.rally];if(L&&L.phase==='rally'){await fref.set({...f,phase:'rwait',holdAt:Date.now()});return}
     await goBack(f,fref,f.ships,f.cargo);await report({rally:true,to:[f.owner],tone:'info',title:'Ralliement manqué',lines:[`Le ralliement de ${plName(f.to)} était déjà parti ou dissous : ta flotte rentre.`]});return}
   const tn=meta.name,body=isBody(f.to);
+  if((f.mission==='attack'||f.mission==='colonize')&&nightProtected(f.to,f.owner)&&isNight(Date.now())){const k=f.group||f.fid,at=nightEnd(Date.now())+(hash(k)%15)*60e3; // trêve de nuit : l'attaque attend 9 h (même heure pour toute une attaque groupée)
+    await fref.set({...f,arrive:at,nightHeld:true});if(!f.nightHeld&&!isNpc(f.owner)&&!f.group)await report({to:[f.owner],tone:'info',title:`🌙 Trêve de nuit : attaque sur ${tn} repoussée`,lines:[`Aucune attaque contre un empire entre minuit et 9 h. Ta flotte attend en approche et frappe à ${clock(at)}.`]});return}
   if(PLANETS[f.from]&&galOf(f.from)!==galOf(f.to)&&!f.beltDone){const lost={};for(const k of['fighter','probe']){const n=Math.floor((f.ships[k]||0)*.05);if(n>0){lost[k]=n;f.ships={...f.ships,[k]:f.ships[k]-n}}}f.beltDone=true;if(count(lost))await report({to:[f.owner],tone:'info',title:'Traversée des ceintures d’astéroïdes',lines:[`Entre les galaxies, ta flotte a perdu ${unitLine(lost)} dans les champs d’astéroïdes.`]})}
   if(f.mission!=='spy')await visitNotice([f.owner,...Object.values(S.fleets).filter(j=>j.group===f.fid).map(j=>j.owner)],meta.sys);
   await exploreMark([f.owner,...Object.values(S.fleets).filter(j=>j.group===f.fid).map(j=>j.owner)],meta.sys);
@@ -3029,7 +3036,7 @@ function renderFleets(){const now=Date.now(),mine=Object.values(S.fleets).filter
   const tabs=[['vol','➜ En vol',mine.length+cm],['rally','⚑ Ralliements',ral],['war','⚔ Combats',opp],['army','🪐 Armée',null]];let t=S.fltTab||'vol';if(!tabs.some(x=>x[0]===t))t='vol';
   const joinH=joinable.length?`<section style="display:grid;gap:8px"><h2>Attaques à rejoindre</h2><p class="meta" style="margin:0">Ta flotte arrive au même moment et combat avec l’attaquant ; butin et points partagés selon la force engagée.</p><div class="card" style="padding:0;overflow-x:auto"><table class="armyt fltt"><tbody>${joinable.map(f=>`<tr><td><b>${esc(f.owner===ME?'Toi':pname(f.owner))}</b><small>→ ${esc(plName(f.to))}</small></td><td><small>impact</small><b><span class="cd" data-cd="${f.arrive}"></span></b>${S.sel&&S.planets[S.sel]?`<small>${fmtDur(etaOf(S.sel,f.to,{fighter:1}))} en chasseurs</small>`:''}</td><td style="text-align:right"><button class="btn sm" data-act="joinf" data-f="${f.fid}">Rejoindre</button></td></tr>`).join('')}</tbody></table></div></section>`:'';
   const body=t==='vol'?`${myFleetsHtml(mine)}${cmdMovesHtml()}`:t==='rally'?(ralliesHtml()||'<p class="empty">Aucun ralliement ouvert. Lance-en un depuis la fenêtre d’envoi (mission « ⚑ Ralliement ») avec un commandant.</p>'):t==='war'?((battlesHtml()+joinH+cvH+evH)||'<p class="empty">Aucune bataille, attaque à rejoindre, convoi ou événement en cours.</p>'):armyHtml();
-  return`<h1>Flottes</h1>${helpHtml()}${inc.length?`<section class="threats" role="alert"><h2>⚠ ${inc.length>1?inc.length+' attaques arrivent':'Une attaque arrive'} sur tes planètes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}
+  return`<h1>Flottes</h1>${isNight(Date.now())?`<div class="card" style="border-color:#7f9fcf88;font-size:13px">🌙 <b>Trêve de nuit</b> jusqu’à ${clock(nightEnd(Date.now()))} : aucune attaque contre un empire (joueurs, Pillards, Seigneurs). Les attaques déjà en route frappent à 9 h.</div>`:''}${helpHtml()}${inc.length?`<section class="threats" role="alert"><h2>⚠ ${inc.length>1?inc.length+' attaques arrivent':'Une attaque arrive'} sur tes planètes</h2><div class="list">${inc.map(f=>fleetRow(f,true)).join('')}</div></section>`:''}
   <div class="chips fltabs">${tabs.map(([k,l,n])=>`<button class="chip" data-act="flttab" data-t="${k}" aria-pressed="${t===k}">${l}${n?` <span class="fcnt">${n}</span>`:''}</button>`).join('')}</div>
   <section style="display:grid;gap:10px">${body}</section>`}
 // ---------- gestion d'empire : tout voir et lancer les mêmes ordres partout ----------
@@ -4805,7 +4812,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='238';
+const APP_VERSION='239';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

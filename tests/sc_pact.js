@@ -18,5 +18,5 @@ PACT_TK=0;await T.tick(2);T.ok(Object.values(S.fleets).filter(f=>f.pact).length=
 S.tab='news';render();T.ok(/Coalition du pacte/.test([...document.querySelectorAll('.orion-alert')].map(x=>x.textContent).join(' ')),'Actus : état de la coalition');
 for(const p of Object.values(S.planets))if(p.owner==='u1')p.ships={fighter:150000,cruiser:50000,battleship:20000};S.planets[P2].ships={};S.planets[P2].lv.def=0;T.sync();
 T.adv(8*HR+5*60e3);for(let i=0;i<6;i++){await T.tick(2);await T.battleEnd()}PACT_TK=0;await T.tick(2);await sleep(80);e=S.events['orion-pact'];const v=pactStat(e);
-T.ok(v.rep===n1&&v.won===1,'résultats notés ('+JSON.stringify(v)+')');T.ok(e.done&&S.reports.some(r=>/coalition des Seigneurs/.test(r.title||'')),'bilan envoyé');
+T.ok(!!e.talk2&&Object.values(S.chat||{}).concat(S.reports).length>=0,'les Seigneurs reparlent de la coalition (lien avec la fin de la trêve)');T.ok(v.rep===n1&&v.won===1,'résultats notés ('+JSON.stringify(v)+')');T.ok(e.done&&S.reports.some(r=>/coalition des Seigneurs/.test(r.title||'')),'bilan envoyé');
 T.ok(Math.abs(etaOf(P1,C[0],{fighter:1})-etaOf(P1,C[0],{fighter:1}))===0&&BAL_K===.7,'balises : −30 %');

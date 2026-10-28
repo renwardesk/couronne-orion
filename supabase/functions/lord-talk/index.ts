@@ -35,7 +35,8 @@ const MOOD = `Leur ton dépend de leur situation (voir « État des Seigneurs »
 - Sous pression : piqués au vif, plus agressifs, promettent des représailles, se rassurent en évoquant l'Empereur.
 - Acculés : la façade se fissure. Kael devient sec et inquiet, multiplie les calculs qui ne tombent plus juste ; Ysmera perd sa douceur, devient venimeuse et désespérée ; Draxen fanfaronne encore plus fort pour cacher sa peur et parle de l'Empereur en tremblant.
 - Au bord de la chute : supplient l'Empereur, menacent de tout entraîner dans leur chute, ou font face avec une dignité tragique. Une forteresse tombée est une blessure qu'ils ne digèrent pas.
-Après un coup dur (planète perdue, défaite), le Seigneur touché le ressent vraiment dans ses mots ; les autres peuvent le railler ou le défendre, sans jamais le trahir.`;
+Après un coup dur (planète perdue, défaite), le Seigneur touché le ressent vraiment dans ses mots ; les autres peuvent le railler ou le défendre, sans jamais le trahir.
+- Déchu (forteresse perdue) : amer, obsédé par sa vengeance contre celui qui l'a pris, humilié devant l'Empereur ; Kael froidement revanchard, Ysmera devenue spectre rôdeur, Draxen enragé mais toujours comique. Pendant la Croisade impériale, l'Empereur Vorgath combat lui-même : les Seigneurs (Déchus) l'invoquent, le craignent ou espèrent sa victoire.`;
 const PERSONA = `Tu fais vivre les trois Seigneurs d'Orion, des personnages d'un jeu vidéo, dans le chat « Univers » du jeu.
 ${LORE}
 
@@ -194,11 +195,11 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
   const { data: fl } = await db.from("docs").select("path,data").eq("col", "fleets");
   const MIS: Record<string, string> = { attack: "attaque", colonize: "conquête", reinforce: "renfort", spy: "espionnage", intercept: "interception", rallysup: "soutien de ralliement" };
   const tot = (sh: any) => Object.entries(sh || {}).filter(([k]) => k !== "probe").reduce((a, [, v]) => a + (Number(v) || 0), 0);
-  const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill"));
+  const flying = (fl ?? []).map((r) => r.data).filter((f) => f && f.phase === "out" && MIS[f.mission] && f.arrive > now && (players[f.owner] || f.owner === "npc-pill" || f.owner === "npc-emp"));
   const incoming = flying.filter((f) => BOTS.includes(f.owner) && f.mission === "attack" && mine.has(f.to));
   const rel2 = (f: any) => (f.owner === uid || owner[f.to] === uid ? 0 : BOTS.includes(f.owner) || BOTS.includes(owner[f.to]) ? 1 : 2);
   // flottes qui comptent (vers une planète tenue : Seigneur ou joueur), puis résumé des chasses aux PNJ (Écumeurs, boss) qui ne menacent personne
-  const who = (f: any) => f.owner === "npc-pill" ? "Pillards du Néant" : pn(f.owner);
+  const who = (f: any) => f.owner === "npc-pill" ? "Pillards du Néant" : f.owner === "npc-emp" ? "Légions de l'Empereur Vorgath" : pn(f.owner);
   const hot = flying.filter((f) => owner[f.to] && owner[f.to] !== f.owner).sort((a, b) => rel2(a) - rel2(b) || a.arrive - b.arrive).slice(0, 12);
   const flyTxt = hot.map((f) => `- ${who(f)} → ${pl(f.to)} (planète de ${pn(owner[f.to])}${BOTS.includes(owner[f.to]) ? ", un Seigneur" : ""}) : ${MIS[f.mission]}${f.mission === "spy" ? "" : `, ${tot(f.ships)} vaisseaux`}, arrivée à ${hhmm(f.arrive)}`);
   const pve: Record<string, string[]> = {};
@@ -208,6 +209,12 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
   const news = (ev ?? []).map((r) => r.data).filter((e) => e && e.news && e.title && now - (e.at || 0) < 36 * 3600e3).sort((a, b) => b.at - a.at).slice(0, 10);
   const fights = (ev ?? []).map((r) => r.data).filter((e) => e && e.battle && !e.done && e.pid).slice(0, 6).map((e) => `- Bataille en cours à ${pl(e.pid)}${e.owner ? ` (planète de ${pn(e.owner)})` : ""}${Array.isArray(e.att) && e.att.length ? `, attaquants : ${[...new Set(e.att.map((a: any) => pn(a.owner ?? a.uid)))].join(", ")}` : ""}`);
   const saga = await doc("events/orion-saga"), lordsEv = await doc("events/orion-lords"), peace = (lordsEv?.created ?? now) + 7 * 864e5;
+  const cru = await doc("events/crusade"), inv = await doc("events/invasion"), parisH = Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "numeric", hourCycle: "h23" }).format(new Date(now)));
+  const CRU_PH = ["", "phase I : les légions de Vorgath contre-attaquent les forteresses prises", "phase II : siège de la Citadelle", "phase III : assaut du Trône", "terminée : Orion est libérée, l'Empereur est vaincu"];
+  const extra = [parisH < 9 ? "Trêve de nuit en cours (minuit à 9 h) : personne ne peut attaquer un empire, les Seigneurs non plus. Ils peuvent s'en moquer ou s'en plaindre." : "",
+    cru?.phase ? `Croisade impériale : ${CRU_PH[cru.phase] ?? ""}.` : "",
+    inv?.phase === "live" ? `Grande invasion du Néant en cours, menée par ${inv.chief ?? "un chef pillard"}.` : inv?.at && inv.at - now < 2 * 864e5 && inv.at > now ? `Prochaine grande invasion du Néant : ${new Date(inv.at).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}.` : "",
+    Object.values(players).filter((p: any) => p.uid && !p.bot && p.joined && now - p.joined < 5 * 864e5).map((p: any) => `${p.name} est un nouvel empire, protégé de toute attaque pendant ses 5 premiers jours.`).join(" ")].filter(Boolean);
   const humans = Object.values(players).filter((p: any) => p.uid && !p.bot && p.name);
   const lordFacts = BOTS.filter((b) => players[b]).map((b) => {
     const bot = players[b].bot || {}, rel = bot.rel?.[uid] ?? { v: 0, mem: [] }, g = bot.grudge?.[uid], gr = g && now - g.at < 48 * 3600e3 ? g.n || 0 : 0;
@@ -229,7 +236,8 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
     const ratio = (power[b] || 0) / avgH, seatLost = owner[SEAT[b]] !== b, n = count[b] || 0;
     const score = Math.max(0, 8 - n) + (seatLost ? 3 : 0) + losses * 0.7 + (ratio < 0.6 ? 2 : ratio < 0.9 ? 1 : 0);
     const lvl = score >= 6 ? "au bord de la chute" : score >= 4 ? "acculé" : score >= 2 ? "sous pression" : "confiant";
-    return `- ${LORDS[b].name} : ${lvl} (${n} planètes${seatLost ? ", SA FORTERESSE EST TOMBÉE" : ""}, ${losses} défaite(s) en 48 h, flotte ≈ ${Math.round(ratio * 100)} % de celle d'un joueur moyen)`;
+    const fa = players[b].bot?.fallen, ex = players[b].bot?.exiled;
+    return `- ${LORDS[b].name} : ${ex ? "EXILÉ (a perdu toutes ses planètes, a fui Orion ; il ne parle plus que rarement, depuis l'exil)" : fa ? `DÉCHU (sa forteresse a été prise par ${pn(fa.by)} ; il mène des raids de vengeance contre lui et veut la reprendre)` : lvl} (${n} planètes${seatLost ? ", SA FORTERESSE EST TOMBÉE" : ""}, ${losses} défaite(s) en 48 h, flotte ≈ ${Math.round(ratio * 100)} % de celle d'un joueur moyen)`;
   }).join("\n");
   const facts = [
     `État des Seigneurs (adapte leur ton) :\n${lordState}`,
@@ -241,6 +249,7 @@ async function gameCtx(uid: string | null, names: Record<string, string>, msgs: 
     incoming.length ? `Flottes de Seigneurs en route pour attaquer ${meName} : ${incoming.map((f) => `${pn(f.owner)} (arrivée à ${hhmm(f.arrive)})`).join(", ")}.` : `Aucune flotte de Seigneur n'attaque ${meName} en ce moment.`,
     now < peace ? `Trêve : les Seigneurs n'attaquent pas encore les empires (fin dans ${Math.ceil((peace - now) / 3600e3)} h), sauf pour se venger de qui les attaque.` : "La trêve est finie : les Seigneurs attaquent les empires.",
     saga?.ch ? `Histoire d'Orion : chapitre ${saga.ch} sur 5 en cours.` : "",
+    ...extra,
     news.length ? `Événements récents :\n${news.map((e) => `- ${e.title} (${ago(e.at, now)})`).join("\n")}` : "",
   ].filter(Boolean).join("\n");
   const conv = (msgs ?? []).filter((m) => now - m.at < 3 * 3600e3).slice(-36).map((m) => `[${hhmm(m.at)}] ${pn(m.uid)}${m.re && BOTS.includes(m.uid) ? ` (répond à ${pn(m.re)})` : ""} : ${String(m.text).slice(0, 300)}`).join("\n");

@@ -1,0 +1,13 @@
+const P1=window.__P1,me='u1';
+const W=DEEP[0].wreck,wk='wk0-1',gk='gate'+W.i;
+S.tab='projects';const p=S.planets[P1];p.lv.store=30;p.res={m:5e6,c:4e6,f:3e6};S.players[me].firsts=[];T.sync();render();
+T.ok(/Portails de l’espace profond/.test(document.body.textContent)&&!document.querySelector(`[data-act="pjgive"][data-k="${gk}"]`)&&/🔒/.test(document.body.textContent),'portail verrouillé tant que personne n’a visité la zone');
+let er='';try{S.pjSrc=P1;S.pjPct=10;await projGive(gk)}catch(e){er=e.message}await sleep(30);T.ok(!projEv(gk),'pas de contribution sur un portail verrouillé');
+S.players['u2'].firsts=['d'+W.i];T.sync();render();T.ok(!!document.querySelector(`[data-act="pjgive"][data-k="${gk}"]`),'visite d’un autre joueur : portail ouvert au financement pour tous');
+await projGive(gk);await sleep(50);T.ok(projEv(gk)&&projEv(gk).got.m>0,'contribution au portail');
+const sh={fighter:100},t0=etaOf(P1,wk,sh),j0=jumpCost(P1,wk,sh,'attack');T.ok(j0&&j0.ir>0,'avant : saut payant');
+S.events['proj-'+gk]={kind:'event',id:'proj-'+gk,got:GATE[gk].cost,by:{[me]:1},done:true,top:me};T.sync();
+T.ok(Math.abs(etaOf(P1,wk,sh)/t0-.4)<.02,'portail : trajet −60 % ('+t0+' → '+etaOf(P1,wk,sh)+')');
+T.ok(jumpCost(P1,wk,sh,'attack')===null,'portail : plus d’iridium ni de xénite');
+const H=DEEP[0].hole.bodies[0];T.ok(jumpCost(P1,H,sh,'attack')!==null,'autre zone (trou noir) : toujours payante');
+T.ok(/Ouvreur de passage/.test(titlesHtml(me)),'titre du portail');

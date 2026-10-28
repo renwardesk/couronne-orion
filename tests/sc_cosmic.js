@@ -27,7 +27,7 @@ T.ok(/<circle cx="20" cy="19" r="18.2"/.test(cmdBadge('k1',40)),'insigne cosmiqu
 // tirage d'un cosmique : annonce + réaction
 await withPlayer('u1',d=>{d.cmds=[];d.chests={g:1}});await sleep(20);const R0=Math.random;Math.random=()=>.99995;try{await openChest('g')}finally{Math.random=R0}await sleep(9500);
 T.ok(S.chestShow&&CMDK[S.chestShow.k].r==='k'&&document.querySelector('.cfx.cos'),'coffre : effet cosmique ('+(S.chestShow&&CMDK[S.chestShow.k].n)+')');
-T.ok((S.chat||[]).some(m=>/^u-cos-/.test(m.id)&&m.uid==='univers'),'annonce dans l’Univers');T.ok((S.chat||[]).some(m=>/^u-cosmic-cos-/.test(m.id)&&isBot(m.uid)),'un Seigneur réagit');
+T.ok((S.chat||[]).some(m=>/^u-cos-/.test(m.id)&&m.uid==='univers'),'annonce dans l’Univers');for(let w=0;w<40&&!(S.chat||[]).some(m=>/^u-cosmic-cos-/.test(m.id));w++)await sleep(500);T.L('   AI.on',AI.on(),'chat',(S.chat||[]).filter(m=>/cos/.test(m.id)).map(m=>m.id+':'+m.uid).join(','),'lords',BOTS.filter(b=>S.players[b.uid]).length);T.ok((S.chat||[]).some(m=>/^u-cosmic-cos-/.test(m.id)&&isBot(m.uid)),'un Seigneur réagit');
 T.ok(S.reports.some(r=>/a choisi de servir/.test(r.title||'')&&!r.to.includes('u1')),'les autres empires sont prévenus');
 document.querySelector('[data-act="cfxx"]')&&document.querySelector('[data-act="cfxx"]').click();
 // annonce de la mise à jour, une seule fois

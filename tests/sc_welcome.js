@@ -7,3 +7,4 @@ const a=S.reports.find(r=>/nouvel empire s’éveille : Nova/.test(r.title||''))
 const m=S.reports.find(r=>/message du Cœur d’Orion pour Nova/.test(r.title||''));T.ok(m&&m.push&&m.to.join()==='u4','menace d’un Seigneur au nouveau joueur');T.L('   ',m&&m.lines.slice(0,2).join(' '));
 const o=S.reports.find(r=>/a remarqué Nova/.test(r.title||''));T.ok(o&&o.to.includes('u1'),'les autres voient la menace');
 T.ok(Object.values(S.events).some(e=>e.news&&/Nova/.test(e.title||'')),'visible dans les Actus');
+{const g=S.reports.find(r=>/Guide d’Orion/.test(r.title||''));T.ok(g&&g.to.join()==='u4'&&g.lines.some(l=>/Quêtes/.test(l))&&g.lines.some(l=>/Trêve de nuit/.test(l))&&g.lines.some(l=>/SITUATION/.test(l)),'guide d’Orion envoyé au nouveau (bases + situation)');T.L('   guide',g&&g.lines.length,'lignes')}

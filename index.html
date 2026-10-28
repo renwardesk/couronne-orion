@@ -693,7 +693,7 @@ const capitalOf=uid=>Object.values(S.planets).find(p=>p.owner===uid&&p.capital);
 // ---------- Seigneurs d'Orion (empires PNJ qui jouent comme des joueurs) ----------
 // trois vassaux de l'Empereur, chacun installé sur une planète du Cœur d'Orion ; ils bâtissent, arment, colonisent une autre galaxie (8 planètes max), espionnent, puis attaquent au bout d'une semaine
 const BOTS=[{uid:'orion-1',name:'Kael Voryn',title:'Seigneur du Bastion',seat:'o0-0',color:'#34c759',gal:0,sec:0},{uid:'orion-2',name:'Ysmera la Pâle',title:'Dame de la Forge',seat:'o0-2',color:'#e6c34a',gal:0,sec:1},{uid:'orion-3',name:'Draxen Ashkar',title:'Maître de l’Arsenal',seat:'o0-3',color:'#e2553f',gal:0,sec:2}];
-const BOT_ECO=1.5,BOT_PWK=1.8,BOT_MAXP=8,BOT_TURN=30*60e3,BOT_PEACE=7*24*HR,BOT_LV={mine:16,crys:15,fuel:13,store:13,yard:10,bay:12,def:15,shld:8,mines:6},BOT_W={mine:1.25,crys:1.15,fuel:.9,store:.95,yard:.8,bay:.9,def:1.2,shld:.6,mines:.5},BOT_DEFK={def:5,shld:4,mines:4},BOT_HELP_K=.35;
+const BOT_ECO=2,BOT_PWK=1.8,BOT_MAXP=8,BOT_TURN=30*60e3,BOT_PEACE=7*24*HR,BOT_LV={mine:16,crys:15,fuel:13,store:13,yard:10,bay:12,def:15,shld:8,mines:6},BOT_W={mine:1.25,crys:1.15,fuel:.9,store:.95,yard:.8,bay:.9,def:1.2,shld:.6,mines:.5},BOT_DEFK={def:5,shld:4,mines:4},BOT_HELP_K=.35,BOT_LEGK=.25;
 const sysSector=si=>{const s=SYSTEMS[si];return Math.floor(((Math.atan2(s.y-500,s.x-500)+Math.PI)/(2*Math.PI))*3)%3}; // tiers d'Orion autour du Cœur
 const botOf=uid=>BOTS.find(b=>b.uid===uid),botPlanets=uid=>Object.values(S.planets).filter(p=>p.owner===uid&&PLANETS[p.pid]);
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -744,6 +744,7 @@ const nightProtected=(pid,by)=>{const p=S.planets[pid];return!!(p&&p.owner&&p.ow
 async function botLaunch(uid,from,to,mission,ships){if((mission==='attack'||mission==='colonize'||mission==='spy')&&shieldedAt(to,uid))return null;if((mission==='attack'||mission==='colonize')&&nightProtected(to,uid)&&(isNight(Date.now())||isNight(Date.now()+etaOf(from,to,ships)*1000)))return null;const fid='ob'+newId();let ok=false,eta=0;
   await locked('planets/'+from,async(d,ref)=>{if(!d||d.owner!==uid)return;const p=settle(d,Date.now());for(const k in ships)if((p.ships[k]||0)<ships[k])return;for(const k in ships)p.ships[k]-=ships[k];await ref.set(p);ok=true});
   if(!ok)return null;eta=etaOf(from,to,ships);const now=Date.now();await db.doc('fleets/'+fid).set({kind:'fleet',fid,owner:uid,from,to,mission,ships,cargo:{m:0,c:0,f:0},depart:now,arrive:now+eta*1000,phase:'out',spied:[]});return{fid,arrive:now+eta*1000}}
+const nightLate=(now,from,to,ships)=>{const t1=now+etaOf(from,to,ships)*1000;return isNight(now)||isNight(t1)?nightEnd(isNight(now)?now:t1)+rnd(0,.5)*HR:0}; // attaque d'un seigneur qui tomberait la nuit : heure de départ le matin
 const botForce=p=>{const s={};for(const k of ['fighter','cruiser','battleship'])if((p.ships[k]||0)>0)s[k]=p.ships[k];return s};
 async function botTurn(b,st){const now=Date.now(),uid=b.uid,mine=botPlanets(uid),upd={};if(!mine.length){if(st.fallen&&!st.exiled)await lordExile(b);return}
   const colShips=mine.reduce((a,p)=>a+((p.ships||{}).colony||0)+(p.shipQ||[]).filter(x=>x.t==='colony').reduce((s,x)=>s+x.n,0),0)+Object.values(S.fleets).filter(f=>f.owner===uid).reduce((a,f)=>a+((f.ships||{}).colony||0),0),need=planetsOf(uid)<BOT_MAXP&&colShips<1;
@@ -759,12 +760,13 @@ async function botTurn(b,st){const now=Date.now(),uid=b.uid,mine=botPlanets(uid)
   if(sOn||(st.spyAt||0)<=now){const H0=Object.values(S.planets).filter(p=>p.owner&&!isBot(p.owner)&&!isNpc(p.owner)&&!isBody(p.pid)),H=sOn&&H0.some(p=>p.owner===sOn)?H0.filter(p=>p.owner===sOn):H0,src=mine.filter(p=>(p.ships.probe||0)>=6)[0];if(st.spyOn)upd.spyOn=null;
     if(H.length&&src){const t=H[Math.floor(Math.random()*H.length)];await botLaunch(uid,src.pid,t.pid,'spy',{probe:Math.min(10,src.ships.probe)})}upd.spyAt=now+rnd(8,16)*HR}
   // vengeance contre un joueur qui l'a attaqué (même pendant la trêve)
-  {const rv=st.rev;if(rv&&rv.at<=now&&S.players[rv.uid]){const src=mine.filter(p=>!isBody(p.pid)).sort((a,c)=>worth(botForce(c))-worth(botForce(a)))[0];let pick=null;
+  {const rv=st.rev;if(rv&&rv.at<=now&&S.players[rv.uid]){const src=mine.filter(p=>!isBody(p.pid)).sort((a,c)=>worth(botForce(c))-worth(botForce(a)))[0];let pick=null,lt=0;
     if(src){const F=botForce(settle(src,now));for(const p of Object.values(S.planets).filter(q=>q.owner===rv.uid&&!isBody(q.pid))){const v=view(p.pid),tur=(v.lv&&v.lv.def||0)*4,def={...v.ships,turret:tur};delete def.probe;const send=scaleShips(F,.75),pc=winChance(send,def,forceMods(uid),defMods(v,{...v.ships,turret:tur},[]));if(pc>=50&&(!pick||pc>pick.pc))pick={p,send,pc}}
-      if(pick){const r=await botLaunch(uid,src.pid,pick.p.pid,'attack',pick.send);if(r)univSay(uid,'rev',{p:pname(rv.uid),pl:uplName(pick.p.pid)},r.fid,true).catch(()=>{});if(r)await report({push:true,ptitle:'🔥 Vengeance d’un Seigneur',pid:pick.p.pid,to:[rv.uid],tone:'loss',title:`🔥 ${b.name} se venge sur ${plName(pick.p.pid)}`,lines:[`Tu l’as attaqué : sa flotte (${unitLine(pick.send)}) arrive à ${clock(r.arrive)}.`]})}}
-    upd.rev=pick||(rv.n||0)>=2?null:{...rv,at:now+4*HR,n:(rv.n||0)+1}}}
+      lt=pick?nightLate(now,src.pid,pick.p.pid,pick.send):0;if(pick&&!lt){const r=await botLaunch(uid,src.pid,pick.p.pid,'attack',pick.send);if(r)univSay(uid,'rev',{p:pname(rv.uid),pl:uplName(pick.p.pid)},r.fid,true).catch(()=>{});if(r)await report({push:true,ptitle:'🔥 Vengeance d’un Seigneur',pid:pick.p.pid,to:[rv.uid],tone:'loss',title:`🔥 ${b.name} se venge sur ${plName(pick.p.pid)}`,lines:[`Tu l’as attaqué : sa flotte (${unitLine(pick.send)}) arrive à ${clock(r.arrive)}.`]})}}
+    upd.rev=lt?{...rv,at:lt}:pick||(rv.n||0)>=2?null:{...rv,at:now+4*HR,n:(rv.n||0)+1}}}
   // les renforts envoyés à un autre seigneur rentrent quand le danger est passé
   for(const f of Object.values(S.fleets).filter(x=>x.owner===uid&&x.mission==='reinforce'&&x.phase==='hold'&&now-(x.arrive||0)>3*HR&&!Object.values(S.fleets).some(y=>y.phase==='out'&&y.to===x.to&&!isBot(y.owner))))await locked('fleets/'+f.fid,async(x,ref)=>{if(x&&x.phase==='hold')await goBack(x,ref,x.ships,x.cargo)}).catch(()=>{});
+  for(const f of Object.values(S.fleets).filter(x=>x.owner===uid&&x.mission!=='reinforce'&&x.phase==='hold'&&now-(x.arrive||0)>20*60e3))await locked('fleets/'+f.fid,async(x,ref)=>{if(x&&x.phase==='hold')await goBack(x,ref,x.ships,x.cargo)}).catch(()=>{}); // attaque gagnée, escorte de colon : la flotte rentre (elles restaient en position pour toujours)
   // Déchu : sa forteresse est tombée, il mène des raids de vengeance contre le conquérant et tente de la reprendre
   {const so=(S.planets[b.seat]||{}).owner,fa=st.fallen;
     if(!fa&&so&&so!==uid&&!isBot(so)&&!isNpc(so)){upd.fallen={at:now,by:so,raidAt:now+rnd(4,8)*HR};await lordFall(b,so)}
@@ -772,11 +774,12 @@ async function botTurn(b,st){const now=Date.now(),uid=b.uid,mine=botPlanets(uid)
     else if(fa&&(fa.raidAt||0)<=now){const done=await fallRaid(b,fa,mine,now);upd.fallen={...fa,raidAt:now+(done?rnd(10,16):rnd(2,3))*HR,n:(fa.n||0)+(done?1:0)}}}
   // attaques : seulement après la trêve d'une semaine, et seulement avec de bonnes chances
   const lords=S.events['orion-lords'],peace=((lords&&lords.created)||now)+BOT_PEACE;
-  if(now>=peace&&(st.atkAt||0)<=now){const src=mine.filter(p=>!isBody(p.pid)).sort((a,c)=>worth(botForce(c))-worth(botForce(a)))[0];
+  const wave=!st.w1&&!!(lords&&lords.boost3); // 1re vague : dès la fin de la trêve, une fois les légions arrivées
+  if(now>=peace&&((st.atkAt||0)<=now||wave)){const src=mine.filter(p=>!isBody(p.pid)).sort((a,c)=>worth(botForce(c))-worth(botForce(a)))[0];let late=0;
     if(src){const F=botForce(settle(src,now)),T=Object.values(S.planets).filter(p=>p.owner&&!isBot(p.owner)&&!isNpc(p.owner)&&!isBody(p.pid)&&!Object.values(S.fleets).some(f=>f.owner===uid&&f.to===p.pid&&f.phase==='out'));let pick=null;
       const gr=grudgeOf(uid),grk=p=>gr[p.owner]?gr[p.owner].n||0:0;for(const p of T.sort(()=>Math.random()-.5).sort((a,c)=>grk(c)-grk(a)).slice(0,8)){const v=view(p.pid),tur=(v.lv&&v.lv.def||0)*4,def={...v.ships,turret:tur};delete def.probe;const send=scaleShips(F,.7),pc=winChance(send,def,forceMods(uid),defMods(v,{...v.ships,turret:tur},[]));if(pc>=60&&(!pick||grk(p)>grk(pick.p)||(grk(p)===grk(pick.p)&&pc>pick.pc)))pick={p,send,pc}}
-      if(pick){const r=await botLaunch(uid,src.pid,pick.p.pid,'attack',pick.send);if(r)univSay(uid,grk(pick.p)>=3?'grudgeatk':'atk',{p:pname(pick.p.owner),pl:uplName(pick.p.pid)},r.fid,true).catch(()=>{});if(r)await report({push:true,ptitle:'⚔ Seigneur d’Orion',pid:pick.p.pid,to:[pick.p.owner],tone:'loss',title:`${b.name}, ${b.title}, attaque ${plName(pick.p.pid)}`,lines:[`Sa flotte (${unitLine(pick.send)}) arrive à ${clock(r.arrive)}. Prépare ta défense ou appelle des renforts.`]})}}
-    upd.atkAt=now+rnd(10,20)*HR}
+      late=pick?nightLate(now,src.pid,pick.p.pid,pick.send):0;if(pick&&!late){const r=await botLaunch(uid,src.pid,pick.p.pid,'attack',pick.send);if(r)univSay(uid,grk(pick.p)>=3?'grudgeatk':'atk',{p:pname(pick.p.owner),pl:uplName(pick.p.pid)},r.fid,true).catch(()=>{});if(r)await report({push:true,ptitle:'⚔ Seigneur d’Orion',pid:pick.p.pid,to:[pick.p.owner],tone:'loss',title:`${b.name}, ${b.title}, attaque ${plName(pick.p.pid)}`,lines:[`Sa flotte (${unitLine(pick.send)}) arrive à ${clock(r.arrive)}. Prépare ta défense ou appelle des renforts.`]})}}
+    upd.atkAt=late||now+rnd(10,20)*HR;if(wave)upd.w1=now}
   await projSabotage(b,now).catch(()=>{});
   if(Object.keys(upd).length)await locked('players/'+uid,async(x,ref)=>{if(!x||!x.bot)return;x.bot={...x.bot,...upd};await ref.set(x)}).catch(()=>{})}
 // ---------- Seigneurs Déchus ----------
@@ -848,6 +851,10 @@ async function botTick(){const now=Date.now();if(now-BOT_T<30000||!S.players[ME]
       for(const k of ['fighter','cruiser','battleship'])p.ships[k]=Math.round((p.ships[k]||0)*1.35);while(bayCap(p)<placesOf(p.ships)&&p.lv.bay<20)p.lv.bay++;await ref.set(p)}).catch(()=>{});
       await univPost('vorgath','L’Empereur Vorgath','👑 Mes vassaux faiblissent. Le Trône leur envoie ses légions et ses ingénieurs. Empires d’Orion, vous avez réveillé ma patience : elle est épuisée.','boost2',true);
       await report({news:'conquest',push:true,ptitle:'👑 L’Empereur renforce ses vassaux',to:humanIds(),tone:'loss',title:'👑 L’Empereur Vorgath renforce les Seigneurs d’Orion',lines:['Les flottes des trois Seigneurs grossissent nettement, et leurs défenses montent d’un cran.','Désormais, l’Empereur leur verse un tribut : leurs planètes produisent davantage. Et chaque fois qu’un Seigneur perd une planète, l’Empereur lui envoie des renforts (au plus une fois toutes les 12 h).']})}}}
+  {const e=S.events['orion-lords'];if(e&&e.created&&e.boost2&&!e.boost3&&now>=e.created+BOT_PEACE){let go=false;await locked('events/orion-lords',async(x,ref)=>{if(!x||x.boost3)return;x.boost3=Date.now();await ref.set(x);go=true}).catch(()=>{}); // fin de trêve : légions impériales (+25 % de la flotte moyenne des joueurs par seigneur)
+    if(go){const L=botArmy(livePW()*BOT_LEGK);for(const b of BOTS){const M=botPlanets(b.uid).filter(q=>!isBody(q.pid)),p0=M.find(q=>q.pid===b.seat)||M.sort((a,c)=>worth(c.ships||{})-worth(a.ships||{}))[0];if(!p0)continue;
+      await locked('planets/'+p0.pid,async(d,ref)=>{if(!d||d.owner!==b.uid)return;const p=settle(d,Date.now());for(const k in L)p.ships[k]=(p.ships[k]||0)+L[k];while(bayCap(p)<placesOf(p.ships)&&p.lv.bay<20)p.lv.bay++;await ref.set(p)}).catch(()=>{})}
+      await univPost('vorgath','L’Empereur Vorgath','👑 La trêve est finie. Mes légions ont rejoint mes vassaux. Qu’ils frappent, et que les empires d’Orion apprennent ce que coûte mon Cœur.','boost3',true)}}}
   {const e=S.events['orion-lords'];if(e&&e.created&&!e.moved){let go=false;await locked('events/orion-lords',async(x,ref)=>{if(!x||x.moved)return;x.moved=1;await ref.set(x);go=true}).catch(()=>{});
     if(go){let n=0;for(const b of BOTS)for(const p of botPlanets(b.uid).filter(q=>galOf(q.pid)!==b.gal&&!PLANETS[q.pid].core)){const t=botTargets(b,1e9)[0];if(!t)continue;let doc=null;
       await locked('planets/'+p.pid,async(d,ref)=>{if(!d||d.owner!==b.uid)return;doc=settle(d,Date.now());await ref.delete()}).catch(()=>{});
@@ -855,7 +862,7 @@ async function botTick(){const now=Date.now();if(now-BOT_T<30000||!S.players[ME]
       if(n)await report({pid:'o0-0',to:humanIds(),tone:'loss',title:'👑 Les Seigneurs d’Orion rappellent leurs colons',lines:['Ils abandonnent les galaxies lointaines : leurs colonies s’installent désormais aux portes du Cœur, dans Orion même.','Chaque seigneur tient un tiers de la galaxie et avance du centre vers nos frontières. Leurs mondes sont à portée de nos flottes.']})}}}
   {const e=S.events['orion-lords'];if(e&&e.created){const peace=e.created+BOT_PEACE,step=now>=peace?2:now>=peace-24*HR?1:0;if(step>(e.warned||0)){let go=0;await locked('events/orion-lords',async(x,ref)=>{if(!x||(x.warned||0)>=step)return;x.warned=step;await ref.set(x);go=step}).catch(()=>{});
     if(go===1)await report({push:true,ptitle:'⚠ Seigneurs d’Orion : demain',pid:'o0-0',to:humanIds(),tone:'loss',title:'⚠ Les Seigneurs d’Orion attaqueront dans 24 h',lines:['La trêve touche à sa fin. Demain, Kael Voryn, Ysmera la Pâle et Draxen Ashkar lanceront leurs flottes contre nos empires.','Renforcez vos défenses, gardez vos flottes à portée… ou frappez le Cœur d’Orion avant eux.']});
-    if(go===2)await report({push:true,ptitle:'⚔ Les Seigneurs d’Orion attaquent',pid:'o0-0',to:humanIds(),tone:'loss',title:'⚔ La trêve est rompue : les Seigneurs d’Orion attaquent',lines:['Désormais, chaque seigneur frappera toutes les 10 à 20 h la planète qu’il pense pouvoir piller.','Chaque planète du Cœur reprise affaiblit leur emprise et donne +2 % de production à tous.']})}}}
+    if(go===2)await report({push:true,ptitle:'⚔ Les Seigneurs d’Orion attaquent',pid:'o0-0',to:humanIds(),tone:'loss',title:'⚔ La trêve est rompue : les Seigneurs d’Orion attaquent',lines:['L’Empereur leur a envoyé ses légions : leurs flottes ont nettement grossi, et une première vague part tout de suite.','Ensuite, chaque seigneur frappera toutes les 10 à 20 h la planète qu’il pense pouvoir piller (une attaque qui tomberait la nuit part le matin).','Chaque planète du Cœur reprise affaiblit leur emprise et donne +2 % de production à tous.']})}}}
   for(const b of BOTS){const d=S.players[b.uid];if(!d.bot||(d.bot.next||0)>now)continue;let st=null;
     await locked('players/'+b.uid,async(x,ref)=>{if(!x||!x.bot||(x.bot.next||0)>Date.now())return;st={...x.bot};x.bot={...x.bot,next:Date.now()+BOT_TURN*rnd(.8,1.2)};await ref.set(x)}).catch(()=>{});
     if(st)await botTurn(b,st).catch(e=>console.warn('bot',b.uid,e))}}
@@ -5016,7 +5023,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='249';
+const APP_VERSION='250';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

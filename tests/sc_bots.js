@@ -12,7 +12,7 @@ const msg=S.reports.filter(r=>/Seigneurs d’Orion se sont réveillés/.test(r.t
 T.ok(Math.abs(livePW()-pw0)<1,'la force des ennemis ne compte pas les seigneurs');
 T.ok(!humanIds().some(isBot)&&!/orion-/.test(onlinePill()),'seigneurs absents de la liste des joueurs en ligne');
 await T.tick(2);T.ok(S.reports.filter(r=>/se sont réveillés/.test(r.title||'')).length===1,'pas de message en double');
-S.tab='news';render();{const a=document.querySelector('.orion-alert');T.ok(a&&/Ils attaqueront dans/.test(a.textContent)&&a.querySelector('[data-cd]'),'Actus : alerte noir et violet avec compte à rebours de la trêve')}
+S.tab='news';render();{const a=[...document.querySelectorAll('.orion-alert')].find(x=>/Seigneurs d’Orion/.test(x.textContent));T.ok(a&&/Ils attaqueront dans/.test(a.textContent)&&a.querySelector('[data-cd]'),'Actus : alerte noir et violet avec compte à rebours de la trêve '+(a?a.textContent.slice(0,200):'absente'))}
 // premier tour
 T.adv(6*60e3);await T.tick(2);await sleep(50);
 const q=BOTS.map(b=>S.planets[b.seat]);T.ok(q.every(p=>(p.bq||[]).length>0&&(p.shipQ||[]).length>0),'tour de jeu : constructions et vaisseaux lancés');

@@ -7,3 +7,9 @@ const f=T.fleetsOf(me).find(x=>x.mission==='reinforce'&&x.to===P2);T.adv(f.arriv
 const h=S.fleets[f.fid];T.ok(h&&h.phase==='hold'&&(h.home||h.from)===P1,'en garde, toujours rattachée à sa planète d’origine');
 await fleetHome(f.fid);await sleep(30);const b=S.fleets[f.fid];T.ok(b&&b.phase==='back'&&b.from===P1&&b.back>Date.now()+60e3,'« Rentrer » : retour vers la planète d’origine ('+(b&&fmtDur((b.back-Date.now())/1000))+')');
 T.adv(b.back-Date.now()+500);await T.tick(2);T.ok(!S.fleets[f.fid]&&S.planets[P1].ships.fighter>=500&&(S.planets[P2].ships.fighter||0)===0,'les vaisseaux sont rentrés à la maison');
+// hangar d'origine plein : la flotte rentre quand même chez elle (avant, elle se posait sur la planète défendue, la plus proche)
+S.planets[P1].lv.bay=1;S.planets[P1].ships.fighter=5000;T.sync();
+const t2=await T.send({from:P1,to:P2,mission:'reinforce',ships:{fighter:300}});T.ok(!t2.length,'2e renfort lancé '+t2.join('|'));
+const g=T.fleetsOf(me).find(x=>x.mission==='reinforce'&&x.to===P2);T.adv(g.arrive-Date.now()+500);await T.tick(2);
+await fleetHome(g.fid);await sleep(30);const g2=S.fleets[g.fid];T.adv(g2.back-Date.now()+500);await T.tick(2);
+T.ok(!S.fleets[g.fid]&&S.planets[P1].ships.fighter>=5000&&(S.planets[P2].ships.fighter||0)===0,'hangar plein : rentrée quand même à la planète d’origine ('+S.planets[P1].ships.fighter+' / '+(S.planets[P2].ships.fighter||0)+')');

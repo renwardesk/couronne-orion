@@ -1943,6 +1943,7 @@ async function battleRound(e,eref){const now=Date.now(),tn=plName(e.pid),reps=[]
     if(!ended){await eref.set(e);return}
     // fin de la bataille
     const fa=sumShips(A.map(x=>x.ships)),fd={...sumShips([e.home,...e.dal.map(x=>x.ships)]),...(e.tur>0?{turret:e.tur}:{})},won=isEmpty(fd)&&!isEmpty(fa),body=isBody(e.pid);
+    e.done=true;e.doneAt=now;e.won=won;await eref.set(e); // marquée finie tout de suite : la fin (butin, gains, rapports) prend plus que le bail du verrou, un 2e client rejouait le dernier échange et tout était payé deux fois (Veldra II, 29/10)
     let loots=A.map(()=>({m:0,c:0,f:0})),annex=-1;
     if(won&&p&&mine&&!body){const pk=pillShare(A[0].owner,A[0].cmd);loots=splitLoot({m:p.res.m*pk,c:p.res.c*pk,f:p.res.f*pk},A.map(x=>x.ships),shares(A));const t=sumLoot(loots);for(const k in RES)p.res[k]-=t[k]}
     if(won&&p&&mine&&!p.capital){const i=A.findIndex(x=>(x.ships.colony||0)>0);if(i>=0){const o=A[i].owner,lim=body?outpostsOf(o)<MAXO:planetsOf(o)<MAXP;if(lim&&(body||await payCulture(o))){annex=i;if(body){await settleRare(e.owner);await settleRare(o)}
@@ -2890,7 +2891,7 @@ async function arrival(f,fref){const reps=[];const meta=PLANETS[f.to];if(!meta){
   for(const r of reps)await report(r)}
 async function homecoming(f,fref){let dest=fleetBase(f);const o=S.planets[dest];const cmdLand=async()=>{if(f.cmd&&dest&&S.players[f.owner])await withPlayer(f.owner,d=>{const c=(d.cmds||[]).find(x=>x.id===f.cmd);if(c&&!(c.move&&c.move.until>Date.now())&&c.base!==dest){c.base=dest;c.guard=false}}).catch(()=>{})};
   // la flotte rentre à sa planète d'attache (pas au point de ralliement) ; si son hangar déborde, elle se pose sur la plus proche qui a la place
-  const full=o&&o.owner===f.owner&&!isBody(dest)&&o.lv&&bayCap(o)<bayUse(o,f.owner);
+  const full=false; // la flotte compte déjà dans le hangar de sa planète d'attache pendant son absence : elle y rentre toujours (avant, un hangar plein la faisait se poser sur la planète la plus proche de la cible, donc sur la planète défendue)
   if(full||!o||o.owner!==f.owner||(isBody(dest)&&!(o.lv&&o.lv.dock>=1))){ // planète d'attache perdue : la plus proche de tes planètes qui a la place, sinon la capitale
     const own=Object.values(S.planets).filter(q=>q.owner===f.owner&&PLANETS[q.pid]&&q.pid!==dest&&(!isBody(q.pid)||(q.lv&&q.lv.dock>=1))&&bayCap(q)-bayUse(q,f.owner)>=placesOf(f.ships)).sort((a,b)=>dist(a.pid,f.to)-dist(b.pid,f.to));
     const cap=capitalOf(f.owner);dest=own[0]?own[0].pid:cap&&cap.pid}
@@ -5078,7 +5079,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='258';
+const APP_VERSION='259';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

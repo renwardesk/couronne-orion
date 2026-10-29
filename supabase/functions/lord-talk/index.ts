@@ -7,11 +7,13 @@ import { createClient } from "npm:@supabase/supabase-js@2.75.0";
 
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info", "Content-Type": "application/json" };
-const MODEL = Deno.env.get("LORD_MODEL") ?? "claude-haiku-5-5";
+const MODEL = Deno.env.get("LORD_MODEL") ?? "claude-sonnet-5-5"; // Sonnet depuis le 29/10 (Haiku se trompait de camp)
 const THINK = (m: string) => /haiku/.test(m) ? { type: "disabled" } : { type: "between_tools" }; // sans réflexion (sinon elle mange max_tokens) ; Sonnet/Opus refusent "disabled"
-const DAY_CAP = Number(Deno.env.get("LORD_DAY_CAP") ?? 400); // réponses IA par jour
+const DAY_CAP = Number(Deno.env.get("LORD_DAY_CAP") ?? 80); // réponses IA par jour (budget de l'utilisateur limité : 400 → 80 avec Sonnet)
 const WAIT = 22000; // le joueur a fini d'écrire s'il n'a rien envoyé depuis 22 s
 const doc = async (path: string) => (await db.from("docs").select("data").eq("path", path).maybeSingle()).data?.data ?? null;
+// réponses IA écrites ces dernières 24 h (le plafond se comptait avant sur les seuls messages des 3 à 6 dernières heures)
+const aiToday = async (now: number) => (await db.from("docs").select("path", { count: "exact", head: true }).eq("col", "chat").eq("data->>ai", "true").gt("updated_at", new Date(now - 864e5).toISOString())).count ?? 0;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 const BOTS = ["orion-1", "orion-2", "orion-3"];
 const SPK = new Set([...BOTS, "univers", "vorgath"]);
@@ -95,7 +97,7 @@ async function work(mid: string, names: Record<string, string>, dry = false, mod
     if (!dry) { const { error: lockErr } = await db.from("docs").insert({ path: "ailock/" + mid, col: "ailock", data: { at: now } });
     if (lockErr) return out({ ok: true, skip: "locked" }); }
     db.from("docs").delete().eq("col", "ailock").lt("updated_at", new Date(now - 864e5).toISOString()).then(() => {}, () => {});
-    if (msgs.filter((m) => m.ai && now - m.at < 864e5).length >= DAY_CAP) return out({ ok: false, reason: "budget" });
+    if (await aiToday(now) >= DAY_CAP) return out({ ok: false, reason: "budget" });
 
     // les messages du joueur depuis la dernière réponse d'un seigneur à ce joueur (3 min max)
     const lastR = msgs.filter((m) => BOTS.includes(m.uid) && m.re === uid).slice(-1)[0];
@@ -305,7 +307,7 @@ async function liveEvent(ev: any, names: Record<string, string>): Promise<any> {
     const { data: recent } = await db.from("docs").select("path,data").eq("col", "chat").gt("updated_at", new Date(now - 3 * 3600e3).toISOString()).order("updated_at", { ascending: false }).limit(300);
     const msgs = (recent ?? []).filter((r) => r.data && r.data.text && r.data.ch === "u").map((r) => ({ id: r.path.slice(5), ...r.data })).sort((a, b) => a.at - b.at);
     if (msgs.filter((m) => m.ai && m.id.startsWith("u-e") && now - m.at < 3600e3).length >= 8) return { ok: true, skip: "rate" };
-    if (msgs.filter((m) => m.ai && now - m.at < 864e5).length >= DAY_CAP) return { ok: false, reason: "budget" };
+    if (await aiToday(now) >= DAY_CAP) return { ok: false, reason: "budget" };
     const { players, facts, conv, style } = await gameCtx(null, names, msgs);
     const what = [`Événement : ${S(ev.what)}`, lord ? `Seigneur concerné : ${LORDS[lord].name}` : "", ev.p ? `Joueur(s) : ${S(ev.p)}` : "", ev.pl ? `Planète : ${S(ev.pl, 40)}` : "", ev.h ? `Seigneur aidé : ${S(ev.h, 40)}` : "", ev.n ? `Taille de la flotte : environ ${Math.round(Number(ev.n) || 0)} points de puissance` : "", ev.eta ? `Arrivée prévue à ${hhmm(Number(ev.eta) || now)}` : ""].filter(Boolean).join("\n");
     const system = `${PERSONA}

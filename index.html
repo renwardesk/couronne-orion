@@ -1628,7 +1628,7 @@ const AMB_INT=20*60e3,AMB_INT_FOG=10*60e3;
 async function holdAt(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();if(f.cmd)await killCmd(f.owner,f.cmd);return}
   if(f.autoBack&&f.mission!=='reinforce'&&!extra.stay)return goBack(f,fref,ships,cargo,extra); // retour automatique demandé à l'envoi
   if(f.cmd&&(f.ships||{}).flag&&!(ships||{}).flag){await killCmd(f.owner,f.cmd,'flag');f={...f,cmd:null}}
-  let home=f.home||f.from;if(f.phase!=='battle'&&f.to!==home&&bayRoomFor(f.to,f.owner,ships))home=f.to; // après une bataille, la flotte garde sa planète d'attache (pas de changement silencieux)
+  let home=f.home||f.from;if(f.phase!=='battle'&&f.mission!=='reinforce'&&f.to!==home&&bayRoomFor(f.to,f.owner,ships))home=f.to; // un renfort garde toujours sa planète d'origine (« Rentrer » la ramène chez elle) // après une bataille, la flotte garde sa planète d'attache (pas de changement silencieux)
    // en orbite d'une de tes planètes avec de la place : elle y est rattachée
   await fref.set({...f,...extra,ships,cargo,phase:'hold',holdAt:f.arrive,lastAmb:f.arrive,amb:0,home,group:null})}
 function sysPacksAlive(si){const s=SYSTEMS[si];if(!s)return[];return[s.lair,...(s.packs||[])].filter(pid=>{const st=raidState(pid);return!st.done&&!st.absent&&worth(st.garrison)>0})}
@@ -5078,7 +5078,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='257';
+const APP_VERSION='258';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

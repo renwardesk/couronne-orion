@@ -1,0 +1,7 @@
+{
+  "name": "orion-robot",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node robot.mjs" },
+  "dependencies": { "playwright": "1.48.2" }
+}

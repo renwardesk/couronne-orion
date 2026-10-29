@@ -43,3 +43,5 @@ T.ok(cap&&bayCap(cap)>=placesOf(cap.ships)+200,'les hangars logent la flotte ('+
 T.ok(pl&&slotsOf('u9')===7&&(pl.cmds||[]).map(c=>c.key).sort().join()==='c3,r13','7 emplacements, Pilote Talia et Capitaine Ysmé');
 T.ok(S.reports.some(r=>/Colis de bienvenue/.test(r.title||'')&&r.to.join()==='u9'),'rapport du colis');
 T.ok(S.reports.some(r=>/L’Empereur Vorgath t’a remarqué/.test(r.title||'')&&r.to.join()==='u9'),'menace de l’Empereur (rapport)');T.ok((S.chat||[]).some(m=>m.id==='u-ne-u9'&&m.uid==='vorgath'),'menace de l’Empereur dans l’Univers')}
+// espionnage : l'indication de sondes tient compte du commandant Fantôme choisi
+{await withPlayer('u1',d=>{d.cmds=[{id:'oe',key:'k5',xp:0}]});await sleep(20);const h={lv:3,n:51};const r=spyNeedCmd(h,'oe');T.ok(r.n===31&&r.n0===51&&r.red===40,'L’Œil d’Orion : 51 sondes → 31 (−40 %)');T.ok(spyNeedCmd(h,null).n===51,'sans commandant : inchangé');T.ok(/au lieu de 51/.test(spyHintHtml(r)),'indication affichée')}

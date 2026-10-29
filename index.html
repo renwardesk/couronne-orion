@@ -2684,7 +2684,9 @@ const allPlayers=()=>Object.keys(S.players);
 async function goBack(f,fref,ships,cargo,extra={}){if(isEmpty(ships)){await fref.delete();if(f.cmd)await killCmd(f.owner,f.cmd);return}
   if(f.cmd&&(f.ships||{}).flag&&!(ships||{}).flag){await killCmd(f.owner,f.cmd,'flag');f={...f,cmd:null}}
   if(f.home&&f.home!==f.from){const eta=etaOf(f.to,f.home,ships);await fref.set({...f,...extra,ships,cargo,from:f.home,phase:'back',depart:f.arrive-eta*1000,back:f.arrive+eta*1000});return}
-  await fref.set({...f,...extra,ships,cargo,phase:'back',back:f.arrive+(f.arrive-f.depart)})}
+  await fref.set({...f,...extra,ships,cargo,phase:'back',back:f.arrive+backDur(f,ships)})}
+// durée du retour : le vrai trajet, pas le temps passé depuis le départ (attente du ralliement, trêve de nuit, combat de boss, personne en ligne)
+function backDur(f,ships){const el=Math.max(0,(f.arrive||0)-(f.depart||0));if(f.meet||!PLANETS[f.to]||!PLANETS[f.from])return el;let t=etaOf(f.to,f.from,ships)*1000/cmdSpeed(f.owner,f.cmd);return isFinite(t)&&t>0?Math.min(el||t,t):el}
 async function settleRare(uid){if(uid&&S.players[uid])try{await withPlayer(uid,()=>{})}catch(e){}}
 // ---------- combats groupés, butin, points de combat ----------
 // le Cœur d'Orion reste un mystère tant qu'on n'y a pas réussi un espionnage
@@ -5076,7 +5078,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='255';
+const APP_VERSION='256';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

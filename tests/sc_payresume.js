@@ -23,3 +23,5 @@ T.ok(Math.abs(S.planets[P1].res.m-m1)<5000,'butin pas versé deux fois');
 T.ok((S.players[me].chests||{}).g>=1&&(S.players[me].ins||0)>0&&(S.players[me].frag||0)>0,'coffre, insignes et Éclats donnés');
 T.ok(S.reports.some(r=>/abattu le capitaine légendaire/.test(r.title||''))&&S.reports.some(r=>/rejoint/.test(r.title||'')),'rapports de victoire envoyés');
 T.adv(200e3);await T.tick(3);T.ok(cmdsOf(me).filter(c=>c.key===K).length===1&&S.reports.filter(r=>/abattu le capitaine légendaire/.test(r.title||'')).length===1,'rien n’est refait ensuite');
+// le retour dure le vrai trajet, pas le temps écoulé depuis le départ (3 h d'attente + combat)
+{const f=S.fleets.F1;if(f&&f.phase==='back'){const d=(f.back-f.arrive)/1000,e=etaOf(f.to,f.from,f.ships)/cmdSpeed(f.owner,f.cmd);T.ok(Math.abs(d-e)<2&&d<3*3600,'retour = trajet réel ('+fmtDur(d)+', au lieu de '+fmtDur((f.arrive-f.depart)/1000)+')')}else T.ok(true,'(flotte restée en position)')}

@@ -892,7 +892,7 @@ const BAL_K=.7;const PROJ={
 const fmtBig=n=>n>=1e6?(Math.floor(n/1e5)/10).toString().replace('.',',')+' M':n>=1e4?Math.floor(n/1e3)+' k':fmt(n),PJK=['m','c','f','ir','xe','am'],PJW={m:1,c:1,f:1,ir:50,xe:50,am:80};
 const pjSel=()=>({m:true,c:true,f:true,ir:false,xe:false,am:false,...(S.pjSel||{})}),projEv=k=>S.events['proj-'+k],projDone=k=>!!(projEv(k)&&projEv(k).done);
 const projPct=k=>{const e=projEv(k)||{},c=projDef(k).cost,g=e.got||{};let a=0,n=0;for(const r in c){a+=Math.min(1,(g[r]||0)/c[r]);n++}return n?a/n:0};
-const GATE={};for(const D of DEEP)for(const sy of [D.wreck,D.hole]){const g=D.g,k=1+g*.5,G0=GALS[g],G1=GALS[g+1];GATE['gate'+sy.i]={n:'Portail · '+sy.name,ico:sy.deep==='wreck'?'⚓':'🕳',title:'Ouvreur de passage',si:sy.i,g,gate:true,cost:{m:16e6*k,c:14e6*k,f:10e6*k,ir:Math.round(15000*k),xe:Math.round(8000*k)},fx:`Une liaison directe ${G0.name} ↔ ${sy.name} : trajets 60 % plus courts, sans iridium ni xénite, pour tous les joueurs. Les trajets depuis ${G1.name} ne passent pas par ce portail.`}}
+const GATE={};for(const D of DEEP)for(const sy of [D.wreck,D.hole]){const g=D.g,k=1+g*.5,G0=GALS[g],G1=GALS[g+1];GATE['gate'+sy.i]={n:'Portail · '+sy.name,ico:sy.deep==='wreck'?'⚓':'🕳',title:'Ouvreur de passage',si:sy.i,g,gate:true,cost:{m:8e6*k,c:7e6*k,f:5e6*k,ir:Math.round(7500*k),xe:Math.round(4000*k)},fx:`Une liaison directe ${G0.name} ↔ ${sy.name} : trajets 60 % plus courts, sans iridium ni xénite, pour tous les joueurs. Les trajets depuis ${G1.name} ne passent pas par ce portail.`}}
 const projDef=k=>PROJ[k]||GATE[k],deepSeen=si=>Object.entries(S.players||{}).some(([u,p])=>p&&!isNpc(u)&&!isBot(u)&&(p.firsts||[]).includes('d'+si)),gateOpenK=k=>!!GATE[k]&&deepSeen(GATE[k].si);
 function gateFor(a,b){const A=PLANETS[a],B=PLANETS[b];if(!A||!B)return false;const sa=SYSTEMS[A.sys],sb=SYSTEMS[B.sys];for(const[s,o]of[[sa,sb],[sb,sa]]){if(!s.deep||!projDone('gate'+s.i))continue;if(o===s||(!o.deep&&o.gal===s.gal))return true}return false} // portail achevé : une seule liaison, zone profonde <-> la galaxie d'avant le passage
 const portalOpen=()=>projDone('portail')&&coreStats().hum>=3,pillK=()=>projDone('bouclier')?.8:1;
@@ -5079,7 +5079,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='259';
+const APP_VERSION='260';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version

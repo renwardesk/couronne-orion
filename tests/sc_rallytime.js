@@ -10,3 +10,12 @@ const h2=document.querySelector('[data-rwh]');T.ok(h2&&h2.value==='1'&&document.
 h2.value='40';h2.dispatchEvent(new Event('input',{bubbles:true}));T.ok(S.modal.rw===RW_MAX,'plafonné à 12 h ('+S.modal.rw+')');
 const t=await T.send({from:P1,to:tg,mission:'rally',ships:{fighter:100},cmd:'a',extra:{rw:107}});
 const R=Object.values(S.fleets).find(x=>x.owner===me&&x.phase==='rally');T.ok(R&&Math.abs(R.rallyUntil-Date.now()-107*60000)<5000,'ralliement ouvert pour 107 min '+t.join('|'));
+// bras droit : ses places s'ajoutent au ralliement, sans bonus ; il est occupé tant que le ralliement est ouvert
+S.players[me].cmds=[...(S.players[me].cmds||[]).filter(c=>c.id!=='bA'&&c.id!=='bB'),{id:'bA',key:'l1',xp:0,base:P1},{id:'bB',key:'e1',xp:0,base:P1}];S.planets[P1].ships.fighter=900;T.sync();
+const c1=rallyCap(me,'bA'),c2=rallyCap(me,'bB');T.ok(c1>=10000,'capacité doublée (légendaire niv. 0 : '+c1+')');
+S.modal={from:P1,to:tg,mission:'rally',ships:{...zeroShips(),fighter:50},cmd:'bA'};renderModal();
+await sleep(50);const sel=document.getElementById('mcmd2');T.ok(sel&&[...sel.options].some(o=>o.value==='bB')&&![...sel.options].some(o=>o.value==='bA'),'choix du bras droit (sans le commandant principal)');
+sel.value='bB';sel.onchange();await sleep(50);T.ok(S.modal.cmd2==='bB'&&new RegExp(fmt(c1+c2)).test(document.querySelector('.modal')?document.querySelector('.modal').textContent:document.body.textContent),'places affichées = '+(c1+c2));
+const t3=await T.send({from:P1,to:tg,mission:'rally',ships:{fighter:50},cmd:'bA',extra:{rw:30,cmd2:'bB'}});
+const R2=Object.values(S.fleets).find(x=>x.owner===me&&x.phase==='rally'&&x.cmd==='bA');T.ok(R2&&R2.cmd2==='bB'&&R2.rcap===c1+c2&&Math.abs(R2.rb-rallyBonus(me,'bA'))<1e-9,'ralliement : capacité cumulée, bonus du seul commandant '+t3.join('|'));
+T.ok(cmdBusy(me,'bB'),'bras droit occupé pendant le ralliement');

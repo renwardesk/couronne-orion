@@ -13,3 +13,7 @@ const t2=await T.send({from:P1,to:P2,mission:'reinforce',ships:{fighter:300}});T
 const g=T.fleetsOf(me).find(x=>x.mission==='reinforce'&&x.to===P2);T.adv(g.arrive-Date.now()+500);await T.tick(2);
 await fleetHome(g.fid);await sleep(30);const g2=S.fleets[g.fid];T.adv(g2.back-Date.now()+500);await T.tick(2);
 T.ok(!S.fleets[g.fid]&&S.planets[P1].ships.fighter>=5000&&(S.planets[P2].ships.fighter||0)===0,'hangar plein : rentrée quand même à la planète d’origine ('+S.planets[P1].ships.fighter+' / '+(S.planets[P2].ships.fighter||0)+')');
+// l'ancienne migration des hangars ne doit plus rattacher un renfort en garde à la planète défendue (cas réel : Nexphe III, 31/10)
+S.planets[P1].lv.bay=20;T.sync();
+const t3=await T.send({from:P1,to:P2,mission:'reinforce',ships:{fighter:100}});const g3=T.fleetsOf(me).find(x=>x.mission==='reinforce'&&x.to===P2&&x.phase==='out');T.adv(g3.arrive-Date.now()+500);await T.tick(2);
+S.planets[P2].lv.bay=20;BAYMIG=false;await bayMigrate();await T.tick(2);T.ok(S.fleets[g3.fid]&&(S.fleets[g3.fid].home||S.fleets[g3.fid].from)===P1,'après rechargement du jeu, le renfort reste rattaché à sa planète d’origine');

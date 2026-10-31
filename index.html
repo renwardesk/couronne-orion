@@ -2294,7 +2294,8 @@ async function lordTick(){const now=Date.now();if(now-LORD_T<60000||!S.players[M
 // annonce et récompense quand un joueur devient seigneur de secteur (paliers 3, 5 et 8 systèmes voisins)
 let SECT_T=0;const SECT_REW={3:{g:1,ins:15},5:{g:2,ins:25},8:{g:3,ins:40}};
 // reprise de l'ancienne règle : une flotte en orbite d'une de tes planètes dotée de Hangars comptait pour celle-ci. On la rattache officiellement à cette planète pour que les comptes ne changent pas.
-let BAYMIG=false;async function bayMigrate(){if(BAYMIG||!S.players[ME])return;BAYMIG=true;
+let BAYMIG=false;async function bayMigrate(){return; // désactivée le 31/10 : relancée à chaque ouverture du jeu, elle rattachait les renforts en garde sur une de mes planètes à cette planète (« Rentrer » les laissait sur place)
+  if(BAYMIG||!S.players[ME])return;BAYMIG=true;
   for(const f of Object.values(S.fleets)){if(f.owner!==ME||f.phase!=='hold')continue;const q=S.planets[f.to];if(!q||q.owner!==ME||!q.lv||isBody(f.to)||(q.lv.bay||0)<1||(f.home||f.from)===f.to)continue;if(bayCap(q)-bayUse(q,ME)<placesOf(f.ships))continue;
     await locked('fleets/'+f.fid,async(fd,ref)=>{if(!fd||fd.phase!=='hold'||fd.owner!==ME||(fd.home||fd.from)===fd.to)return;await ref.set({...fd,home:fd.to})}).catch(()=>{})}}
 async function sectorTick(){const now=Date.now();if(now-SECT_T<60000||!S.players[ME])return;SECT_T=now;SECC.t=0;const sc=sectors();
@@ -5099,7 +5100,7 @@ function startGame(){if(started)return;started=true;db=DBA;main.innerHTML='<div 
 }
 boot();
 // ---------- mises à jour : chaque nouvelle version déconnecte les joueurs et recharge l'appli ----------
-const APP_VERSION='263';
+const APP_VERSION='264';
 async function checkUpdate(){if(window.__upd)return;let v;try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;v=String((await r.json()).v)}catch(e){return}
   if(!v||v===APP_VERSION)return;let k={};try{k=JSON.parse(localStorage.getItem('orion-upd')||'{}')}catch(e){}
   if(k.v===v&&Date.now()-k.at<90000)return; // la page vient d'être rechargée : on laisse le temps au serveur de servir la nouvelle version
